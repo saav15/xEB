@@ -41,6 +41,20 @@ public class ModEntities {
                     .build("demon_core")
     );
 
+    public static final RegistryObject<EntityType<WitherfistEntity>> WITHERFIST = ENTITY_TYPES.register("witherfist",
+            () -> EntityType.Builder.of(WitherfistEntity::new, MobCategory.MONSTER)
+                    .sized(0.72F, 2.59F) // Same as vanilla WitherSkeleton
+                    .clientTrackingRange(10)
+                    .build("witherfist")
+    );
+
+    public static final RegistryObject<EntityType<TankWitherfistEntity>> TANKWITHERFIST = ENTITY_TYPES.register("tankwitherfist",
+            () -> EntityType.Builder.of(TankWitherfistEntity::new, MobCategory.MONSTER)
+                    .sized(0.72F, 2.59F) // Same as vanilla WitherSkeleton
+                    .clientTrackingRange(10)
+                    .build("tankwitherfist")
+    );
+
     public static void register(IEventBus eventBus) {
         ENTITY_TYPES.register(eventBus);
     }

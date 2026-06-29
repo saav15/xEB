@@ -229,8 +229,22 @@ public class BuffTickHandler {
 
                     if (!targets.isEmpty()) {
                         LivingEntity target = targets.get(0);
-                        float baseDamage = 10.0F;
-                        float damage = baseDamage + chargeRatio * 15.0F; // Max 25 damage
+                         
+                         boolean holdsV2 = player.getMainHandItem().is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get()) || player.getOffhandItem().is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get());
+                         float baseDamage = holdsV2 ? 7.0F : 10.0F;
+                         float damage = baseDamage + chargeRatio * 15.0F; // Max 25 (or 22 on V2) damage
+                         boolean isUltra = tag.getBoolean("xebDashIsUltraCharged");
+                         if (isUltra) {
+                             // Ultra Charge raises weapon base to 14, charge ratio still multiplies on top
+                             damage = 14.0F + chargeRatio * 15.0F;
+                             tag.remove("xebDashIsUltraCharged");
+                             
+                             level.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION_EMITTER, target.getX(), target.getY(0.5D), target.getZ(), 3, 0.5D, 0.5D, 0.5D, 0.0D);
+                             level.sendParticles(net.minecraft.core.particles.ParticleTypes.LAVA, target.getX(), target.getY(0.5D), target.getZ(), 30, 1.0D, 1.0D, 1.0D, 0.2D);
+                             
+                             level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                                     net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER, net.minecraft.sounds.SoundSource.PLAYERS, 2.0F, 0.8F);
+                         }
 
                         // Deal initial damage
                         target.hurt(player.damageSources().playerAttack(player), damage);
@@ -330,10 +344,173 @@ public class BuffTickHandler {
                 }
             }
 
-            // Clear fall protection on ground contact with a 5-tick buffer to ensure damage event has processed
+            // --- Doomfist Earthquake Slam (v2) server ticking ---
+            if (tag.contains("xebSlam2State")) {
+                int slam2State = tag.getInt("xebSlam2State");
+                int slam2Timer = tag.getInt("xebSlam2Timer");
+                
+                if (slam2Timer > 0) {
+                    if (slam2Timer > 12) {
+                        tag.putInt("xebSlam2Timer", slam2Timer - 1);
+                    }
+                    net.minecraft.world.phys.Vec3 look = player.getLookAngle();
+                    net.minecraft.world.phys.Vec3 forward = new net.minecraft.world.phys.Vec3(look.x, 0.0D, look.z).normalize();
+                    
+                    if (slam2Timer > 12) { // Rising Phase (arc up and forward)
+                        // Cancel/Float trigger if player presses Jump (player.jumping == true)
+                        boolean isJumping = net.minecraftforge.fml.util.ObfuscationReflectionHelper.getPrivateValue(net.minecraft.world.entity.LivingEntity.class, player, "f_20899_");
+                        if (isJumping) {
+                            tag.remove("xebSlam2State");
+                            tag.remove("xebSlam2Timer");
+                            
+                            // Float for 2.0 seconds (40 ticks)
+                            tag.putInt("xebUppercutFloatTicks", 40);
+                            
+                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                    new org.xeb.xeb.network.DoomfistAbilitySyncPacket(player.getId(), 40, 0));
+                                    
+                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                    net.minecraft.sounds.SoundEvents.FIREWORK_ROCKET_SHOOT, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.0F);
+                        } else {
+                            // Air steering: blend current look direction into horizontal velocity
+                            net.minecraft.world.phys.Vec3 currentLook = new net.minecraft.world.phys.Vec3(look.x, 0.0D, look.z).normalize();
+                            net.minecraft.world.phys.Vec3 curVel = player.getDeltaMovement();
+                            double blendedX = curVel.x * 0.7D + currentLook.x * 0.7D * 0.3D;
+                            double blendedZ = curVel.z * 0.7D + currentLook.z * 0.7D * 0.3D;
+                            double ySpeed = 0.4D + (slam2Timer - 12) * 0.05D;
+                            player.setDeltaMovement(blendedX, ySpeed, blendedZ);
+                            player.hurtMarked = true;
+                        }
+                    } else { // Falling Phase (slam down and forward)
+                        // Air steering during fall: player can redirect horizontally
+                        net.minecraft.world.phys.Vec3 currentLook = new net.minecraft.world.phys.Vec3(look.x, 0.0D, look.z).normalize();
+                        net.minecraft.world.phys.Vec3 curVel = player.getDeltaMovement();
+                        double blendedX = curVel.x * 0.65D + currentLook.x * 0.8D * 0.35D;
+                        double blendedZ = curVel.z * 0.65D + currentLook.z * 0.8D * 0.35D;
+                        player.setDeltaMovement(blendedX, -0.9D, blendedZ);
+                        player.hurtMarked = true;
+                        
+                        // If they hit the ground or are very close to hitting solid blocks downward, trigger impact!
+                        boolean hitFloor = player.onGround();
+                        if (!hitFloor) {
+                            net.minecraft.world.phys.AABB checkAABB = player.getBoundingBox().move(0.0D, -0.3D, 0.0D);
+                            if (!player.level().noCollision(player, checkAABB)) {
+                                hitFloor = true;
+                            }
+                        }
+
+                        if (hitFloor) {
+                            tag.remove("xebSlam2State");
+                            tag.remove("xebSlam2Timer");
+                            
+                            // Save impact time for bunny hop (up to 10 ticks window)
+                            tag.putLong("xebSlam2ImpactTime", player.level().getGameTime());
+                            
+                            executeEarthquakeImpact((net.minecraft.server.level.ServerPlayer) player);
+                        }
+                    }
+                } else {
+                    // Timer expired - fire impact regardless of ground state
+                    tag.remove("xebSlam2State");
+                    tag.remove("xebSlam2Timer");
+                    tag.putLong("xebSlam2ImpactTime", player.level().getGameTime());
+                    executeEarthquakeImpact((net.minecraft.server.level.ServerPlayer) player);
+                }
+            }
+
+            // --- Doomfist v2 Bunny Hop check ---
+            if (tag.contains("xebSlam2ImpactTime")) {
+                long impactTime = tag.getLong("xebSlam2ImpactTime");
+                long gameTime = player.level().getGameTime();
+                if (gameTime - impactTime <= 10) {
+                    boolean isJumping = net.minecraftforge.fml.util.ObfuscationReflectionHelper.getPrivateValue(net.minecraft.world.entity.LivingEntity.class, player, "f_20899_");
+                    if (isJumping) {
+                        tag.remove("xebSlam2ImpactTime");
+                        net.minecraft.world.phys.Vec3 look = player.getLookAngle();
+                        net.minecraft.world.phys.Vec3 forward = new net.minecraft.world.phys.Vec3(look.x, 0.0D, look.z).normalize();
+                        
+                        // Parabolic forward/up bunny hop boost!
+                        player.setDeltaMovement(forward.x * 1.2D, 0.45D, forward.z * 1.2D);
+                        player.hurtMarked = true;
+                        
+                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                net.minecraft.sounds.SoundEvents.PLAYER_BREATH, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.2F);
+                    }
+                } else {
+                    tag.remove("xebSlam2ImpactTime");
+                }
+            }
+
+            // --- Doomfist Power Block server ticking ---
+            if (tag.getBoolean("xebPowerBlocking")) {
+                int blockTimer = tag.getInt("xebBlockTimer");
+                tag.putInt("xebBlockTimer", blockTimer + 1);
+                
+                boolean keyHeld = tag.getBoolean("xebBlockKeyHeld");
+                
+                // End blocking if held past 2.5s (50 ticks) OR (held at least 0.3s (6 ticks) and released key)
+                if (blockTimer >= 50 || (blockTimer >= 6 && !keyHeld)) {
+                    tag.remove("xebPowerBlocking");
+                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                            new org.xeb.xeb.network.DoomfistPowerBlockSyncPacket(player.getId(), false));
+                    tag.remove("xebBlockTimer");
+                    tag.remove("xebBlockKeyHeld");
+                    
+                    // Remove speed modifier
+                    net.minecraft.world.entity.ai.attributes.AttributeInstance speed = player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+                    if (speed != null) {
+                        speed.removeModifier(java.util.UUID.fromString("6a04870c-26d9-4828-98e9-44d4715f606e"));
+                    }
+                    
+                    // Trigger cooldown (7s = 140 ticks)
+                    tag.putLong("xebBlockLastTime", player.level().getGameTime());
+                    
+                    // Sync cooldown to client
+                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                            new org.xeb.xeb.network.DoomfistAbilitySyncPacket(player.getId(), 0, 0, 0.0D, 0.0D, 0.0D, 0, 140));
+                            
+                    player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                            net.minecraft.sounds.SoundEvents.PISTON_CONTRACT, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.2F);
+                }
+            }
+
+            // --- Doomfist Earthquake Slam (v2) propagating red shockwave visuals ---
+            if (tag.contains("xebSlam2ShockwaveStep")) {
+                int step = tag.getInt("xebSlam2ShockwaveStep");
+                double lx = tag.getDouble("xebSlam2ShockwaveLookX");
+                double lz = tag.getDouble("xebSlam2ShockwaveLookZ");
+                
+                net.minecraft.world.phys.Vec3 horizLook = new net.minecraft.world.phys.Vec3(lx, 0.0D, lz).normalize();
+                net.minecraft.world.phys.Vec3 pos = player.position();
+                
+                double dist = step * 1.0D;
+                net.minecraft.world.phys.Vec3 center = pos.add(horizLook.scale(dist));
+                net.minecraft.world.phys.Vec3 perp = new net.minecraft.world.phys.Vec3(-horizLook.z, 0.0D, horizLook.x).normalize();
+                
+                double width = step * 0.6D;
+                for (double offset = -width; offset <= width; offset += 0.4D) {
+                    net.minecraft.world.phys.Vec3 point = center.add(perp.scale(offset));
+                    net.minecraft.core.particles.DustParticleOptions redDust = new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0F, 0.1F, 0.1F), 1.2F);
+                    
+                    level.sendParticles(redDust, point.x, point.y + 0.1D, point.z, 1, 0.05D, 0.05D, 0.05D, 0.0D);
+                    if (player.getRandom().nextFloat() < 0.3F) {
+                        level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME, point.x, point.y + 0.1D, point.z, 1, 0.05D, 0.05D, 0.05D, 0.0D);
+                    }
+                }
+                
+                if (step < 7) {
+                    tag.putInt("xebSlam2ShockwaveStep", step + 1);
+                } else {
+                    tag.remove("xebSlam2ShockwaveStep");
+                    tag.remove("xebSlam2ShockwaveLookX");
+                    tag.remove("xebSlam2ShockwaveLookZ");
+                }
+            }
+
+            // Clear fall protection on ground contact with a 20-tick buffer to ensure damage event has processed
             if (player.onGround()) {
                 int gpTicks = tag.getInt("xebFallProtectGroundTicks");
-                if (gpTicks >= 5) {
+                if (gpTicks >= 20) {
                     tag.remove("xebDoomfistFallProtect");
                     tag.remove("xebFallProtectGroundTicks");
                 } else {
@@ -490,6 +667,63 @@ public class BuffTickHandler {
             net.minecraft.world.phys.BlockHitResult groundRay = level.clip(new net.minecraft.world.level.ClipContext(
                     end, downEnd, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, player));
             return groundRay.getLocation();
+        }
+    }
+
+    private static void executeEarthquakeImpact(net.minecraft.server.level.ServerPlayer player) {
+        net.minecraft.world.level.Level level = player.level();
+        net.minecraft.world.phys.Vec3 pos = player.position();
+        
+        net.minecraft.world.phys.Vec3 look = player.getLookAngle();
+        net.minecraft.world.phys.Vec3 horizLook = new net.minecraft.world.phys.Vec3(look.x, 0.0D, look.z).normalize();
+        
+        // Trigger propagating red shockwave visuals
+        player.getPersistentData().putInt("xebSlam2ShockwaveStep", 1);
+        player.getPersistentData().putDouble("xebSlam2ShockwaveLookX", horizLook.x);
+        player.getPersistentData().putDouble("xebSlam2ShockwaveLookZ", horizLook.z);
+        
+        net.minecraft.world.phys.AABB area = player.getBoundingBox().inflate(6.0D, 3.0D, 6.0D);
+        java.util.List<net.minecraft.world.entity.LivingEntity> targets = level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, area,
+                e -> e != player && e.isAlive() && !e.isAlliedTo(player));
+                
+        double baseDamage = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+        float damage = (float) (baseDamage * 0.8D);
+        
+        for (net.minecraft.world.entity.LivingEntity target : targets) {
+            net.minecraft.world.phys.Vec3 offset = target.position().subtract(pos);
+            double dist = offset.horizontalDistance();
+            
+            if (dist <= 6.0D && Math.abs(offset.y) <= 2.0D) {
+                net.minecraft.world.phys.Vec3 horizOffsetDir = new net.minecraft.world.phys.Vec3(offset.x, 0.0D, offset.z).normalize();
+                double dot = horizLook.dot(horizOffsetDir);
+                
+                if (dot >= 0.866D) {
+                    target.hurt(player.damageSources().playerAttack(player), damage);
+                    
+                    net.minecraft.world.phys.Vec3 pullDir = pos.subtract(target.position()).normalize();
+                    target.setDeltaMovement(pullDir.x * 0.3D, 0.4D, pullDir.z * 0.3D);
+                    target.hurtMarked = true;
+                }
+            }
+        }
+        
+        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.0F);
+        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                net.minecraft.sounds.SoundEvents.ANVIL_LAND, net.minecraft.sounds.SoundSource.PLAYERS, 1.2F, 0.7F);
+                
+        if (level instanceof ServerLevel serverLevel) {
+            serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION, player.getX(), player.getY(0.5D), player.getZ(), 8, 0.5D, 0.2D, 0.5D, 0.1D);
+            serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME, player.getX(), player.getY(0.5D), player.getZ(), 25, 1.0D, 0.2D, 1.0D, 0.2D);
+            serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.LAVA, player.getX(), player.getY(0.5D), player.getZ(), 12, 0.8D, 0.2D, 0.8D, 0.1D);
+
+            // Circular POOF dust shockwave particles expanding outward
+            for (int i = 0; i < 16; i++) {
+                double angle = (i * Math.PI * 2.0D) / 16.0D;
+                double dx = Math.cos(angle) * 1.5D;
+                double dz = Math.sin(angle) * 1.5D;
+                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, player.getX() + dx, player.getY() + 0.1D, player.getZ() + dz, 1, 0.1D, 0.0D, 0.1D, 0.02D);
+            }
         }
     }
 }

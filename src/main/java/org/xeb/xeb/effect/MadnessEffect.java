@@ -24,6 +24,17 @@ public class MadnessEffect extends MobEffect {
             return;
         }
 
+        // Ensure skeletons / wither skeletons have their weapons if they spawned without them
+        if (mob instanceof net.minecraft.world.entity.monster.WitherSkeleton ws) {
+            if (!(ws instanceof org.xeb.xeb.entity.WitherfistEntity) && !(ws instanceof org.xeb.xeb.entity.TankWitherfistEntity) && ws.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND).isEmpty()) {
+                ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STONE_SWORD));
+            }
+        } else if (mob instanceof net.minecraft.world.entity.monster.Skeleton sk) {
+            if (sk.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND).isEmpty()) {
+                sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BOW));
+            }
+        }
+
         // Tick recovery trackers, target buffer, and candidate expander
         org.xeb.xeb.boss.TargetRejectionBuffer.tick(mob);
         org.xeb.xeb.boss.BossTargetCandidateExpander.tick(mob);

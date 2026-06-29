@@ -16,16 +16,21 @@ public class DoomfistAbilitySyncPacket {
     private final double targetZ;
     private final int uppercutCooldown;
     private final int slamCooldown;
+    private final boolean flashHUD;
 
     public DoomfistAbilitySyncPacket(int entityId, int uppercutFloatTicks, int slamState) {
-        this(entityId, uppercutFloatTicks, slamState, 0.0D, 0.0D, 0.0D, 0, 0);
+        this(entityId, uppercutFloatTicks, slamState, 0.0D, 0.0D, 0.0D, 0, 0, false);
     }
 
     public DoomfistAbilitySyncPacket(int entityId, int uppercutFloatTicks, int slamState, double targetX, double targetY, double targetZ) {
-        this(entityId, uppercutFloatTicks, slamState, targetX, targetY, targetZ, 0, 0);
+        this(entityId, uppercutFloatTicks, slamState, targetX, targetY, targetZ, 0, 0, false);
     }
 
     public DoomfistAbilitySyncPacket(int entityId, int uppercutFloatTicks, int slamState, double targetX, double targetY, double targetZ, int uppercutCooldown, int slamCooldown) {
+        this(entityId, uppercutFloatTicks, slamState, targetX, targetY, targetZ, uppercutCooldown, slamCooldown, false);
+    }
+
+    public DoomfistAbilitySyncPacket(int entityId, int uppercutFloatTicks, int slamState, double targetX, double targetY, double targetZ, int uppercutCooldown, int slamCooldown, boolean flashHUD) {
         this.entityId = entityId;
         this.uppercutFloatTicks = uppercutFloatTicks;
         this.slamState = slamState;
@@ -34,6 +39,7 @@ public class DoomfistAbilitySyncPacket {
         this.targetZ = targetZ;
         this.uppercutCooldown = uppercutCooldown;
         this.slamCooldown = slamCooldown;
+        this.flashHUD = flashHUD;
     }
 
     public int getEntityId() {
@@ -68,6 +74,10 @@ public class DoomfistAbilitySyncPacket {
         return slamCooldown;
     }
 
+    public boolean isFlashHUD() {
+        return flashHUD;
+    }
+
     public static void encode(DoomfistAbilitySyncPacket msg, FriendlyByteBuf buf) {
         buf.writeInt(msg.entityId);
         buf.writeInt(msg.uppercutFloatTicks);
@@ -77,6 +87,7 @@ public class DoomfistAbilitySyncPacket {
         buf.writeDouble(msg.targetZ);
         buf.writeInt(msg.uppercutCooldown);
         buf.writeInt(msg.slamCooldown);
+        buf.writeBoolean(msg.flashHUD);
     }
 
     public static DoomfistAbilitySyncPacket decode(FriendlyByteBuf buf) {
@@ -88,7 +99,8 @@ public class DoomfistAbilitySyncPacket {
                 buf.readDouble(),
                 buf.readDouble(),
                 buf.readInt(),
-                buf.readInt()
+                buf.readInt(),
+                buf.readBoolean()
         );
     }
 

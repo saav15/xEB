@@ -14,8 +14,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.xeb.xeb.effect.ModEffects;
 
-public class DoomfistItem extends Item {
-    public DoomfistItem(Properties properties) {
+public class DoomfistV2Item extends Item {
+    public DoomfistV2Item(Properties properties) {
         super(properties);
     }
 
@@ -23,7 +23,7 @@ public class DoomfistItem extends Item {
     public com.google.common.collect.Multimap<net.minecraft.world.entity.ai.attributes.Attribute, net.minecraft.world.entity.ai.attributes.AttributeModifier> getDefaultAttributeModifiers(net.minecraft.world.entity.EquipmentSlot slot) {
         com.google.common.collect.ImmutableMultimap.Builder<net.minecraft.world.entity.ai.attributes.Attribute, net.minecraft.world.entity.ai.attributes.AttributeModifier> builder = com.google.common.collect.ImmutableMultimap.builder();
         if (slot == net.minecraft.world.entity.EquipmentSlot.MAINHAND) {
-            builder.put(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, new net.minecraft.world.entity.ai.attributes.AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", 9.0D, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADDITION));
+            builder.put(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, new net.minecraft.world.entity.ai.attributes.AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", 7.0D, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADDITION));
             builder.put(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED, new net.minecraft.world.entity.ai.attributes.AttributeModifier(BASE_ATTACK_SPEED_UUID, "Weapon modifier", -2.0D, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADDITION));
         }
         return builder.build();
@@ -41,11 +41,11 @@ public class DoomfistItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, @javax.annotation.Nullable Level level, java.util.List<net.minecraft.network.chat.Component> tooltip, net.minecraft.world.item.TooltipFlag flag) {
-        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc1"));
-        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc2"));
-        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc4", net.minecraft.network.chat.Component.keybind("key.xeb.actuar_1")));
-        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc5", net.minecraft.network.chat.Component.keybind("key.xeb.actuar_2")));
-        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc3"));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc1"));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc2"));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc4", net.minecraft.network.chat.Component.keybind("key.xeb.actuar_1")));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc5", net.minecraft.network.chat.Component.keybind("key.xeb.actuar_2")));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc3"));
         super.appendHoverText(stack, level, tooltip, flag);
     }
 
@@ -54,11 +54,9 @@ public class DoomfistItem extends Item {
         ItemStack stack = player.getItemInHand(hand);
         player.startUsingItem(hand);
         
-        // Activate fall protect tag immediately upon starting the charge
         player.getPersistentData().putBoolean("xebDoomfistFallProtect", true);
         
         if (!level.isClientSide()) {
-            // Highly satisfying sci-fi gauntlet charge-up hum sound
             level.playSound(null, player.getX(), player.getY(), player.getZ(),
                     SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 1.0F, 1.2F);
         }
@@ -69,43 +67,73 @@ public class DoomfistItem extends Item {
     public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
         if (entity instanceof Player player) {
             int ticksCharged = this.getUseDuration(stack) - timeLeft;
-            float chargeRatio = Math.min(50.0F, ticksCharged) / 50.0F; // Max 50 ticks (2.5s)
+            float chargeRatio = Math.min(50.0F, ticksCharged) / 50.0F;
 
             if (!level.isClientSide()) {
-                // Apply 3-second (60 ticks) item cooldown to prevent spamming
                 player.getCooldowns().addCooldown(this, 60);
 
-                // If fully charged, give Charged Fist II for 5 seconds (amplifier 1 is level II)
                 if (chargeRatio >= 1.0F) {
                     player.addEffect(new MobEffectInstance(ModEffects.CHARGED_FIST.get(), 100, 1));
                     level.playSound(null, player.getX(), player.getY(), player.getZ(),
                             SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.5F, 0.5F);
                 }
 
-                // Activate dash state in player NBT
                 net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
                 tag.putBoolean("xebDoomfistDashing", true);
                 tag.putBoolean("xebDoomfistFallProtect", true);
-                tag.putInt("xebDoomfistDashTimer", 15); // Max 15 ticks (0.75s)
+                tag.putInt("xebDoomfistDashTimer", 15);
                 tag.putFloat("xebDoomfistChargeRatio", chargeRatio);
 
-                // Sync to clients
+                // Check and transfer Ultra Charge to active dash
+                if (tag.getBoolean("xebUltraCharged")) {
+                    tag.putBoolean("xebDashIsUltraCharged", true);
+                    tag.remove("xebUltraCharged");
+                    
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
+                            net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                            new org.xeb.xeb.network.DoomfistUltraChargeSyncPacket(player.getId(), false)
+                    );
+                }
+
+                // Server-side Earthquake Slam cancel sync
+                if (tag.contains("xebSlam2State")) {
+                    tag.remove("xebSlam2State");
+                    tag.remove("xebSlam2Timer");
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
+                            net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                            new org.xeb.xeb.network.DoomfistAbilitySyncPacket(player.getId(), 0, 0)
+                    );
+                }
+
                 org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
                         net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
                         new org.xeb.xeb.network.DoomfistDashPacket(player.getId(), true, chargeRatio)
                 );
 
-                // Deep rocket blast sound on release
                 level.playSound(null, player.getX(), player.getY(), player.getZ(),
                         SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.2F, 0.6F);
             }
 
-            // Launch the player forward
+            // Compute momentum transfer on both client and server for smooth physics
+            net.minecraft.nbt.CompoundTag checkTag = player.getPersistentData();
+            double bonusX = 0.0D;
+            double bonusZ = 0.0D;
+            if (checkTag.contains("xebSlam2State")) {
+                Vec3 curMotion = player.getDeltaMovement();
+                bonusX = curMotion.x * 1.5D;
+                bonusZ = curMotion.z * 1.5D;
+                
+                if (level.isClientSide()) {
+                    checkTag.remove("xebSlam2State");
+                    checkTag.remove("xebSlam2Timer");
+                }
+            }
+
             Vec3 look = player.getLookAngle();
-            double speed = 0.8D + chargeRatio * 1.6D; // Up to 2.4 blocks/tick
-            Vec3 motion = new Vec3(look.x * speed, look.y * speed * 0.5D + 0.2D, look.z * speed);
+            double speed = 0.8D + chargeRatio * 1.6D;
+            Vec3 motion = new Vec3(look.x * speed + bonusX, look.y * speed * 0.5D + 0.2D, look.z * speed + bonusZ);
             player.setDeltaMovement(motion);
-            player.hurtMarked = true; // Sync velocity to client
+            player.hurtMarked = true;
         }
     }
 }

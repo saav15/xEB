@@ -52,7 +52,11 @@ public class HolyShieldClientHandler {
                             double my = -vel.y * 0.2D + (living.getRandom().nextDouble() - 0.5D) * 0.05D;
                             double mz = -vel.z * 0.2D + (living.getRandom().nextDouble() - 0.5D) * 0.05D;
 
-                            mc.level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, px, py, pz, mx, my, mz);
+                            // Spawn red flames for Doomfist V2, blue flames for Doomfist V1
+                            boolean holdsV2 = living.getMainHandItem().is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get()) || living.getOffhandItem().is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get());
+                            net.minecraft.core.particles.SimpleParticleType flameType = holdsV2 ? ParticleTypes.FLAME : ParticleTypes.SOUL_FIRE_FLAME;
+
+                            mc.level.addParticle(flameType, px, py, pz, mx, my, mz);
                             if (living.getRandom().nextFloat() < 0.4F) {
                                 mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK, px, py, pz, mx, my, mz);
                             }

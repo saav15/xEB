@@ -92,6 +92,10 @@ public class XebCommand {
 
         living.moveTo(pos.x, pos.y, pos.z, source.getRotation().y, 0.0F);
 
+        if (living instanceof net.minecraft.world.entity.Mob mob) {
+            mob.finalizeSpawn(level, level.getCurrentDifficultyAt(mob.blockPosition()), net.minecraft.world.entity.MobSpawnType.COMMAND, null, null);
+        }
+
         List<MedallionData> medallions = new ArrayList<>();
         if (medallionsStr != null && !medallionsStr.trim().isEmpty()) {
             String[] tokens = medallionsStr.trim().split("\\s+");

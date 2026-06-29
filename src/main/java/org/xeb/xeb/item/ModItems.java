@@ -31,6 +31,21 @@ public class ModItems {
     public static final RegistryObject<Item> DOOMFIST = ITEMS.register("doomfist",
             () -> new DoomfistItem(new Item.Properties().stacksTo(1)));
 
+    public static final RegistryObject<Item> DOOMFIST_V2 = ITEMS.register("doomfist_v2",
+            () -> new DoomfistV2Item(new Item.Properties().stacksTo(1)));
+
+    public static final RegistryObject<Item> WITHERFIST_SPAWN_EGG = ITEMS.register("witherfist_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(
+                    org.xeb.xeb.entity.ModEntities.WITHERFIST,
+                    0x1a0030, 0xaa00ff, // Dark purple shell, bright violet spots
+                    new Item.Properties().stacksTo(64)));
+
+    public static final RegistryObject<Item> TANKWITHERFIST_SPAWN_EGG = ITEMS.register("tankwitherfist_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(
+                    org.xeb.xeb.entity.ModEntities.TANKWITHERFIST,
+                    0x1a0030, 0xff0000, // Dark purple shell, red spots
+                    new Item.Properties().stacksTo(64)));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }

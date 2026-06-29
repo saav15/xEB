@@ -13,6 +13,7 @@ import org.xeb.xeb.network.ActuarKeyPacket;
 
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class KeyInputHandler {
+    private static boolean wasBlockKeyHeld = false;
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -21,17 +22,35 @@ public class KeyInputHandler {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null && mc.level != null && mc.screen == null) {
             Player player = mc.player;
-            // Check if player holds Doomfist in either hand
-            boolean holdsDoomfist = player.getMainHandItem().is(ModItems.DOOMFIST.get())
+            
+            boolean holdsV1 = player.getMainHandItem().is(ModItems.DOOMFIST.get())
                     || player.getOffhandItem().is(ModItems.DOOMFIST.get());
+            boolean holdsV2 = player.getMainHandItem().is(ModItems.DOOMFIST_V2.get())
+                    || player.getOffhandItem().is(ModItems.DOOMFIST_V2.get());
 
-            if (holdsDoomfist) {
+            if (holdsV1) {
                 if (ModKeyMappings.ACTUAR_1_KEY.consumeClick()) {
-                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(1));
+                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(1, true));
                 }
                 if (ModKeyMappings.ACTUAR_2_KEY.consumeClick()) {
-                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(2));
+                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(2, true));
                 }
+                wasBlockKeyHeld = false;
+            } else if (holdsV2) {
+                if (ModKeyMappings.ACTUAR_1_KEY.consumeClick()) {
+                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(1, true));
+                }
+                
+                boolean isBlockKeyDown = ModKeyMappings.ACTUAR_2_KEY.isDown();
+                if (isBlockKeyDown && !wasBlockKeyHeld) {
+                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(2, true));
+                    wasBlockKeyHeld = true;
+                } else if (!isBlockKeyDown && wasBlockKeyHeld) {
+                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(2, false));
+                    wasBlockKeyHeld = false;
+                }
+            } else {
+                wasBlockKeyHeld = false;
             }
         }
     }

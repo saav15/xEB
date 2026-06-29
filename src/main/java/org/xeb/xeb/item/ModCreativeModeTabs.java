@@ -25,6 +25,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.HOT_POTATO.get());
                         output.accept(ModItems.HOLY_MANTLE.get());
                         output.accept(ModItems.DOOMFIST.get());
+                        output.accept(ModItems.DOOMFIST_V2.get());
                     })
                     .build()
     );

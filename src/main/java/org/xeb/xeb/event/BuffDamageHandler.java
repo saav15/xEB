@@ -43,6 +43,90 @@ public class BuffDamageHandler {
         LivingEntity target = event.getEntity();
         if (target == null) return;
 
+        // --- Ultra Charged left-click attack damage adjustment ---
+        // Sets the weapon effective base to 14: scales current damage proportionally
+        // so BetterCombat swing multipliers and combos still apply on top.
+        if (event.getSource().getEntity() instanceof net.minecraft.world.entity.player.Player attackerPlayer && !attackerPlayer.level().isClientSide()) {
+            if (attackerPlayer.getMainHandItem().is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get())) {
+                net.minecraft.nbt.CompoundTag tag = attackerPlayer.getPersistentData();
+                if (tag.getBoolean("xebUltraCharged")) {
+                    // Get normal weapon base damage (7.0) and scale to 14 base
+                    float normalBase = 7.0F;
+                    float scaledDamage = event.getAmount() * (14.0F / normalBase);
+                    event.setAmount(scaledDamage);
+                    tag.remove("xebUltraCharged");
+                    
+                    // Sync consumed state to clients
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
+                            net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> attackerPlayer),
+                            new org.xeb.xeb.network.DoomfistUltraChargeSyncPacket(attackerPlayer.getId(), false)
+                    );
+                    
+                    // Play thunder sound on impact
+                    attackerPlayer.level().playSound(null, attackerPlayer.getX(), attackerPlayer.getY(), attackerPlayer.getZ(),
+                            net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.2F);
+                }
+            }
+        }
+
+        // --- Power Block frontal damage mitigation ---
+        if (target instanceof net.minecraft.world.entity.player.Player player && !player.level().isClientSide()) {
+            net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
+            if (tag.getBoolean("xebPowerBlocking")) {
+                net.minecraft.world.entity.Entity attacker = event.getSource().getEntity();
+                net.minecraft.world.phys.Vec3 sourcePos = event.getSource().getSourcePosition();
+                if (sourcePos == null && attacker != null) {
+                    sourcePos = attacker.position();
+                }
+                
+                if (sourcePos != null) {
+                    net.minecraft.world.phys.Vec3 look = player.getLookAngle();
+                    net.minecraft.world.phys.Vec3 toSource = sourcePos.subtract(player.position()).normalize();
+                    net.minecraft.world.phys.Vec3 horizLook = new net.minecraft.world.phys.Vec3(look.x, 0.0D, look.z).normalize();
+                    net.minecraft.world.phys.Vec3 horizToSource = new net.minecraft.world.phys.Vec3(toSource.x, 0.0D, toSource.z).normalize();
+                    
+                    double dot = horizLook.dot(horizToSource);
+                    if (dot > 0.0D) { // Frontal damage
+                        float originalDamage = event.getAmount();
+                        
+                        // Accumulate blocked damage
+                        float accum = tag.getFloat("xebBlockDamageAccumulated") + originalDamage;
+                        tag.putFloat("xebBlockDamageAccumulated", accum);
+                        
+                        // Trigger Ultra Charge if accumulated blocked damage > 20% max health
+                        if (accum >= player.getMaxHealth() * 0.20F && !tag.getBoolean("xebUltraCharged")) {
+                            tag.putBoolean("xebUltraCharged", true);
+                            
+                            org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
+                                    net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                    new org.xeb.xeb.network.DoomfistUltraChargeSyncPacket(player.getId(), true)
+                            );
+
+                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                    net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER, net.minecraft.sounds.SoundSource.PLAYERS, 1.5F, 1.0F);
+                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                    net.minecraft.sounds.SoundEvents.PLAYER_ATTACK_CRIT, net.minecraft.sounds.SoundSource.PLAYERS, 1.5F, 0.5F);
+                                    
+                            if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.LAVA, player.getX(), player.getY(0.5D), player.getZ(), 20, 0.5D, 0.5D, 0.5D, 0.1D);
+                                net.minecraft.core.particles.DustParticleOptions redDust = new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0F, 0.0F, 0.0F), 1.5F);
+                                serverLevel.sendParticles(redDust, player.getX(), player.getY(0.5D), player.getZ(), 20, 0.5D, 0.5D, 0.5D, 0.1D);
+                            }
+                        }
+
+                        event.setAmount(originalDamage * 0.25F);
+                        
+                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                net.minecraft.sounds.SoundEvents.ZOMBIE_ATTACK_IRON_DOOR, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 0.8F + player.getRandom().nextFloat() * 0.4F);
+                        
+                        // Sync HUD flash to client
+                        org.xeb.xeb.network.XEBNetwork.CHANNEL.send(net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> (net.minecraft.server.level.ServerPlayer) player),
+                                new org.xeb.xeb.network.DoomfistAbilitySyncPacket(player.getId(), 0, 0, 0.0D, 0.0D, 0.0D, 0, 0, true));
+                    }
+                }
+            }
+        }
+
         // ── Delayed Pain (target side) — accumulate damage to be dealt when effect expires ──
         if (!target.level().isClientSide() && target.hasEffect(ModEffects.DELAYED_PAIN.get())) {
             if (!target.getPersistentData().getBoolean("xebDelayedPainTriggering")) {
@@ -670,10 +754,13 @@ public class BuffDamageHandler {
     public static void onLivingFall(net.minecraftforge.event.entity.living.LivingFallEvent event) {
         if (event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
             net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
-            boolean isUsingGauntlet = player.isUsingItem() && player.getUseItem().is(org.xeb.xeb.item.ModItems.DOOMFIST.get());
+            boolean isUsingGauntlet = player.isUsingItem() && (player.getUseItem().is(org.xeb.xeb.item.ModItems.DOOMFIST.get()) || player.getUseItem().is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get()));
             if (tag.getBoolean("xebDoomfistFallProtect") || isUsingGauntlet) {
                 event.setCanceled(true);
                 event.setDamageMultiplier(0.0F);
+                // Immediately consume protection tags
+                tag.remove("xebDoomfistFallProtect");
+                tag.remove("xebFallProtectGroundTicks");
             }
         }
     }

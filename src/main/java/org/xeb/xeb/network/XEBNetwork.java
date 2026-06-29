@@ -22,5 +22,7 @@ public class XEBNetwork {
         CHANNEL.registerMessage(id++, DoomfistDashPacket.class, DoomfistDashPacket::encode, DoomfistDashPacket::decode, DoomfistDashPacket::handle);
         CHANNEL.registerMessage(id++, ActuarKeyPacket.class, ActuarKeyPacket::encode, ActuarKeyPacket::decode, ActuarKeyPacket::handle);
         CHANNEL.registerMessage(id++, DoomfistAbilitySyncPacket.class, DoomfistAbilitySyncPacket::encode, DoomfistAbilitySyncPacket::decode, DoomfistAbilitySyncPacket::handle);
+        CHANNEL.registerMessage(id++, DoomfistUltraChargeSyncPacket.class, DoomfistUltraChargeSyncPacket::encode, DoomfistUltraChargeSyncPacket::decode, DoomfistUltraChargeSyncPacket::handle);
+        CHANNEL.registerMessage(id++, DoomfistPowerBlockSyncPacket.class, DoomfistPowerBlockSyncPacket::encode, DoomfistPowerBlockSyncPacket::decode, DoomfistPowerBlockSyncPacket::handle);
     }
 }

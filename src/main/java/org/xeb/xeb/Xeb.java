@@ -112,6 +112,8 @@ public class Xeb {
     @SubscribeEvent
     public void registerEntityAttributes(EntityAttributeCreationEvent event) {
         event.put(ModEntities.ELITE_FLY.get(), EliteFlyEntity.createAttributes().build());
+        event.put(ModEntities.WITHERFIST.get(), org.xeb.xeb.entity.WitherfistEntity.createAttributes().build());
+        event.put(ModEntities.TANKWITHERFIST.get(), org.xeb.xeb.entity.TankWitherfistEntity.createAttributes().build());
     }
 
     @SuppressWarnings("unchecked")
@@ -172,6 +174,10 @@ public class Xeb {
                     net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
             event.registerEntityRenderer(ModEntities.DEMON_CORE.get(),
                     net.minecraft.client.renderer.entity.ItemEntityRenderer::new);
+            event.registerEntityRenderer(ModEntities.WITHERFIST.get(),
+                    net.minecraft.client.renderer.entity.WitherSkeletonRenderer::new);
+            event.registerEntityRenderer(ModEntities.TANKWITHERFIST.get(),
+                    net.minecraft.client.renderer.entity.WitherSkeletonRenderer::new);
         }
 
         private static final java.util.Set<Object> patchedRenderers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
@@ -248,6 +254,8 @@ public class Xeb {
             try { patchRenderer.accept(event.getRenderer(EntityType.PHANTOM)); } catch (Exception ignored) {}
             try { patchRenderer.accept(event.getRenderer(EntityType.EVOKER)); } catch (Exception ignored) {}
             try { patchRenderer.accept(event.getRenderer(EntityType.ZOGLIN)); } catch (Exception ignored) {}
+            try { patchRenderer.accept(event.getRenderer(ModEntities.WITHERFIST.get())); } catch (Exception ignored) {}
+            try { patchRenderer.accept(event.getRenderer(ModEntities.TANKWITHERFIST.get())); } catch (Exception ignored) {}
 
             // Generic loop for all remaining registered living entity renderers (modded mobs)
             for (EntityType<?> type : ForgeRegistries.ENTITY_TYPES) {

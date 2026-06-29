@@ -43,6 +43,11 @@ public class TwinBuff extends EliteBuff {
                     twin.moveTo(entity.getX() + 1.5D, entity.getY(), entity.getZ() + 1.5D, entity.getYRot(), entity.getXRot());
                     // Pre-set empty medallions list so EntityJoinLevelEvent doesn't roll random ones
                     MedallionManager.saveMedallions(twin, java.util.Collections.emptyList());
+
+                    if (twin instanceof net.minecraft.world.entity.Mob mobTwin) {
+                        mobTwin.finalizeSpawn((net.minecraft.world.level.ServerLevelAccessor) entity.level(), entity.level().getCurrentDifficultyAt(twin.blockPosition()), net.minecraft.world.entity.MobSpawnType.TRIGGERED, null, null);
+                    }
+
                     entity.level().addFreshEntity(twin);
                     
                     // Copy medallions (this triggers copyMedallions which copies NBT and invokes attach on all copied buffs)

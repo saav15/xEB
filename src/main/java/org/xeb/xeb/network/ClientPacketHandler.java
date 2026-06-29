@@ -162,6 +162,11 @@ public class ClientPacketHandler {
                     tag.putInt("xebSlamCooldownTicks", msg.getSlamCooldown());
                 }
 
+                // Sync block HUD flash
+                if (msg.isFlashHUD()) {
+                    tag.putInt("xebBlockFlashTicks", 25);
+                }
+
                 if (msg.getSlamState() == 1) {
                     tag.putInt("xebSlamTimer", 15);
                 } else if (msg.getSlamState() == 2) {
@@ -175,6 +180,34 @@ public class ClientPacketHandler {
                     tag.remove("xebSlamTargetX");
                     tag.remove("xebSlamTargetY");
                     tag.remove("xebSlamTargetZ");
+                }
+            }
+        }
+    }
+
+    public static void handleDoomfistUltraCharge(DoomfistUltraChargeSyncPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            net.minecraft.world.entity.Entity entity = mc.level.getEntity(msg.getEntityId());
+            if (entity instanceof net.minecraft.world.entity.player.Player player) {
+                if (msg.isUltraCharged()) {
+                    player.getPersistentData().putBoolean("xebUltraCharged", true);
+                } else {
+                    player.getPersistentData().remove("xebUltraCharged");
+                }
+            }
+        }
+    }
+
+    public static void handleDoomfistPowerBlock(DoomfistPowerBlockSyncPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            net.minecraft.world.entity.Entity entity = mc.level.getEntity(msg.getEntityId());
+            if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+                if (msg.isPowerBlocking()) {
+                    living.getPersistentData().putBoolean("xebPowerBlocking", true);
+                } else {
+                    living.getPersistentData().remove("xebPowerBlocking");
                 }
             }
         }
