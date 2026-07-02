@@ -1,5 +1,7 @@
 package org.xeb.xeb.compat.adapter;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -12,6 +14,7 @@ import org.xeb.xeb.weapon.WeaponStyleData;
 import java.util.Optional;
 
 public class CataclysmAdapter implements ModCompatAdapter {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final String MOD_ID = "cataclysm";
     private final boolean loaded;
 
@@ -92,7 +95,9 @@ public class CataclysmAdapter implements ModCompatAdapter {
                         }
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOGGER.debug("[xEB] Failed to check Cataclysm transition state: {}", e.getMessage());
+            }
         }
         return false;
     }

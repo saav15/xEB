@@ -1,5 +1,7 @@
 package org.xeb.xeb.compat.adapter;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -11,6 +13,7 @@ import org.xeb.xeb.weapon.WeaponStyleData;
 import java.util.Optional;
 
 public class ApotheosisAdapter implements ModCompatAdapter {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final String MOD_ID = "apotheosis";
     private final boolean loaded;
 
@@ -72,7 +75,9 @@ public class ApotheosisAdapter implements ModCompatAdapter {
                 }
                 return 5.0; // Standard affix bonus
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to read Apotheosis rarity from {}: {}", stack.getItem(), e.getMessage());
+        }
         return 0.0;
     }
 }

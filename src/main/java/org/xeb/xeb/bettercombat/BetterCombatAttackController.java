@@ -1,5 +1,7 @@
 package org.xeb.xeb.bettercombat;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.player.LocalPlayer;
@@ -32,6 +34,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
  */
 @OnlyIn(Dist.CLIENT)
 public final class BetterCombatAttackController {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     private BetterCombatAttackController() {}
 
@@ -102,7 +105,9 @@ public final class BetterCombatAttackController {
                 }
                 return (Boolean) m.invoke(mc);
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] BC client API isWeaponSwingInProgress not available: {}", e.getMessage());
+        }
 
         // 2) Fallback to internal reflection-based checks.
         try {
@@ -117,7 +122,9 @@ public final class BetterCombatAttackController {
                 Object self = bcAttackHandlerInstance;
                 return bcIsAttackingField.getBoolean(self);
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to check BC attack-in-progress state: {}", e.getMessage());
+        }
         return false;
     }
 
@@ -129,7 +136,9 @@ public final class BetterCombatAttackController {
             if (mc != null && mc.options != null) {
                 mc.options.keyAttack.setDown(false);
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to reset attack key: {}", e.getMessage());
+        }
     }
 
     // --- Internals --------------------------------------------------------
@@ -145,7 +154,8 @@ public final class BetterCombatAttackController {
             if (!bcAvailable || bcStartAttackMethod == null) return false;
             bcStartAttackMethod.invoke(bcAttackHandlerInstance);
             return true;
-        } catch (Throwable ignored) {
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] BC direct attack invocation failed: {}", e.getMessage());
             return false;
         }
     }
@@ -165,7 +175,8 @@ public final class BetterCombatAttackController {
             incrementClickCount(attackKey);
             attackKey.setDown(true);
             return true;
-        } catch (Throwable ignored) {
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to simulate attack key press: {}", e.getMessage());
             return false;
         }
     }
@@ -188,7 +199,9 @@ public final class BetterCombatAttackController {
                 attackKey.setDown(false);
                 return true;
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Vanilla startAttack reflective call failed: {}", e.getMessage());
+        }
         // Direct game-mode attack as the ultimate fallback.
         try {
             if (mc.gameMode != null && target != null) {
@@ -202,7 +215,9 @@ public final class BetterCombatAttackController {
                 attackKey.setDown(false);
                 return true;
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Direct gameMode.attack fallback failed: {}", e.getMessage());
+        }
         return false;
     }
 
@@ -352,6 +367,8 @@ public final class BetterCombatAttackController {
                 int current = field.getInt(key);
                 field.setInt(key, current + 1);
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to increment click count: {}", e.getMessage());
+        }
     }
 }

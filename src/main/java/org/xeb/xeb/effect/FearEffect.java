@@ -1,5 +1,7 @@
 package org.xeb.xeb.effect;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.entity.LivingEntity;
@@ -30,6 +32,7 @@ import java.util.EnumSet;
  * receives damage, and cleaned up when the effect expires.
  */
 public class FearEffect extends MobEffect {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     /** PersistentData key: runtime entity ID of the fear source (int). */
     public static final String FEAR_SOURCE_KEY = "xebFearSourceId";
@@ -203,7 +206,9 @@ public class FearEffect extends MobEffect {
             try {
                 mob.goalSelector.addGoal(0, new FleeGoal(mob)); // priority 0 = highest
                 tag.putBoolean(FEAR_GOAL_TAG, true);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOGGER.warn("[xEB] Failed to inject flee goal for mob {}: {}", mob.getId(), e.getMessage());
+            }
         }
 
         /** Clears the guard tag so canUse() returns false on next evaluation. */

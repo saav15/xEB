@@ -150,7 +150,9 @@ public class BetterCombatCompatAdapter implements ModCompatAdapter {
                 try {
                     java.lang.reflect.Field rangeField = attributes.getClass().getField("range");
                     attackRange = rangeField.getDouble(attributes);
-                } catch (Exception ignored) {}
+                } catch (Exception e2) {
+                    LOGGER.debug("[xEB] Failed to read BC range field fallback: {}", e2.getMessage());
+                }
             }
 
             // Parse Two Handed
@@ -171,7 +173,9 @@ public class BetterCombatCompatAdapter implements ModCompatAdapter {
                 try {
                     java.lang.reflect.Field twoHandedField = attributes.getClass().getField("isTwoHanded");
                     twoHanded = twoHandedField.getBoolean(attributes);
-                } catch (Exception ignored) {}
+                } catch (Exception e2) {
+                    LOGGER.debug("[xEB] Failed to read BC twoHanded field fallback: {}", e2.getMessage());
+                }
             }
 
             // Parse Attacks / Combo steps.
@@ -209,7 +213,9 @@ public class BetterCombatCompatAdapter implements ModCompatAdapter {
                             try {
                                 java.lang.reflect.Field speedField = attack.getClass().getField("speed");
                                 stepSpeed = speedField.getDouble(attack);
-                            } catch (Exception ignored) {}
+                            } catch (Exception e) {
+                                LOGGER.debug("[xEB] Failed to read BC per-step speed: {}", e.getMessage());
+                            }
                         }
                         perStepSpeeds.add(stepSpeed);
                         if (stepSpeed > 0) { speedSum += stepSpeed; speedCount++; }
@@ -237,17 +243,22 @@ public class BetterCombatCompatAdapter implements ModCompatAdapter {
                                     abilities.add(stepAbility);
                                 }
                             }
-                        } catch (Exception ignored) {}
+                        } catch (Exception e) {
+                            LOGGER.debug("[xEB] Failed to read BC animation name: {}", e.getMessage());
+                        }
                         perStepAbilities.add(stepAbility);
                     }
                     // Average speed across steps drives the legacy fallback cadence.
                     if (speedCount > 0) attackSpeed = speedSum / speedCount;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOGGER.debug("[xEB] Failed to parse BC attacks/combo data: {}", e.getMessage());
+            }
 
             return Optional.of(new WeaponStyleData(attackRange, comboLength, attackSpeed, abilities, twoHanded,
                     perStepSpeeds, perStepAbilities));
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to resolve BC weapon style: {}", e.getMessage());
             return Optional.empty();
         }
     }

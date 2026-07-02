@@ -1,5 +1,7 @@
 package org.xeb.xeb.compat.adapter;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
@@ -11,6 +13,7 @@ import java.lang.reflect.Method;
 import java.util.Optional;
 
 public class EpicFightAdapter implements ModCompatAdapter {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final String MOD_ID = "epicfight";
     private final boolean loaded;
 
@@ -45,7 +48,9 @@ public class EpicFightAdapter implements ModCompatAdapter {
                     return WeaponClass.MELEE;
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to classify weapon via Epic Fight: {}", e.getMessage());
+        }
         return WeaponClass.NON_WEAPON;
     }
 

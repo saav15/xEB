@@ -1,5 +1,7 @@
 package org.xeb.xeb.event;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import org.xeb.xeb.Xeb;
 import org.xeb.xeb.compat.ModCompatManager;
 import org.xeb.xeb.medallion.MedallionManager;
@@ -12,6 +14,7 @@ import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class MedallionSpawnHandler {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     @SubscribeEvent
     public static void onEntityJoin(EntityJoinLevelEvent event) {
@@ -24,7 +27,9 @@ public class MedallionSpawnHandler {
                     living.getPersistentData().put(org.xeb.xeb.medallion.MedallionManager.MEDALLIONS_KEY, pending);
                     try {
                         living.refreshDimensions();
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        LOGGER.warn("[xEB] Failed to refresh dimensions for entity {} during client sync", living.getId(), e);
+                    }
                 }
             }
             return;
@@ -39,7 +44,7 @@ public class MedallionSpawnHandler {
                         try {
                             m.getBuff().onAttach(living, m.getUniqueId());
                         } catch (Exception e) {
-                            // safeguard
+                            LOGGER.warn("[xEB] Failed to attach buff '{}' to entity {}", m.getBuff().getId(), living.getId(), e);
                         }
                     }
                     MedallionManager.refreshDimensionsIfNeeded(living, medallions);
@@ -71,7 +76,7 @@ public class MedallionSpawnHandler {
                     }
                 }
             } catch (Exception e) {
-                // Safeguard against early initialization issues
+                LOGGER.debug("[xEB] Error during entity size calculation for {}: {}", living.getId(), e.getMessage());
             }
         }
     }

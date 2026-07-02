@@ -1,5 +1,7 @@
 package org.xeb.xeb.bot;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.player.Input;
@@ -28,6 +30,7 @@ import java.util.List;
  */
 @OnlyIn(Dist.CLIENT)
 public class PlayerBotStateMachine {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static BotState currentState = BotState.IDLE;
     private static int stateTicks = 0;
     private static final HotbarScanner HOTBAR_SCANNER = new HotbarScanner();
@@ -110,8 +113,8 @@ public class PlayerBotStateMachine {
             if (castKey != null) {
                 castKey.setDown(false);
             }
-        } catch (Exception | LinkageError ignored) {
-            // Safe in unit test environments
+        } catch (Exception | LinkageError e) {
+            LOGGER.debug("[xEB] Bot reset skipped (unit test or missing Minecraft): {}", e.getMessage());
         }
     }
 
@@ -263,7 +266,9 @@ public class PlayerBotStateMachine {
             lookAtTarget(player, currentTarget);
             try {
                 mc.gameRenderer.pick(1.0F);
-            } catch (Throwable ignored) {}
+            } catch (Throwable e) {
+                LOGGER.debug("[xEB] Failed to pick target for bot: {}", e.getMessage());
+            }
         }
     }
 
@@ -423,7 +428,9 @@ public class PlayerBotStateMachine {
                             org.apache.logging.log4j.LogManager.getLogger("xeb-bot")
                                 .info("[xEB] Target " + name.getString() + " appears invulnerable/protected. Blacklisting for 30s.");
                         }
-                    } catch (Throwable ignored) {}
+                    } catch (Throwable e) {
+                        LOGGER.debug("[xEB] Failed to log blacklisted target name: {}", e.getMessage());
+                    }
                     BLACKLISTED_TARGETS.put(target.getUUID(), System.currentTimeMillis() + 30000L); // 30 second blacklist
                     currentTarget = null;
                     lastAttackedTarget = null;
@@ -543,7 +550,9 @@ public class PlayerBotStateMachine {
                     handleHybridMeleeLogic(mc, player);
                     return;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOGGER.debug("[xEB] Failed to check melee weapon use animation: {}", e.getMessage());
+            }
         }
 
         // 3) Fallback to vanilla melee
@@ -564,7 +573,8 @@ public class PlayerBotStateMachine {
         try {
             net.minecraft.world.item.UseAnim useAnim = mainHand.getItem().getUseAnimation(mainHand);
             if (useAnim == net.minecraft.world.item.UseAnim.NONE) return;
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to check weapon use animation for right-click specials: {}", e.getMessage());
             return;
         }
         SpecialAbilityHandler.executeRightClickAbilities(mc, player, currentTarget, Config.rightClickMode);
@@ -606,7 +616,9 @@ public class PlayerBotStateMachine {
         String id = "";
         try {
             id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(mainHand.getItem()).toString().toLowerCase();
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to get item registry name for ranged combat: {}", e.getMessage());
+        }
 
         if (id.contains("terra_blade") || id.contains("starfury") || id.contains("star_wrath")) {
             // Swing at target at range to fire mana beams/stars!
@@ -805,7 +817,9 @@ public class PlayerBotStateMachine {
                 registryName.contains("starfury") || registryName.contains("star_wrath")) {
                 return true;
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to get item registry name for range check: {}", e.getMessage());
+        }
 
         WeaponClass wc = WeaponClassificationEngine.classify(stack);
         if (wc == WeaponClass.RANGED || wc == WeaponClass.HYBRID || wc == WeaponClass.MAGIC) return true;
@@ -814,7 +828,9 @@ public class PlayerBotStateMachine {
             net.minecraft.world.item.UseAnim anim = stack.getItem().getUseAnimation(stack);
             int duration = stack.getItem().getUseDuration(stack);
             return anim != net.minecraft.world.item.UseAnim.NONE && duration > 0;
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to check item use animation for range detection: {}", e.getMessage());
+        }
         return false;
     }
 
@@ -847,7 +863,9 @@ public class PlayerBotStateMachine {
                     }
                 }
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to check Iron's Spells active spell: {}", e.getMessage());
+        }
         return false;
     }
 
@@ -858,7 +876,7 @@ public class PlayerBotStateMachine {
                 Class<?> keyMappingsClass = Class.forName("io.redspace.ironsspellbooks.player.KeyMappings");
                 java.lang.reflect.Field field = keyMappingsClass.getField("SPELLBOOK_CAST_ACTIVE_KEYMAP");
                 ironCastKey = (KeyMapping) field.get(null);
-            } catch (Throwable ignored) {
+            } catch (Throwable e1) {
                 try {
                     Class<?> keyMappingsClass = Class.forName("io.redspace.ironsspellbooks.player.KeyMappings");
                     java.lang.reflect.Field field = keyMappingsClass.getField("QUICK_CAST_MAPPINGS");
@@ -866,7 +884,9 @@ public class PlayerBotStateMachine {
                     if (list != null && !list.isEmpty()) {
                         ironCastKey = (KeyMapping) list.get(0);
                     }
-                } catch (Throwable ignored2) {}
+                } catch (Throwable e2) {
+                    LOGGER.debug("[xEB] Iron's Spells cast key not found: {}", e2.getMessage());
+                }
             }
         }
         return ironCastKey;
@@ -912,14 +932,18 @@ public class PlayerBotStateMachine {
                 try {
                     field = KeyMapping.class.getDeclaredField(name);
                     break;
-                } catch (Throwable ignored) {}
+                } catch (Throwable e) {
+                    LOGGER.debug("[xEB] KeyMapping field '{}' not found", name);
+                }
             }
             if (field != null) {
                 field.setAccessible(true);
                 int current = field.getInt(key);
                 field.setInt(key, current + 1);
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to increment click count: {}", e.getMessage());
+        }
     }
 
     private static Object getSelectedIronSpell() {
@@ -936,7 +960,9 @@ public class PlayerBotStateMachine {
                     return getSpell.invoke(selectedData);
                 }
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to get selected Iron's spell: {}", e.getMessage());
+        }
         return null;
     }
 
@@ -957,7 +983,9 @@ public class PlayerBotStateMachine {
                     return (Boolean) foundMethod.invoke(cooldowns, spell);
                 }
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to check Iron's spell cooldown: {}", e.getMessage());
+        }
         return false;
     }
 
@@ -992,7 +1020,9 @@ public class PlayerBotStateMachine {
                     }
                 }
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            LOGGER.debug("[xEB] Failed to switch Iron's ready spell: {}", e.getMessage());
+        }
     }
 
     private static boolean isSpellbookItem(ItemStack stack) {
