@@ -42,14 +42,19 @@ public class MedallionSyncPacket {
         }
     }
 
+    private static final int MAX_MEDALLIONS = 64;
+
     public static MedallionSyncPacket decode(FriendlyByteBuf buf) {
         int entityId = buf.readInt();
         int size = buf.readInt();
-        List<String> buffIds = new ArrayList<>();
-        List<String> tiers = new ArrayList<>();
+        if (size < 0 || size > MAX_MEDALLIONS) {
+            size = 0;
+        }
+        List<String> buffIds = new ArrayList<>(size);
+        List<String> tiers = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            buffIds.add(buf.readUtf());
-            tiers.add(buf.readUtf());
+            buffIds.add(buf.readUtf(256));
+            tiers.add(buf.readUtf(256));
         }
         return new MedallionSyncPacket(entityId, buffIds, tiers);
     }
