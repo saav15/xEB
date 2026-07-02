@@ -1,10 +1,13 @@
 package org.xeb.xeb.mana;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.fml.ModList;
 import java.lang.reflect.Method;
 
 public class IronsSpellsManaCompat {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static boolean checked = false;
     private static Method getPlayerMagicDataMethod = null;
     private static Method getManaMethod = null;
@@ -20,7 +23,7 @@ public class IronsSpellsManaCompat {
                 getManaMethod = magicDataClass.getMethod("getMana");
                 setManaMethod = magicDataClass.getMethod("setMana", float.class);
             } catch (Exception e) {
-                // Mod not installed or different version/API structure
+                LOGGER.warn("[xEB] Iron's Spells mana API not found or incompatible version: {}", e.getMessage());
             }
         }
     }
@@ -34,7 +37,7 @@ public class IronsSpellsManaCompat {
                     return ((Number) getManaMethod.invoke(magicData)).floatValue();
                 }
             } catch (Exception e) {
-                // ignore
+                LOGGER.debug("[xEB] Failed to get Iron's Spells mana: {}", e.getMessage());
             }
         }
         return 0f;
@@ -50,7 +53,7 @@ public class IronsSpellsManaCompat {
                     return true;
                 }
             } catch (Exception e) {
-                // ignore
+                LOGGER.debug("[xEB] Failed to set Iron's Spells mana: {}", e.getMessage());
             }
         }
         return false;
@@ -69,7 +72,7 @@ public class IronsSpellsManaCompat {
                     }
                 }
             } catch (Exception e) {
-                // ignore
+                LOGGER.debug("[xEB] Failed to drain Iron's Spells mana: {}", e.getMessage());
             }
         }
         return false;

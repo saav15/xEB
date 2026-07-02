@@ -2,6 +2,8 @@ package org.xeb.xeb.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import org.xeb.xeb.Xeb;
 import org.xeb.xeb.medallion.MedallionData;
 import org.xeb.xeb.medallion.MedallionManager;
@@ -24,6 +26,7 @@ import net.minecraft.world.entity.LivingEntity;
 import java.util.List;
 
 public class GlowEyeOverlay<T extends LivingEntity, M extends EntityModel<T>> extends RenderLayer<T, M> {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final ResourceLocation WHITE_TEX = new ResourceLocation(Xeb.MODID, "textures/entity/white.png");
     private final GlowEyeModel eyesModel = new GlowEyeModel();
 
@@ -93,7 +96,7 @@ public class GlowEyeOverlay<T extends LivingEntity, M extends EntityModel<T>> ex
                             field.setAccessible(true);
                             return (ModelPart) field.get(model);
                         } catch (Exception e) {
-                            // ignore
+                            LOGGER.debug("[xEB] Failed to access head ModelPart field '{}': {}", name, e.getMessage());
                         }
                     }
                 }

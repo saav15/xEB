@@ -2,6 +2,8 @@ package org.xeb.xeb.event;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -36,6 +38,7 @@ import java.util.Map;
  */
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class ClientMedallionEventHandler {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     @SubscribeEvent
     public static void onRenderLivingPre(RenderLivingEvent.Pre<?, ?> event) {
@@ -135,7 +138,9 @@ public class ClientMedallionEventHandler {
             for (RenderLayer layer : layers) {
                 if (layer instanceof MedallionRenderLayer) return true;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to check renderer layers via reflection: {}", e.getMessage());
+        }
         return false;
     }
 

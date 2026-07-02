@@ -1,5 +1,7 @@
 package org.xeb.xeb.network;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -18,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ClientPacketHandler {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final java.util.Map<Integer, ListTag> PENDING_SYNCS = new ConcurrentHashMap<>();
 
     public static ListTag getPendingSync(int entityId) {
@@ -40,7 +43,7 @@ public class ClientPacketHandler {
                     MedallionType tier = MedallionType.valueOf(tierName);
                     list.add(new MedallionData(buff, tier, UUID.randomUUID()));
                 } catch (IllegalArgumentException e) {
-                    // ignore
+                    LOGGER.warn("[xEB] Ignoring malformed medallion tier '{}' in sync packet", tierName);
                 }
             }
         }
@@ -58,7 +61,9 @@ public class ClientPacketHandler {
             living.getPersistentData().put(MedallionManager.MEDALLIONS_KEY, listTag);
             try {
                 living.refreshDimensions();
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOGGER.warn("[xEB] Failed to refresh dimensions for entity {} during medallion sync", living.getId(), e);
+            }
         } else {
             addPendingSync(msg.getEntityId(), listTag);
         }

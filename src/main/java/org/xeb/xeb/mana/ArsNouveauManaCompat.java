@@ -1,5 +1,7 @@
 package org.xeb.xeb.mana;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.util.LazyOptional;
@@ -8,6 +10,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public class ArsNouveauManaCompat {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static boolean checked = false;
     private static Capability<?> manaCapability = null;
     private static Method getManaMethod = null;
@@ -30,7 +33,7 @@ public class ArsNouveauManaCompat {
                 removeManaMethod = manaCapClass.getMethod("removeMana", int.class);
                 maxManaMethod = manaCapClass.getMethod("getMaxMana");
             } catch (Exception e) {
-                // Mod not installed or different version/API structure
+                LOGGER.warn("[xEB] Ars Nouveau mana API not found or incompatible version: {}", e.getMessage());
             }
         }
     }
@@ -53,7 +56,7 @@ public class ArsNouveauManaCompat {
                     return ((Number) getManaMethod.invoke(manaObj)).intValue();
                 }
             } catch (Exception e) {
-                // ignore
+                LOGGER.debug("[xEB] Failed to get Ars Nouveau mana: {}", e.getMessage());
             }
         }
         return 0;
@@ -68,7 +71,7 @@ public class ArsNouveauManaCompat {
                     return ((Number) maxManaMethod.invoke(manaObj)).intValue();
                 }
             } catch (Exception e) {
-                // ignore
+                LOGGER.debug("[xEB] Failed to get Ars Nouveau max mana: {}", e.getMessage());
             }
         }
         return 0;
@@ -84,7 +87,7 @@ public class ArsNouveauManaCompat {
                     return true;
                 }
             } catch (Exception e) {
-                // ignore
+                LOGGER.debug("[xEB] Failed to set Ars Nouveau mana: {}", e.getMessage());
             }
         }
         return false;
@@ -103,7 +106,7 @@ public class ArsNouveauManaCompat {
                     }
                 }
             } catch (Exception e) {
-                // ignore
+                LOGGER.debug("[xEB] Failed to drain Ars Nouveau mana: {}", e.getMessage());
             }
         }
         return false;

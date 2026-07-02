@@ -141,7 +141,7 @@ public class Xeb {
                 currentClass = currentClass.getSuperclass();
             }
         } catch (Exception e) {
-            // Ignore
+            LOGGER.debug("[xEB] Failed to extract entity from GeoReplacedEntityRenderer: {}", e.getMessage());
         }
         return null;
     }
@@ -218,36 +218,23 @@ public class Xeb {
             }
 
             // Explicitly patch key vanilla mobs that may be missed by the generic loop
-            try { patchRenderer.accept(event.getRenderer(EntityType.CREEPER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ZOMBIE)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.SKELETON)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.SPIDER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.CAVE_SPIDER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ENDERMAN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.BLAZE)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.WITCH)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.GUARDIAN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ELDER_GUARDIAN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.WITHER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.WARDEN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.PIGLIN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.PIGLIN_BRUTE)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.HOGLIN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ZOMBIFIED_PIGLIN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.DROWNED)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.HUSK)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.STRAY)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.WITHER_SKELETON)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.VINDICATOR)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.PILLAGER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.RAVAGER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.GHAST)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.MAGMA_CUBE)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.SLIME)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.SHULKER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.PHANTOM)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.EVOKER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ZOGLIN)); } catch (Exception ignored) {}
+            EntityType<?>[] vanillaMobs = {
+                EntityType.CREEPER, EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SPIDER,
+                EntityType.CAVE_SPIDER, EntityType.ENDERMAN, EntityType.BLAZE, EntityType.WITCH,
+                EntityType.GUARDIAN, EntityType.ELDER_GUARDIAN, EntityType.WITHER, EntityType.WARDEN,
+                EntityType.PIGLIN, EntityType.PIGLIN_BRUTE, EntityType.HOGLIN, EntityType.ZOMBIFIED_PIGLIN,
+                EntityType.DROWNED, EntityType.HUSK, EntityType.STRAY, EntityType.WITHER_SKELETON,
+                EntityType.VINDICATOR, EntityType.PILLAGER, EntityType.RAVAGER, EntityType.GHAST,
+                EntityType.MAGMA_CUBE, EntityType.SLIME, EntityType.SHULKER, EntityType.PHANTOM,
+                EntityType.EVOKER, EntityType.ZOGLIN
+            };
+            for (EntityType<?> mobType : vanillaMobs) {
+                try {
+                    patchRenderer.accept(event.getRenderer((EntityType<? extends LivingEntity>) mobType));
+                } catch (Exception e) {
+                    LOGGER.debug("[xEB] Could not patch renderer for vanilla mob {}: {}", mobType, e.getMessage());
+                }
+            }
 
             // Generic loop for all remaining registered living entity renderers (modded mobs)
             for (EntityType<?> type : ForgeRegistries.ENTITY_TYPES) {
@@ -261,7 +248,7 @@ public class Xeb {
                     }
                     patchRenderer.accept(renderer);
                 } catch (Exception e) {
-                    // Ignore non-living entity types or types without renderers
+                    LOGGER.debug("[xEB] Skipping entity type during layer patching: {}", e.getMessage());
                 }
             }
         }

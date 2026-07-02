@@ -1,5 +1,7 @@
 package org.xeb.xeb.weapon;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
@@ -28,7 +30,7 @@ final class ModListSafe {
  * Calculates a weapon score for player hotbar slots under Madness.
  */
 public class WeaponScoringEngine {
-
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final HeuristicClassifier HEURISTIC = new HeuristicClassifier();
 
     /**
@@ -67,7 +69,9 @@ public class WeaponScoringEngine {
                     baseDamage = totalMod;
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to read attack damage attributes for {}: {}", stack.getItem(), e.getMessage());
+        }
 
         double score = baseDamage;
 
@@ -122,7 +126,9 @@ public class WeaponScoringEngine {
                 stack.getEnchantmentLevel(Enchantments.MOB_LOOTING) > 0) {
                 hasSpecial = true;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to check enchantments for {}: {}", stack.getItem(), e.getMessage());
+        }
 
         if (!hasSpecial && ModListSafe.isLoaded("bettercombat")) {
             try {
@@ -130,7 +136,9 @@ public class WeaponScoringEngine {
                 if (styleOpt.isPresent() && !styleOpt.get().getSpecialAbilities().isEmpty()) {
                     hasSpecial = true;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOGGER.debug("[xEB] Failed to check BetterCombat special abilities: {}", e.getMessage());
+            }
         }
         if (hasSpecial) {
             score += 10.0;
@@ -144,7 +152,9 @@ public class WeaponScoringEngine {
                 totalEnchantmentLevels += level;
             }
             score += totalEnchantmentLevels * 2.0;
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to read enchantment levels for {}: {}", stack.getItem(), e.getMessage());
+        }
 
         // 7. Ranged Penalty (-20.0 for pure RANGED in melee range)
         if (inMeleeRange && classification == WeaponClass.RANGED) {
@@ -166,7 +176,9 @@ public class WeaponScoringEngine {
         try {
             double cd = player.getCooldowns().getCooldownPercent(stack.getItem(), 0.0F);
             score -= cd * 3.0;
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to check cooldown for {}: {}", stack.getItem(), e.getMessage());
+        }
 
         // 10. Better Combat Combo Bonus (+8.0 if combo > 1)
         if (ModListSafe.isLoaded("bettercombat")) {
@@ -175,7 +187,9 @@ public class WeaponScoringEngine {
                 if (styleOpt.isPresent() && styleOpt.get().getComboLength() > 1) {
                     score += 8.0;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOGGER.debug("[xEB] Failed to check BetterCombat combo length: {}", e.getMessage());
+            }
         }
 
         // 11. Low Durability Penalty (-5.0)
@@ -206,7 +220,9 @@ public class WeaponScoringEngine {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.debug("[xEB] Failed to parse mod material tier mapping: {}", e.getMessage());
+        }
         return 0.0;
     }
 }

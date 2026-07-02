@@ -1,5 +1,7 @@
 package org.xeb.xeb.entity;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -13,6 +15,8 @@ import org.xeb.xeb.item.ModItems;
 import java.lang.reflect.Method;
 
 public class HotPotatoProjectileEntity extends ThrowableItemProjectile {
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     public HotPotatoProjectileEntity(EntityType<? extends HotPotatoProjectileEntity> type, Level level) {
         super(type, level);
     }
@@ -77,7 +81,9 @@ public class HotPotatoProjectileEntity extends ThrowableItemProjectile {
                         }
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOGGER.debug("[xEB] Curios auto-equip failed for Hot Potato on entity {}: {}", target.getId(), e.getMessage());
+            }
 
             // 2. If not equipped, put in inventory (or hand, or drop)
             if (!equipped) {

@@ -1,5 +1,7 @@
 package org.xeb.xeb.medallion;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import org.xeb.xeb.buff.EliteBuff;
 import org.xeb.xeb.buff.EliteBuffRegistry;
 import org.xeb.xeb.Config;
@@ -20,6 +22,7 @@ import net.minecraftforge.network.PacketDistributor;
 import java.util.*;
 
 public class MedallionManager {
+    private static final Logger LOGGER = LogUtils.getLogger();
     public static final String MEDALLIONS_KEY = "xebMedallions";
 
     public static List<MedallionData> getMedallions(LivingEntity entity) {
@@ -39,7 +42,7 @@ public class MedallionManager {
                         MedallionType tier = MedallionType.valueOf(tierName);
                         list.add(new MedallionData(buff, tier, uuid));
                     } catch (IllegalArgumentException e) {
-                        // ignore malformed tier
+                        LOGGER.warn("[xEB] Ignoring malformed medallion tier '{}' for buff '{}'", tierName, buffId);
                     }
                 }
             }
@@ -217,8 +220,8 @@ public class MedallionManager {
         if (entity.level().isClientSide()) return;
         try {
             entity.refreshDimensions();
-        } catch (Exception ignored) {
-            // Safety guard for edge cases during entity initialization
+        } catch (Exception e) {
+            LOGGER.warn("[xEB] Failed to refresh dimensions for entity {}: {}", entity.getId(), e.getMessage());
         }
     }
 
