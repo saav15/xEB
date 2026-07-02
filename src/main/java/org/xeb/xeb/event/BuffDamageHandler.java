@@ -9,8 +9,7 @@ import org.xeb.xeb.effect.ManaLeechEffect;
 import org.xeb.xeb.effect.MarkedEffect;
 import org.xeb.xeb.medallion.MedallionData;
 import org.xeb.xeb.medallion.MedallionManager;
-import org.xeb.xeb.network.BuffParticlePacket;
-import org.xeb.xeb.network.XEBNetwork;
+import org.xeb.xeb.util.BuffParticleHelper;
 import org.xeb.xeb.util.DodgeHelper;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -28,7 +27,6 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.network.PacketDistributor;
 import org.xeb.xeb.effect.ModEffects;
 
 import java.util.List;
@@ -147,8 +145,7 @@ public class BuffDamageHandler {
                         net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.0F);
                 event.setAmount(0.0F);
                 event.setCanceled(true);
-                BuffParticlePacket packet = new BuffParticlePacket(player.getX(), player.getY(), player.getZ(), "revival", 15);
-                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player), packet);
+                BuffParticleHelper.sendParticles(player, "revival", 15);
                 return;
             }
         }
@@ -181,9 +178,7 @@ public class BuffDamageHandler {
                     target.hurtTime = 0;
                     target.invulnerableTime = 0;
                     // Dark smoke on the target to signal the miss
-                    BuffParticlePacket packet = new BuffParticlePacket(
-                            target.getX(), target.getY(), target.getZ(), "blind", 5);
-                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> target), packet);
+                    BuffParticleHelper.sendParticles(target, "blind", 5);
                     return;
                 }
             }
@@ -215,9 +210,7 @@ public class BuffDamageHandler {
             // We tag the event so downstream handlers know to skip dodge rolls
             target.getPersistentData().putBoolean("xebMarkedHitIncoming", true);
 
-            BuffParticlePacket pkt = new BuffParticlePacket(
-                    target.getX(), target.getY(), target.getZ(), "marked", 6);
-            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> target), pkt);
+            BuffParticleHelper.sendParticles(target, "marked", 6);
         }
 
         // ── Magic Weakness (target side) — amplify magic damage ─────────────────
@@ -263,9 +256,7 @@ public class BuffDamageHandler {
                 // 75% crit: double damage again
                 if (livingAttacker.getRandom().nextFloat() < AdrenalineEffect.CRIT_CHANCE) {
                     amount *= 2.0F;
-                    BuffParticlePacket pkt = new BuffParticlePacket(
-                            target.getX(), target.getY(), target.getZ(), "crit", 8);
-                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> target), pkt);
+                    BuffParticleHelper.sendParticles(target, "crit", 8);
                 }
                 event.setAmount(amount);
             }

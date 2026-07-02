@@ -4,15 +4,13 @@ import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
 import org.xeb.xeb.medallion.MedallionData;
 import org.xeb.xeb.medallion.MedallionManager;
-import org.xeb.xeb.network.BuffParticlePacket;
-import org.xeb.xeb.network.XEBNetwork;
+import org.xeb.xeb.util.BuffParticleHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,11 +66,7 @@ public class UndyingBuff extends EliteBuff {
             entity.level().playSound(null, entity.getX(), entity.getY(), entity.getZ(),
                     SoundEvents.TOTEM_USE, SoundSource.HOSTILE, 1.0F, 1.0F);
 
-            // Particles
-            if (!entity.level().isClientSide()) {
-                BuffParticlePacket packet = new BuffParticlePacket(entity.getX(), entity.getY(), entity.getZ(), "revival", 30);
-                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), packet);
-            }
+            BuffParticleHelper.sendParticles(entity, "revival", 30);
         }
     }
 

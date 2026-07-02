@@ -4,8 +4,7 @@ import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
 import org.xeb.xeb.effect.ModEffects;
 import org.xeb.xeb.medallion.MedallionManager;
-import org.xeb.xeb.network.BuffParticlePacket;
-import org.xeb.xeb.network.XEBNetwork;
+import org.xeb.xeb.util.BuffParticleHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -14,7 +13,6 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import net.minecraftforge.network.PacketDistributor;
 
 public class FlamingBuff extends EliteBuff {
     public FlamingBuff() {
@@ -48,8 +46,7 @@ public class FlamingBuff extends EliteBuff {
 
         // Spawn particles
         if (entity.tickCount % 3 == 0) {
-            BuffParticlePacket packet = new BuffParticlePacket(entity.getX(), entity.getY(), entity.getZ(), "flame", 1);
-            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), packet);
+            BuffParticleHelper.sendParticles(entity, "flame", 1);
         }
     }
 

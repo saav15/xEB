@@ -3,12 +3,10 @@ package org.xeb.xeb.buff.impl;
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
 import org.xeb.xeb.mana.ManaManager;
-import org.xeb.xeb.network.BuffParticlePacket;
-import org.xeb.xeb.network.XEBNetwork;
+import org.xeb.xeb.util.BuffParticleHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
-import net.minecraftforge.network.PacketDistributor;
 
 import java.util.List;
 
@@ -43,9 +41,7 @@ public class AbsorbentBuff extends EliteBuff {
                             if (success || drained > 0) {
                                 target.hurt(entity.damageSources().magic(), (float) drained);
                                 
-                                // Spawn visual particles
-                                BuffParticlePacket packet = new BuffParticlePacket(target.getX(), target.getY() + 0.5, target.getZ(), "tarred", 4);
-                                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> target), packet);
+                                BuffParticleHelper.sendParticles(target.getX(), target.getY() + 0.5, target.getZ(), target, "tarred", 4);
                             }
                         }
                     }

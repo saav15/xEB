@@ -3,9 +3,7 @@ package org.xeb.xeb.buff.impl;
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
 import org.xeb.xeb.effect.ModEffects;
-import org.xeb.xeb.medallion.MedallionData;
-import org.xeb.xeb.medallion.MedallionManager;
-import org.xeb.xeb.medallion.MedallionType;
+import org.xeb.xeb.util.MedallionTierHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
@@ -16,18 +14,11 @@ public class MirrorBuff extends EliteBuff {
     }
 
     private int getReflectAmplifier(LivingEntity entity) {
-        MedallionType tier = MedallionType.COMMON;
-        for (MedallionData m : MedallionManager.getMedallions(entity)) {
-            if (m.getBuff().getId().equals(this.getId())) {
-                tier = m.getTier();
-                break;
-            }
-        }
-        return switch (tier) {
+        return MedallionTierHelper.getTierValue(entity, this.getId(), tier -> switch (tier) {
             case COMMON -> 1;     // Reflect II (amplifier = 1)
             case RARE -> 3;       // Reflect IV (amplifier = 3)
             case LEGENDARY -> 5;  // Reflect VI (amplifier = 5)
-        };
+        }, 1);
     }
 
     @Override

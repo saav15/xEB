@@ -5,9 +5,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.ProjectileImpactEvent;
-import org.xeb.xeb.network.BuffParticlePacket;
-import org.xeb.xeb.network.XEBNetwork;
-import net.minecraftforge.network.PacketDistributor;
 
 /**
  * Shared dodge logic used by Lucky and Adrenaline effects.
@@ -38,19 +35,9 @@ public class DodgeHelper {
     private static void sendDodgeEffects(LivingEntity entity) {
         if (entity.level().isClientSide()) return;
 
-        // Subtle wave-ring particles
-        BuffParticlePacket wavePacket = new BuffParticlePacket(
-                entity.getX(), entity.getY(), entity.getZ(), "dodge_wave", 12);
-        XEBNetwork.CHANNEL.send(
-                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), wavePacket);
+        BuffParticleHelper.sendParticles(entity, "dodge_wave", 12);
+        BuffParticleHelper.sendParticles(entity, "dodge", 5);
 
-        // Poof particles (original dodge visual)
-        BuffParticlePacket poofPacket = new BuffParticlePacket(
-                entity.getX(), entity.getY(), entity.getZ(), "dodge", 5);
-        XEBNetwork.CHANNEL.send(
-                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), poofPacket);
-
-        // Dodge sound: shield block pitched up for a quick "swish"
         entity.level().playSound(null,
                 entity.getX(), entity.getY(), entity.getZ(),
                 SoundEvents.SHIELD_BLOCK,
