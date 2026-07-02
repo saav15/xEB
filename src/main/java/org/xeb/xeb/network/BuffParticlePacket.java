@@ -5,9 +5,16 @@ import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.api.distmarker.Dist;
 
+import java.util.Set;
 import java.util.function.Supplier;
 
 public class BuffParticlePacket {
+    private static final int MAX_PARTICLE_COUNT = 128;
+    private static final Set<String> VALID_PARTICLES = Set.of(
+            "sonic_boom", "flame", "creepy", "dodge", "crit", "revival",
+            "sandstorm", "evolve", "mega", "static", "tarred",
+            "dodge_wave", "blind", "mana_leech", "marked", "doomed"
+    );
     private final double x;
     private final double y;
     private final double z;
@@ -54,8 +61,14 @@ public class BuffParticlePacket {
         double x = buf.readDouble();
         double y = buf.readDouble();
         double z = buf.readDouble();
-        String particleName = buf.readUtf();
+        String particleName = buf.readUtf(256);
+        if (!VALID_PARTICLES.contains(particleName)) {
+            particleName = "";
+        }
         int count = buf.readInt();
+        if (count < 0 || count > MAX_PARTICLE_COUNT) {
+            count = 0;
+        }
         return new BuffParticlePacket(x, y, z, particleName, count);
     }
 

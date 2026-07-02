@@ -36,6 +36,7 @@ public class ActuarKeyPacket {
     public static void handle(ActuarKeyPacket msg, Supplier<NetworkEvent.Context> ctxSupplier) {
         NetworkEvent.Context ctx = ctxSupplier.get();
         ctx.enqueueWork(() -> {
+            if (msg.button != 1 && msg.button != 2) return;
             ServerPlayer player = ctx.getSender();
             if (player != null && player.isAlive()) {
                 // Ensure they hold Doomfist
