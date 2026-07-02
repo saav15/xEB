@@ -1,12 +1,10 @@
 package org.xeb.xeb.compat.hooks;
 
-import org.xeb.xeb.compat.CompatHook;
-import org.xeb.xeb.compat.ModCompatManager;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.EntityType;
-import net.minecraftforge.registries.ForgeRegistries;
+public class CataclysmHook extends AbstractModCompatHook {
+    public CataclysmHook() {
+        super("cataclysm");
+    }
 
-public class CataclysmHook implements CompatHook {
     @Override
     public void registerTypes() {
         // Bosses
@@ -25,16 +23,5 @@ public class CataclysmHook implements CompatHook {
         register("deepling_warlock", false);
         register("coralssus", false);
         register("amethyst_crab", false);
-    }
-
-    private void register(String name, boolean isBoss) {
-        EntityType<?> type = ForgeRegistries.ENTITY_TYPES.getValue(new ResourceLocation("cataclysm", name));
-        if (type != null) {
-            if (isBoss) {
-                ModCompatManager.registerBoss(type);
-            } else {
-                ModCompatManager.registerEligible(type);
-            }
-        }
     }
 }

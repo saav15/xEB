@@ -2,14 +2,12 @@ package org.xeb.xeb.buff.impl;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
-import org.xeb.xeb.network.BuffParticlePacket;
-import org.xeb.xeb.network.XEBNetwork;
+import org.xeb.xeb.util.BuffParticleHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraftforge.network.PacketDistributor;
 
 import java.util.UUID;
 
@@ -83,8 +81,7 @@ public class MegaBuff extends EliteBuff {
     @Override
     public void onServerTick(LivingEntity entity, ServerLevel level) {
         if (entity.tickCount % 8 == 0) {
-            BuffParticlePacket packet = new BuffParticlePacket(entity.getX(), entity.getY(), entity.getZ(), "mega", 1);
-            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), packet);
+            BuffParticleHelper.sendParticles(entity, "mega", 1);
         }
     }
 }

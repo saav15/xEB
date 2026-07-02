@@ -6,8 +6,8 @@ import org.xeb.xeb.effect.ManaLeechEffect;
 import org.xeb.xeb.mana.ManaManager;
 import org.xeb.xeb.medallion.MedallionData;
 import org.xeb.xeb.medallion.MedallionManager;
-import org.xeb.xeb.network.BuffParticlePacket;
 import org.xeb.xeb.network.XEBNetwork;
+import org.xeb.xeb.util.BuffParticleHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
@@ -197,8 +197,7 @@ public class BuffTickHandler {
                             net.minecraft.sounds.SoundEvents.BEACON_ACTIVATE,
                             net.minecraft.sounds.SoundSource.PLAYERS, 0.5F, 1.5F);
                     // Send particle packet for restoration
-                    BuffParticlePacket packet = new BuffParticlePacket(player.getX(), player.getY(), player.getZ(), "revival", 15);
-                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player), packet);
+                    BuffParticleHelper.sendParticles(player, "revival", 15);
                     
                     // Re-apply shield immediately now that cooldown has ended
                     if (hasMantle) {

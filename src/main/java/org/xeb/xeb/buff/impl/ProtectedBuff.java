@@ -3,11 +3,8 @@ package org.xeb.xeb.buff.impl;
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
 import org.xeb.xeb.effect.ModEffects;
-import org.xeb.xeb.medallion.MedallionData;
-import org.xeb.xeb.medallion.MedallionManager;
-import org.xeb.xeb.medallion.MedallionType;
-import org.xeb.xeb.network.BuffParticlePacket;
-import org.xeb.xeb.network.XEBNetwork;
+import org.xeb.xeb.util.BuffParticleHelper;
+import org.xeb.xeb.util.MedallionTierHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -18,7 +15,6 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import net.minecraftforge.network.PacketDistributor;
 
 import java.util.UUID;
 
@@ -96,20 +92,11 @@ public class ProtectedBuff extends EliteBuff {
             // Absorb the full hit!
             tag.putInt(HOLY_SHIELD_KEY, 0);
 
-            // Determine cooldown based on medallion tier
-            MedallionType tier = MedallionType.COMMON; // default fallback
-            for (MedallionData m : MedallionManager.getMedallions(entity)) {
-                if (m.getBuff().getId().equals(this.getId())) {
-                    tier = m.getTier();
-                    break;
-                }
-            }
-
-            int cooldownTicks = switch (tier) {
+            int cooldownTicks = MedallionTierHelper.getTierValue(entity, this.getId(), tier -> switch (tier) {
                 case COMMON -> 600;      // Bronze: 30 seconds
                 case RARE -> 400;        // Silver: 20 seconds
                 case LEGENDARY -> 200;   // Gold: 10 seconds
-            };
+            }, 600);
 
             tag.putInt("xebHolyShieldRegenTimer", cooldownTicks);
             entity.removeEffect(ModEffects.HOLY_SHIELD.get());
@@ -121,11 +108,7 @@ public class ProtectedBuff extends EliteBuff {
             event.setAmount(0.0F);
             event.setCanceled(true);
             
-            // Spawn totem style particles
-            if (!entity.level().isClientSide()) {
-                BuffParticlePacket packet = new BuffParticlePacket(entity.getX(), entity.getY(), entity.getZ(), "revival", 15);
-                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), packet);
-            }
+            BuffParticleHelper.sendParticles(entity, "revival", 15);
         }
     }
 }
