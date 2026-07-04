@@ -35,12 +35,7 @@ public class BrassKnucklesGeoRenderer extends GeoItemRenderer<BrassKnucklesItem>
     public BrassKnucklesGeoRenderer() {
         super(new BrassKnucklesGeoModel());
     }
-    @Override
-    public void preRender(com.mojang.blaze3d.vertex.PoseStack poseStack, BrassKnucklesItem animatable, software.bernie.geckolib.cache.object.BakedGeoModel model, net.minecraft.client.renderer.MultiBufferSource bufferSource, com.mojang.blaze3d.vertex.VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
-        super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, red, green, blue, alpha);
-        // Cancel GeckoLib's hardcoded (0.5F, 0.51F, 0.5F) translation to let Blockbench JSON display transforms work correctly
-        poseStack.translate(-0.5F, -0.51F, -0.5F);
-    }
+
     @Override
     public RenderType getRenderType(BrassKnucklesItem animatable, ResourceLocation texture,
             MultiBufferSource bufferSource, float partialTick) {

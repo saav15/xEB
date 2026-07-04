@@ -13,7 +13,7 @@ public class TinfoilHatGeoModel extends GeoModel<TinfoilHatItem> {
 
     @Override
     public ResourceLocation getTextureResource(TinfoilHatItem animatable) {
-        return new ResourceLocation(Xeb.MODID, "textures/item/tinfoil_hat.png");
+        return new ResourceLocation(Xeb.MODID, "textures/entity/tinfoil_hat.png");
     }
 
     @Override

@@ -14,6 +14,13 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
+import software.bernie.geckolib.animatable.GeoItem;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.AnimatableManager;
+import software.bernie.geckolib.core.animation.AnimationController;
+import software.bernie.geckolib.core.animation.RawAnimation;
+import software.bernie.geckolib.util.GeckoLibUtil;
+import java.util.function.Consumer;
 
 import java.util.List;
 
@@ -30,7 +37,7 @@ import java.util.List;
  * Activa 1 (Cyclone Push): Laser beam that pushes the player in the opposite direction.
  * Activa 2 (Gene Splice): Chain laser that jumps between nearby entities.
  */
-public class OpticBlastItem extends Item {
+public class OpticBlastItem extends Item implements GeoItem {
 
     // ── Energy Resource System ──────────────────────────────────────────────────
     /** Maximum energy the weapon can hold. */
@@ -60,8 +67,45 @@ public class OpticBlastItem extends Item {
     /** Gene Splice max duration: 3 seconds. */
     public static final int GENE_SPLICE_DURATION = 60;
 
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+
     public OpticBlastItem(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "controller", 5, event -> {
+            // If the controller is currently playing glare, let it finish.
+            if (event.getController().getCurrentAnimation() != null && event.getController().getCurrentAnimation().animation().name().equals("glare")) {
+                return software.bernie.geckolib.core.object.PlayState.CONTINUE;
+            }
+            // 0.5% chance per tick (on average once every 10 seconds / 200 ticks) to play glare randomly
+            if (Math.random() < 0.005) {
+                return event.setAndContinue(RawAnimation.begin().thenPlay("glare").thenLoop("idle"));
+            }
+            return event.setAndContinue(RawAnimation.begin().thenLoop("idle"));
+        }));
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+
+    @Override
+    public void initializeClient(Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+        consumer.accept(new net.minecraftforge.client.extensions.common.IClientItemExtensions() {
+            private org.xeb.xeb.client.renderer.OpticBlastGeoRenderer renderer;
+
+            @Override
+            public net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (this.renderer == null) {
+                    this.renderer = new org.xeb.xeb.client.renderer.OpticBlastGeoRenderer();
+                }
+                return this.renderer;
+            }
+        });
     }
 
     @Override

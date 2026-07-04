@@ -54,7 +54,8 @@ public class TinfoilHatItem extends ArmorItem implements GeoItem {
                         @Override
                         public void preRender(com.mojang.blaze3d.vertex.PoseStack poseStack, TinfoilHatItem animatable, software.bernie.geckolib.cache.object.BakedGeoModel model, net.minecraft.client.renderer.MultiBufferSource bufferSource, com.mojang.blaze3d.vertex.VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
                             super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, red, green, blue, alpha);
-                            poseStack.translate(-0.5F, -0.51F, -0.5F);
+                            // Shift the 3D armor model down to the block origin (since it is defined at head level Y=33.7)
+                            poseStack.translate(0.0F, -2.10625F, 0.0F);
                         }
                     };
                 }

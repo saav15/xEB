@@ -18,4 +18,13 @@ public class TinfoilHatGeoRenderer extends GeoArmorRenderer<TinfoilHatItem> {
         return this.model.getBone("bone").orElse(null);
     }
 
+    @Override
+    protected void applyBaseTransformations(HumanoidModel<?> baseModel) {
+        super.applyBaseTransformations(baseModel);
+        if (this.head != null) {
+            // Shift the hat slightly up (Y axis is inverted, so subtracting moves it up) to not cover the eyes
+            this.head.setPosY(this.head.getPosY() - 3.0F);
+        }
+    }
+
 }
