@@ -30,43 +30,172 @@ public class XebCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
             Commands.literal("xeb")
-                .requires(source -> source.hasPermission(2)) // Require OP permission level 2 (same as summon)
+                // Root is public, specific sub-commands require permissions
                 .then(
-                    Commands.argument("entity", ResourceLocationArgument.id())
-                        .suggests((ctx, builder) -> {
-                            for (ResourceLocation key : ForgeRegistries.ENTITY_TYPES.getKeys()) {
-                                builder.suggest(key.toString());
-                            }
-                            return builder.buildFuture();
-                        })
-                        .executes(ctx -> executeSpawn(ctx, ""))
+                    Commands.literal("summon")
+                        .requires(source -> source.hasPermission(2)) // Admin only
                         .then(
-                            Commands.argument("medallions", StringArgumentType.greedyString())
+                            Commands.argument("entity", ResourceLocationArgument.id())
                                 .suggests((ctx, builder) -> {
-                                    String input = builder.getRemaining();
-                                    int lastSpace = input.lastIndexOf(' ');
-                                    String prefix = lastSpace == -1 ? "" : input.substring(0, lastSpace + 1);
-                                    String lastWord = lastSpace == -1 ? input : input.substring(lastSpace + 1);
-
-                                    for (EliteBuff buff : EliteBuffRegistry.getAll()) {
-                                        String bSuggest = "b," + buff.getId();
-                                        String sSuggest = "s," + buff.getId();
-                                        String gSuggest = "g," + buff.getId();
-
-                                        if (bSuggest.startsWith(lastWord)) {
-                                            builder.suggest(prefix + bSuggest);
-                                        }
-                                        if (sSuggest.startsWith(lastWord)) {
-                                            builder.suggest(prefix + sSuggest);
-                                        }
-                                        if (gSuggest.startsWith(lastWord)) {
-                                            builder.suggest(prefix + gSuggest);
-                                        }
+                                    for (ResourceLocation key : ForgeRegistries.ENTITY_TYPES.getKeys()) {
+                                        builder.suggest(key.toString());
                                     }
                                     return builder.buildFuture();
                                 })
-                                .executes(ctx -> executeSpawn(ctx, StringArgumentType.getString(ctx, "medallions")))
+                                .executes(ctx -> executeSpawn(ctx, ""))
+                                .then(
+                                    Commands.argument("medallions", StringArgumentType.greedyString())
+                                        .suggests((ctx, builder) -> {
+                                            String input = builder.getRemaining();
+                                            int lastSpace = input.lastIndexOf(' ');
+                                            String prefix = lastSpace == -1 ? "" : input.substring(0, lastSpace + 1);
+                                            String lastWord = lastSpace == -1 ? input : input.substring(lastSpace + 1);
+
+                                            for (EliteBuff buff : EliteBuffRegistry.getAll()) {
+                                                String bSuggest = "bronze" + buff.getId();
+                                                String sSuggest = "silver" + buff.getId();
+                                                String gSuggest = "golden" + buff.getId();
+
+                                                if (bSuggest.startsWith(lastWord)) {
+                                                    builder.suggest(prefix + bSuggest);
+                                                }
+                                                if (sSuggest.startsWith(lastWord)) {
+                                                    builder.suggest(prefix + sSuggest);
+                                                }
+                                                if (gSuggest.startsWith(lastWord)) {
+                                                    builder.suggest(prefix + gSuggest);
+                                                }
+                                            }
+                                            return builder.buildFuture();
+                                        })
+                                        .executes(ctx -> executeSpawn(ctx, StringArgumentType.getString(ctx, "medallions")))
+                                )
                         )
+                )
+                .then(
+                    Commands.literal("elitemeter")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .then(
+                            Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                                .then(
+                                    Commands.literal("set")
+                                        .then(
+                                            Commands.argument("level", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+                                                .executes(ctx -> {
+                                                    net.minecraft.server.level.ServerPlayer player = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+                                                    int lvl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "level");
+                                                    player.getPersistentData().putInt("xebEliteMeterLevel", lvl);
+                                                    ctx.getSource().sendSuccess(() -> Component.literal("Set Elite Meter level of " + player.getScoreboardName() + " to " + lvl), true);
+                                                    return 1;
+                                                })
+                                        )
+                                )
+                                .then(
+                                    Commands.literal("get")
+                                        .executes(ctx -> {
+                                            net.minecraft.server.level.ServerPlayer player = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+                                            int lvl = MedallionManager.getEliteMeterLevel(player);
+                                            ctx.getSource().sendSuccess(() -> Component.literal("Elite Meter level of " + player.getScoreboardName() + " is " + lvl), true);
+                                            return lvl;
+                                        })
+                                )
+                                .then(
+                                    Commands.literal("add")
+                                        .then(
+                                            Commands.argument("amount", com.mojang.brigadier.arguments.IntegerArgumentType.integer())
+                                                .executes(ctx -> {
+                                                    net.minecraft.server.level.ServerPlayer player = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+                                                    int amt = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "amount");
+                                                    int current = MedallionManager.getEliteMeterLevel(player);
+                                                    int next = Math.max(1, current + amt);
+                                                    player.getPersistentData().putInt("xebEliteMeterLevel", next);
+                                                    ctx.getSource().sendSuccess(() -> Component.literal("Added " + amt + " levels. Elite Meter level of " + player.getScoreboardName() + " is now " + next), true);
+                                                    return 1;
+                                                })
+                                        )
+                                )
+                        )
+                )
+                .then(
+                    Commands.literal("permanight")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .then(
+                            Commands.literal("start")
+                                .executes(ctx -> {
+                                    net.minecraft.server.level.ServerLevel level = ctx.getSource().getLevel();
+                                    org.xeb.xeb.world.PermanightSavedData data = org.xeb.xeb.world.PermanightSavedData.get(level);
+                                    if (data.isActive()) {
+                                        ctx.getSource().sendFailure(Component.literal("Elite Permanight is already active!"));
+                                        return 0;
+                                    }
+                                    
+                                    data.setActive(true);
+                                    data.setTicksRemaining(24000);
+                                    data.setForceNextNight(false);
+                                    
+                                    level.playSound(null, level.players().isEmpty() ? 0 : level.players().get(0).getX(), 
+                                            level.players().isEmpty() ? 0 : level.players().get(0).getY(), 
+                                            level.players().isEmpty() ? 0 : level.players().get(0).getZ(), 
+                                            net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER, net.minecraft.sounds.SoundSource.WEATHER, 5.0F, 0.5F);
+                                            
+                                    level.players().forEach(p -> {
+                                        p.sendSystemMessage(Component.translatable("chat.xeb.permanight.start"));
+                                    });
+                                    
+                                    org.xeb.xeb.network.XEBNetwork.CHANNEL.send(net.minecraftforge.network.PacketDistributor.ALL.noArg(), 
+                                            new org.xeb.xeb.network.PermanightSyncPacket(true));
+                                            
+                                    ctx.getSource().sendSuccess(() -> Component.literal("Started Elite Permanight!"), true);
+                                    return 1;
+                                })
+                        )
+                        .then(
+                            Commands.literal("stop")
+                                .executes(ctx -> {
+                                    net.minecraft.server.level.ServerLevel level = ctx.getSource().getLevel();
+                                    org.xeb.xeb.world.PermanightSavedData data = org.xeb.xeb.world.PermanightSavedData.get(level);
+                                    if (!data.isActive()) {
+                                        ctx.getSource().sendFailure(Component.literal("Elite Permanight is not active!"));
+                                        return 0;
+                                    }
+                                    
+                                    data.setActive(false);
+                                    data.setTicksRemaining(0);
+                                    
+                                    org.xeb.xeb.network.XEBNetwork.CHANNEL.send(net.minecraftforge.network.PacketDistributor.ALL.noArg(), 
+                                            new org.xeb.xeb.network.PermanightSyncPacket(false));
+                                            
+                                    level.players().forEach(p -> {
+                                        p.sendSystemMessage(Component.translatable("chat.xeb.permanight.end"));
+                                    });
+                                    
+                                    ctx.getSource().sendSuccess(() -> Component.literal("Stopped Elite Permanight!"), true);
+                                    return 1;
+                                })
+                        )
+                )
+                .then(
+                    Commands.literal("elitemastery")
+                        // Public player mastery info check (requires permission 0/everyone)
+                        .executes(ctx -> {
+                            net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+                            int lvl = MedallionManager.getEliteMeterLevel(player);
+                            
+                            player.sendSystemMessage(Component.translatable("chat.xeb.mastery.info", lvl));
+                            
+                            String descKey;
+                            if (lvl >= 10) {
+                                descKey = "chat.xeb.mastery.desc.10";
+                            } else if (lvl >= 7) {
+                                descKey = "chat.xeb.mastery.desc.7";
+                            } else if (lvl >= 4) {
+                                descKey = "chat.xeb.mastery.desc.4";
+                            } else {
+                                descKey = "chat.xeb.mastery.desc.1";
+                            }
+                            player.sendSystemMessage(Component.translatable(descKey));
+                            return lvl;
+                        })
                 )
         );
     }
@@ -103,20 +232,15 @@ public class XebCommand {
                 MedallionType tier = MedallionType.LEGENDARY; // default to gold
                 String buffId = token;
 
-                if (token.contains(",")) {
-                    String[] parts = token.split(",", 2);
-                    if (parts.length == 2) {
-                        String prefix = parts[0];
-                        String rest = parts[1];
-                        if ((prefix.equals("b") || prefix.equals("s") || prefix.equals("g")) && EliteBuffRegistry.getById(rest) != null) {
-                            buffId = rest;
-                            tier = switch (prefix) {
-                                case "b" -> MedallionType.COMMON;
-                                case "s" -> MedallionType.RARE;
-                                default -> MedallionType.LEGENDARY;
-                            };
-                        }
-                    }
+                if (token.startsWith("bronze")) {
+                    tier = MedallionType.COMMON;
+                    buffId = token.substring("bronze".length());
+                } else if (token.startsWith("silver")) {
+                    tier = MedallionType.RARE;
+                    buffId = token.substring("silver".length());
+                } else if (token.startsWith("golden")) {
+                    tier = MedallionType.LEGENDARY;
+                    buffId = token.substring("golden".length());
                 }
 
                 EliteBuff buff = EliteBuffRegistry.getById(buffId);
@@ -140,7 +264,47 @@ public class XebCommand {
         level.addFreshEntityWithPassengers(living);
         MedallionManager.syncToTracking(living);
 
-        source.sendSuccess(() -> Component.literal("Spawned elite " + entityId.getPath() + " with " + medallions.size() + " custom medallions."), true);
+        // Build colored response component
+        net.minecraft.network.chat.MutableComponent feedback = Component.literal("Spawned elite ")
+                .append(Component.literal(entityId.getPath()).withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE))
+                .append(Component.literal(" with "));
+
+        if (medallions.isEmpty()) {
+            // If spawned with default random medallions, retrieve what was assigned
+            List<MedallionData> assigned = MedallionManager.getMedallions(living);
+            if (assigned.isEmpty()) {
+                feedback = feedback.append(Component.literal("no medallions").withStyle(net.minecraft.ChatFormatting.GRAY));
+            } else {
+                for (int i = 0; i < assigned.size(); i++) {
+                    MedallionData m = assigned.get(i);
+                    net.minecraft.ChatFormatting color = switch (m.getTier()) {
+                        case COMMON -> net.minecraft.ChatFormatting.GOLD; // Bronze/Orange
+                        case RARE -> net.minecraft.ChatFormatting.AQUA; // Silver/Blue
+                        default -> net.minecraft.ChatFormatting.YELLOW; // Golden/Yellow
+                    };
+                    if (i > 0) {
+                        feedback = feedback.append(", ");
+                    }
+                    feedback = feedback.append(Component.literal("[" + m.getTier().name() + " ").append(m.getBuff().getDisplayName()).append("]").withStyle(color));
+                }
+            }
+        } else {
+            for (int i = 0; i < medallions.size(); i++) {
+                MedallionData m = medallions.get(i);
+                net.minecraft.ChatFormatting color = switch (m.getTier()) {
+                    case COMMON -> net.minecraft.ChatFormatting.GOLD; // Bronze/Orange
+                    case RARE -> net.minecraft.ChatFormatting.AQUA; // Silver/Blue
+                    default -> net.minecraft.ChatFormatting.YELLOW; // Golden/Yellow
+                };
+                if (i > 0) {
+                    feedback = feedback.append(", ");
+                }
+                feedback = feedback.append(Component.literal("[" + m.getTier().name() + " ").append(m.getBuff().getDisplayName()).append("]").withStyle(color));
+            }
+        }
+
+        final Component finalFeedback = feedback;
+        source.sendSuccess(() -> finalFeedback, true);
         return 1;
     }
 }

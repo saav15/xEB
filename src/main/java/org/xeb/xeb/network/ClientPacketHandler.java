@@ -212,4 +212,8 @@ public class ClientPacketHandler {
             }
         }
     }
+
+    public static void handlePermanightSync(PermanightSyncPacket msg) {
+        org.xeb.xeb.client.PermanightClientRenderer.isPermanightActive = msg.isActive();
+    }
 }

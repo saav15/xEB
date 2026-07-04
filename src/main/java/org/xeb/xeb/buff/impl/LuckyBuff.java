@@ -18,7 +18,7 @@ import java.util.UUID;
 
 public class LuckyBuff extends EliteBuff {
     public LuckyBuff() {
-        super("lucky", "Lucky", BuffType.UNIVERSAL, 0xFFD700, 5.0D, true);
+        super("lucky", "Lucky", BuffType.UNIVERSAL, 0xFFD700, 1.0D, true);
     }
 
     @Override

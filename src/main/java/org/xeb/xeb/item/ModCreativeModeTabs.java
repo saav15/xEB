@@ -26,6 +26,8 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.HOLY_MANTLE.get());
                         output.accept(ModItems.DOOMFIST.get());
                         output.accept(ModItems.DOOMFIST_V2.get());
+                        output.accept(ModItems.MOON_TEAR.get());
+                        output.accept(ModItems.OPTIC_BLAST.get());
                     })
                     .build()
     );

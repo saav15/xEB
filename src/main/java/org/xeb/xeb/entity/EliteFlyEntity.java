@@ -108,9 +108,9 @@ public class EliteFlyEntity extends Monster implements GeoEntity {
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "controller", 0, event -> {
             if (this.onGround()) {
-                return event.setAndContinue(RawAnimation.begin().thenLoop("animation.elite_fly.stay"));
+                return event.setAndContinue(RawAnimation.begin().thenLoop("animation.stay"));
             } else {
-                return event.setAndContinue(RawAnimation.begin().thenLoop("animation.elite_fly.around"));
+                return event.setAndContinue(RawAnimation.begin().thenLoop("animation.fly"));
             }
         }));
     }

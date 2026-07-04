@@ -26,7 +26,7 @@ public class MadBuff extends EliteBuff {
     private static final UUID STACK_SPEED_UUID = UUID.fromString("fb41b716-e41c-4b68-b80c-7833de08ab44");
 
     public MadBuff() {
-        super("mad", "Mad", BuffType.ENEMY_ONLY, 0xB22222, 1.0D);
+        super("mad", "Mad", BuffType.ENEMY_ONLY, 0xB22222, 10.0D, false);
     }
 
     @Override

@@ -14,7 +14,7 @@ import java.util.List;
 
 public class PlowBuff extends EliteBuff {
     public PlowBuff() {
-        super("plow", "Plow", BuffType.ENEMY_ONLY, 0xD2691E, 2.0D);
+        super("plow", "Plow", BuffType.ENEMY_ONLY, 0xD2691E, 1.0D);
     }
 
     @Override

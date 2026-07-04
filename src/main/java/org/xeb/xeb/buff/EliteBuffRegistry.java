@@ -43,7 +43,7 @@ public class EliteBuffRegistry {
 
         double totalWeight = 0;
         for (EliteBuff buff : eligible) {
-            totalWeight += buff.getWeight();
+            totalWeight += 1.0D / buff.getWeight();
         }
 
         if (totalWeight <= 0) return null;
@@ -52,7 +52,7 @@ public class EliteBuffRegistry {
         double currentSum = 0;
 
         for (EliteBuff buff : eligible) {
-            currentSum += buff.getWeight();
+            currentSum += 1.0D / buff.getWeight();
             if (roll <= currentSum) {
                 return buff;
             }

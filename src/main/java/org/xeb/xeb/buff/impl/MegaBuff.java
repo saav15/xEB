@@ -16,7 +16,7 @@ import java.util.UUID;
 public class MegaBuff extends EliteBuff {
     // Each Mega medallion uses its own UUID — stacking gives cumulative +50% per medallion
     public MegaBuff() {
-        super("mega", "Mega", BuffType.ENEMY_ONLY, 0xFF1493, 1.0D, true);
+        super("mega", "Mega", BuffType.ENEMY_ONLY, 0xFF1493, 10.0D, true);
     }
 
     @Override

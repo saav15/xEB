@@ -16,7 +16,7 @@ import java.util.List;
 
 public class CreepyBuff extends EliteBuff {
     public CreepyBuff() {
-        super("creepy", "Creepy", BuffType.UNIVERSAL, 0x32CD32, 5.0D);
+        super("creepy", "Creepy", BuffType.UNIVERSAL, 0x32CD32, 2.0D);
     }
 
     @Override

@@ -19,7 +19,7 @@ import java.util.List;
 
 public class SandyBuff extends EliteBuff {
     public SandyBuff() {
-        super("sandy", "Sandy", BuffType.ENEMY_ONLY, 0xF4A460, 1.0D);
+        super("sandy", "Sandy", BuffType.ENEMY_ONLY, 0xF4A460, 2.0D);
     }
 
     @Override

@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public class InfestedBuff extends EliteBuff {
     public InfestedBuff() {
-        super("infested", "Infested", BuffType.ENEMY_ONLY, 0x556B2F, 1.0D);
+        super("infested", "Infested", BuffType.ENEMY_ONLY, 0x556B2F, 5.0D);
     }
 
     @Override

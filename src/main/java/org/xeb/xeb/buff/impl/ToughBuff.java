@@ -13,7 +13,7 @@ import java.util.UUID;
 
 public class ToughBuff extends EliteBuff {
     public ToughBuff() {
-        super("tough", "Tough", BuffType.UNIVERSAL, 0x696969, 10.0D, true);
+        super("tough", "Tough", BuffType.UNIVERSAL, 0x696969, 1.0D, true);
     }
 
     @Override

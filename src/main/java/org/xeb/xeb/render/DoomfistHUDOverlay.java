@@ -111,8 +111,8 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = 10;
-        int yStart = height - 42;
+        int xStart = org.xeb.xeb.Config.opticBlastHudX;
+        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
         
         GuiGraphics g = event.getGuiGraphics();
         net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
@@ -123,8 +123,8 @@ public class DoomfistHUDOverlay {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         
-        String key1 = org.xeb.xeb.client.ModKeyMappings.ACTUAR_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
-        String key2 = org.xeb.xeb.client.ModKeyMappings.ACTUAR_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         
         if (isV2) {
             // Earthquake Slam: 7s cooldown (140 ticks)
@@ -161,9 +161,19 @@ public class DoomfistHUDOverlay {
         g.fill(x + boxW - 1, y, x + boxW, y + boxH, borderColor);
         
         int keyColor = (cd > 0) ? 0x88AAAAAA : 0xFFFFFFFF;
-        int keyX = x + (boxW - mc.font.width(key)) / 2;
-        int keyY = y + (boxH - mc.font.lineHeight) / 2;
-        g.drawString(mc.font, key, keyX, keyY, keyColor, false);
+        int textWidth = mc.font.width(key);
+        if (textWidth > boxW - 2) {
+            float scale = (float) (boxW - 2) / textWidth;
+            g.pose().pushPose();
+            g.pose().translate(x + boxW / 2.0F, y + boxH / 2.0F, 0);
+            g.pose().scale(scale, scale, 1.0F);
+            g.drawString(mc.font, key, -textWidth / 2.0F, -mc.font.lineHeight / 2.0F, keyColor, false);
+            g.pose().popPose();
+        } else {
+            int keyX = x + (boxW - textWidth) / 2;
+            int keyY = y + (boxH - mc.font.lineHeight) / 2;
+            g.drawString(mc.font, key, keyX, keyY, keyColor, false);
+        }
         
         int labelColor = (cd > 0) ? 0x44FFFFFF : 0x88FFFFFF;
         g.drawString(mc.font, label, x, y - 9, labelColor, false);

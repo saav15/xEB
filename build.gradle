@@ -138,6 +138,11 @@ repositories {
         name = 'GeckoLib'
         url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
     }
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+    }
+    mavenCentral()
 
     // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
@@ -171,6 +176,7 @@ dependencies {
 
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     implementation fg.deobf("software.bernie.geckolib:geckolib-forge-1.20.1:4.2.4")
+    compileOnly fg.deobf("maven.modrinth:jade:11.13.2+forge")
 
     // JUnit 5 & Mockito dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.3'

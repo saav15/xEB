@@ -1,0 +1,23 @@
+{
+  "parent": "xeb:root",
+  "display": {
+    "icon": {
+      "item": "xeb:moon_tear"
+    },
+    "title": {
+      "translate": "advancements.xeb.survive_permanight.title"
+    },
+    "description": {
+      "translate": "advancements.xeb.survive_permanight.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "survived": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

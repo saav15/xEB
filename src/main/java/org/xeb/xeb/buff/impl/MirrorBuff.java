@@ -12,7 +12,7 @@ import net.minecraft.world.entity.LivingEntity;
 
 public class MirrorBuff extends EliteBuff {
     public MirrorBuff() {
-        super("mirror", "Mirror", BuffType.ENEMY_ONLY, 0xC0C0C0, 1.0D, false);
+        super("mirror", "Mirror", BuffType.ENEMY_ONLY, 0xC0C0C0, 10.0D, false);
     }
 
     private int getReflectAmplifier(LivingEntity entity) {

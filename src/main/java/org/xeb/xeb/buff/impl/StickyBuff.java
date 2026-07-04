@@ -14,7 +14,7 @@ import java.util.List;
 
 public class StickyBuff extends EliteBuff {
     public StickyBuff() {
-        super("sticky", "Sticky", BuffType.UNIVERSAL, 0x2E8B57, 10.0D);
+        super("sticky", "Sticky", BuffType.UNIVERSAL, 0x2E8B57, 2.0D);
     }
 
     @Override

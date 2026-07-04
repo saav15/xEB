@@ -17,7 +17,7 @@ public class TwinBuff extends EliteBuff {
     private static final UUID TWIN_HEALTH_UUID = UUID.fromString("fb41b716-e41c-4b68-b80c-7833de08ab50");
 
     public TwinBuff() {
-        super("twin", "Twin", BuffType.UNIVERSAL, 0x9400D3, 1.0D, false);
+        super("twin", "Twin", BuffType.UNIVERSAL, 0x9400D3, 10.0D, false);
     }
 
     @Override

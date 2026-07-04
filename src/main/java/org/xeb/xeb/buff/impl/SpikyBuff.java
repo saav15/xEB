@@ -8,23 +8,45 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import java.util.UUID;
 
 public class SpikyBuff extends EliteBuff {
     private static final String THORNS_KEY = "xebThornsAmount";
+    private static final String SPIKY_COUNT_KEY = "xebSpikyCount";
 
     public SpikyBuff() {
-        super("spiky", "Spiky", BuffType.UNIVERSAL, 0x8B4513, 10.0D);
+        super("spiky", "Spiky", BuffType.UNIVERSAL, 0x8B4513, 2.0D, true);
     }
 
     @Override
-    public void onAttach(LivingEntity entity) {
-        int amount = MedallionManager.isBoss(entity) ? 1 : 2;
-        entity.getPersistentData().putInt(THORNS_KEY, amount);
+    public void onAttach(LivingEntity entity) {}
+
+    @Override
+    public void onAttach(LivingEntity entity, UUID medallionId) {
+        CompoundTag tag = entity.getPersistentData();
+        int count = tag.contains(SPIKY_COUNT_KEY) ? tag.getInt(SPIKY_COUNT_KEY) : 0;
+        count++;
+        tag.putInt(SPIKY_COUNT_KEY, count);
+        
+        int baseAmount = MedallionManager.isBoss(entity) ? 1 : 2;
+        tag.putInt(THORNS_KEY, baseAmount * count);
     }
 
     @Override
-    public void onDetach(LivingEntity entity) {
-        entity.getPersistentData().remove(THORNS_KEY);
+    public void onDetach(LivingEntity entity) {}
+
+    @Override
+    public void onDetach(LivingEntity entity, UUID medallionId) {
+        CompoundTag tag = entity.getPersistentData();
+        int count = tag.contains(SPIKY_COUNT_KEY) ? tag.getInt(SPIKY_COUNT_KEY) - 1 : 0;
+        if (count <= 0) {
+            tag.remove(THORNS_KEY);
+            tag.remove(SPIKY_COUNT_KEY);
+        } else {
+            tag.putInt(SPIKY_COUNT_KEY, count);
+            int baseAmount = MedallionManager.isBoss(entity) ? 1 : 2;
+            tag.putInt(THORNS_KEY, baseAmount * count);
+        }
     }
 
     @Override

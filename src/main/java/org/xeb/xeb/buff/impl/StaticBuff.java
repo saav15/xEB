@@ -18,7 +18,7 @@ public class StaticBuff extends EliteBuff {
     private static final String PREV_Z = "xebPrevZ";
 
     public StaticBuff() {
-        super("static", "Static", BuffType.UNIVERSAL, 0xFFFF00, 5.0D);
+        super("static", "Static", BuffType.UNIVERSAL, 0xFFFF00, 2.0D);
     }
 
     @Override

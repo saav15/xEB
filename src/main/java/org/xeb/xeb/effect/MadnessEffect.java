@@ -40,7 +40,6 @@ public class MadnessEffect extends MobEffect {
         org.xeb.xeb.boss.BossTargetCandidateExpander.tick(mob);
         org.xeb.xeb.boss.FrozenBossRecoverySystem.tick(mob);
 
-        boolean isBoss = org.xeb.xeb.compat.ModCompatManager.isBoss(mob);
         double range = 16.0D + amplifier * 4.0D;
         AABB searchBox = mob.getBoundingBox().inflate(range);
         List<LivingEntity> potentialTargets = mob.level().getEntitiesOfClass(LivingEntity.class, searchBox,
@@ -50,14 +49,6 @@ public class MadnessEffect extends MobEffect {
                     if (org.xeb.xeb.boss.UniversalBossDetector.isBlacklisted(target)) return false;
                     if (org.xeb.xeb.boss.TargetRejectionBuffer.isRejected(mob, target.getId())) return false;
 
-                    if (isBoss) {
-                        if (org.xeb.xeb.boss.BossTargetCandidateExpander.shouldAttackAllMobs(mob)) {
-                            return true;
-                        }
-                        return target instanceof net.minecraft.world.entity.player.Player ||
-                               org.xeb.xeb.compat.ModCompatManager.isBoss(target) ||
-                               !org.xeb.xeb.medallion.MedallionManager.getMedallions(target).isEmpty();
-                    }
                     return true;
                 });
 

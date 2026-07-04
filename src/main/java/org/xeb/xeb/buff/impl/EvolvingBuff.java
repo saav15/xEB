@@ -21,7 +21,7 @@ public class EvolvingBuff extends EliteBuff {
     private static final String TICKS_KEY = "xebEvolvingTicks";
 
     public EvolvingBuff() {
-        super("evolving", "Evolving", BuffType.ENEMY_ONLY, 0x7B68EE, 1.0D);
+        super("evolving", "Evolving", BuffType.ENEMY_ONLY, 0x7B68EE, 10.0D, false);
     }
 
     @Override
@@ -47,12 +47,25 @@ public class EvolvingBuff extends EliteBuff {
                 List<String> excludeIds = new ArrayList<>();
                 excludeIds.add(this.getId());
                 for (MedallionData m : current) {
-                    excludeIds.add(m.getBuff().getId());
+                    if (!m.getBuff().isStackable()) {
+                        excludeIds.add(m.getBuff().getId());
+                    }
                 }
+                excludeIds.addAll(MedallionManager.getConflictingBuffIds(current));
 
                 EliteBuff newBuff = EliteBuffRegistry.getRandomByWeight(entity.getRandom(), MedallionManager.isBoss(entity), excludeIds);
                 if (newBuff != null) {
                     MedallionManager.attachMedallion(entity, new MedallionData(newBuff, MedallionType.COMMON, UUID.randomUUID()));
+
+                    // Check for evolved_champion advancement
+                    List<MedallionData> updated = MedallionManager.getMedallions(entity);
+                    if (updated.size() >= 5) {
+                        level.getEntitiesOfClass(net.minecraft.world.entity.player.Player.class, entity.getBoundingBox().inflate(32.0D)).forEach(player -> {
+                            if (player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                                org.xeb.xeb.event.MedallionSpawnHandler.grantAdvancement(sp, "xeb:evolved_champion");
+                            }
+                        });
+                    }
 
                     // Particles
                     BuffParticlePacket packet = new BuffParticlePacket(entity.getX(), entity.getY(), entity.getZ(), "evolve", 15);

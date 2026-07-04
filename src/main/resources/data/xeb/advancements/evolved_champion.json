@@ -1,0 +1,23 @@
+{
+  "parent": "xeb:root",
+  "display": {
+    "icon": {
+      "item": "xeb:demon_core"
+    },
+    "title": {
+      "translate": "advancements.xeb.evolved_champion.title"
+    },
+    "description": {
+      "translate": "advancements.xeb.evolved_champion.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "witnessed": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

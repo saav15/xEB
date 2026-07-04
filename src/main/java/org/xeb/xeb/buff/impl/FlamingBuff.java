@@ -18,7 +18,7 @@ import net.minecraftforge.network.PacketDistributor;
 
 public class FlamingBuff extends EliteBuff {
     public FlamingBuff() {
-        super("flaming", "Flaming", BuffType.UNIVERSAL, 0xFF4500, 5.0D, false);
+        super("flaming", "Flaming", BuffType.UNIVERSAL, 0xFF4500, 2.0D, false);
     }
 
     @Override

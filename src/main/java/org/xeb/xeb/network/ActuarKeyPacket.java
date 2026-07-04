@@ -49,12 +49,62 @@ public class ActuarKeyPacket {
                         || player.getItemInHand(InteractionHand.OFF_HAND).is(ModItems.DOOMFIST.get());
                 boolean holdsV2 = player.getItemInHand(InteractionHand.MAIN_HAND).is(ModItems.DOOMFIST_V2.get())
                         || player.getItemInHand(InteractionHand.OFF_HAND).is(ModItems.DOOMFIST_V2.get());
+                boolean holdsOpticBlast = player.getItemInHand(InteractionHand.MAIN_HAND).is(ModItems.OPTIC_BLAST.get())
+                        || player.getItemInHand(InteractionHand.OFF_HAND).is(ModItems.OPTIC_BLAST.get());
 
-                if (!holdsV1 && !holdsV2) return;
+                if (!holdsV1 && !holdsV2 && !holdsOpticBlast) return;
 
                 long time = player.level().getGameTime();
 
-                if (holdsV1) {
+                if (holdsOpticBlast) {
+                    // Exclusivity: Don't allow using active abilities if the player is using the primary laser
+                    if (player.isUsingItem() && player.getUseItem().is(ModItems.OPTIC_BLAST.get())) {
+                        return;
+                    }
+
+                    // --- The Optic Blast Abilities ---
+                    if (msg.button == 1) {
+                        // --- Cyclone Push (Activa 1) ---
+                        if (msg.press) {
+                            long lastCyclone = player.getPersistentData().getLong("xebCyclonePushLastTime");
+                            if (time - lastCyclone < org.xeb.xeb.item.OpticBlastItem.CYCLONE_PUSH_COOLDOWN) return;
+
+                            // Don't allow while already firing Gene Splice
+                            if (player.getPersistentData().getBoolean("xebGeneSpliceFiring")) return;
+
+                            player.getPersistentData().putBoolean("xebCyclonePushFiring", true);
+                            player.getPersistentData().putBoolean("xebCyclonePushKeyHeld", true);
+                            player.getPersistentData().putInt("xebCyclonePushTicks",
+                                    org.xeb.xeb.item.OpticBlastItem.CYCLONE_PUSH_DURATION);
+
+                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                    SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.7F, 2.0F);
+                        } else {
+                            // Key released — stop Cyclone Push
+                            player.getPersistentData().putBoolean("xebCyclonePushKeyHeld", false);
+                        }
+                    } else if (msg.button == 2) {
+                        // --- Gene Splice (Activa 2) ---
+                        if (msg.press) {
+                            long lastSplice = player.getPersistentData().getLong("xebGeneSpliceLastTime");
+                            if (time - lastSplice < org.xeb.xeb.item.OpticBlastItem.GENE_SPLICE_COOLDOWN) return;
+
+                            // Don't allow while already firing Cyclone Push
+                            if (player.getPersistentData().getBoolean("xebCyclonePushFiring")) return;
+
+                            player.getPersistentData().putBoolean("xebGeneSpliceFiring", true);
+                            player.getPersistentData().putBoolean("xebGeneSpliceKeyHeld", true);
+                            player.getPersistentData().putInt("xebGeneSpliceTicks",
+                                    org.xeb.xeb.item.OpticBlastItem.GENE_SPLICE_DURATION);
+
+                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                    SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.7F, 1.5F);
+                        } else {
+                            // Key released — stop Gene Splice
+                            player.getPersistentData().putBoolean("xebGeneSpliceKeyHeld", false);
+                        }
+                    }
+                } else if (holdsV1) {
                     // --- The Doomfist v1 Abilities ---
                     if (msg.button == 1) {
                         // --- Rising Uppercut ---

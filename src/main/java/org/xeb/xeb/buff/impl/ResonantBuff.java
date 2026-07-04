@@ -20,7 +20,7 @@ public class ResonantBuff extends EliteBuff {
     private static final UUID RESONANT_SPEED_UUID = UUID.fromString("fb41b716-e41c-4b68-b80c-7833de08aa03");
 
     public ResonantBuff() {
-        super("resonant", "Resonant", BuffType.ENEMY_ONLY, 0x9370DB, 1.0D);
+        super("resonant", "Resonant", BuffType.ENEMY_ONLY, 0x9370DB, 5.0D);
     }
 
     @Override

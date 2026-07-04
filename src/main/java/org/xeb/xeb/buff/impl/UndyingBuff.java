@@ -22,7 +22,7 @@ public class UndyingBuff extends EliteBuff {
     private static final String REMOVE_TIMER_KEY = "xebUndyingRemoveTimer";
 
     public UndyingBuff() {
-        super("undying", "Undying", BuffType.ENEMY_ONLY, 0x8B0000, 1.0D);
+        super("undying", "Undying", BuffType.ENEMY_ONLY, 0x8B0000, 10.0D, false);
     }
 
     @Override

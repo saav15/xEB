@@ -126,7 +126,53 @@ public class Config {
 
     public static final ForgeConfigSpec.DoubleValue TACTICAL_MULTI_TARGET_RADIUS = BUILDER
             .comment("Radius in blocks to scan for additional enemies. If >= 2 are nearby, TACTICAL mode fires.")
-            .defineInRange("betterCombat.tacticalMultiTargetRadius", 4.0, 1.0, 8.0);
+            .defineInRange("betterCombat.tacticalMultiTargetRadius", 4.0D, 1.0D, 8.0D);
+
+    // Progression Group
+    public static final ForgeConfigSpec.BooleanValue ELITE_METER_ENABLED = BUILDER
+            .comment("Whether the Elite Meter progression system is enabled.")
+            .define("progression.eliteMeterEnabled", true);
+
+    public static final ForgeConfigSpec.DoubleValue PLAYER_SCAN_RADIUS = BUILDER
+            .comment("Search radius for players around the spawning mob (in blocks).")
+            .defineInRange("progression.playerScanRadius", 64.0D, 8.0D, 256.0D);
+
+    public static final ForgeConfigSpec.IntValue BOSS_MIN_LEVEL_REQUIRED = BUILDER
+            .comment("Minimum Elite Meter level required for bosses to spawn with medallions.")
+            .defineInRange("progression.bossMinLevelRequired", 7, 1, 100);
+
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> ELITE_METER_ADVANCEMENTS = BUILDER
+            .comment("Ordered list of advancement IDs for Elite Meter level progression (levels 1 to N).")
+            .defineList("progression.eliteMeterAdvancements", java.util.List.of(
+                    "minecraft:story/root",
+                    "minecraft:story/mine_stone",
+                    "minecraft:story/smelt_iron",
+                    "minecraft:story/mine_diamond",
+                    "minecraft:story/enchant_item",
+                    "minecraft:story/enter_the_nether",
+                    "minecraft:story/obtain_blaze_rod",
+                    "minecraft:story/follow_ender_eye",
+                    "minecraft:story/enter_the_end",
+                    "minecraft:story/kill_dragon"
+            ), obj -> obj instanceof String);
+
+    // Permanight Group
+    public static final ForgeConfigSpec.BooleanValue PERMANIGHT_ENABLED = BUILDER
+            .comment("Whether the Elite Permanight random event is enabled.")
+            .define("permanight.enabled", true);
+
+    public static final ForgeConfigSpec.DoubleValue PERMANIGHT_CHANCE = BUILDER
+            .comment("Chance per night for the Elite Permanight event to trigger (0.0 to 1.0).")
+            .defineInRange("permanight.triggerChance", 0.03D, 0.0D, 1.0D);
+
+    // HUD Group
+    public static final ForgeConfigSpec.IntValue OPTIC_BLAST_HUD_X = BUILDER
+            .comment("X offset of the active ability cooldowns HUD (Default 10, relative to bottom-left).")
+            .defineInRange("hud.opticBlastHudX", 10, 0, 10000);
+
+    public static final ForgeConfigSpec.IntValue OPTIC_BLAST_HUD_Y = BUILDER
+            .comment("Y offset of the active ability cooldowns HUD (Default 42, relative to bottom-left, subtracted from screen height).")
+            .defineInRange("hud.opticBlastHudY", 42, 0, 10000);
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
@@ -165,6 +211,20 @@ public class Config {
     public static double rightClickTacticalLowHpThreshold = 0.4;
     public static double tacticalMultiTargetRadius = 4.0;
 
+    // Progression config
+    public static boolean eliteMeterEnabled = true;
+    public static double playerScanRadius = 64.0D;
+    public static int bossMinLevelRequired = 7;
+    public static java.util.List<String> eliteMeterAdvancements = java.util.List.of();
+
+    // Permanight config
+    public static boolean permanightEnabled = true;
+    public static double permanightChance = 0.03D;
+
+    // HUD position config
+    public static int opticBlastHudX = 10;
+    public static int opticBlastHudY = 42;
+
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
         enabled = ENABLED.get();
@@ -201,5 +261,29 @@ public class Config {
         rightClickPeriodicCooldownTicks = RIGHT_CLICK_PERIODIC_COOLDOWN_TICKS.get();
         rightClickTacticalLowHpThreshold = RIGHT_CLICK_TACTICAL_LOW_HP_THRESHOLD.get();
         tacticalMultiTargetRadius = TACTICAL_MULTI_TARGET_RADIUS.get();
+
+        // Load progression config
+        eliteMeterEnabled = ELITE_METER_ENABLED.get();
+        playerScanRadius = PLAYER_SCAN_RADIUS.get();
+        bossMinLevelRequired = BOSS_MIN_LEVEL_REQUIRED.get();
+        // Safe cast to List<String>
+        java.util.List<?> rawList = ELITE_METER_ADVANCEMENTS.get();
+        java.util.List<String> list = new java.util.ArrayList<>();
+        if (rawList != null) {
+            for (Object obj : rawList) {
+                if (obj instanceof String s) {
+                    list.add(s);
+                }
+            }
+        }
+        eliteMeterAdvancements = list;
+
+        // Load permanight config
+        permanightEnabled = PERMANIGHT_ENABLED.get();
+        permanightChance = PERMANIGHT_CHANCE.get();
+
+        // Load HUD config
+        opticBlastHudX = OPTIC_BLAST_HUD_X.get();
+        opticBlastHudY = OPTIC_BLAST_HUD_Y.get();
     }
 }

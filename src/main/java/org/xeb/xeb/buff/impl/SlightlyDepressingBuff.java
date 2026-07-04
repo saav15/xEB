@@ -13,7 +13,7 @@ import java.util.List;
 
 public class SlightlyDepressingBuff extends EliteBuff {
     public SlightlyDepressingBuff() {
-        super("slightly_depressing", "Slightly Depressing", BuffType.UNIVERSAL, 0x708090, 5.0D);
+        super("slightly_depressing", "Slightly Depressing", BuffType.UNIVERSAL, 0x708090, 1.0D);
     }
 
     @Override

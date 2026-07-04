@@ -14,9 +14,42 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.xeb.xeb.effect.ModEffects;
 
-public class DoomfistV2Item extends Item {
+public class DoomfistV2Item extends Item implements software.bernie.geckolib.animatable.GeoItem {
+    private final software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache cache = software.bernie.geckolib.util.GeckoLibUtil.createInstanceCache(this);
+
     public DoomfistV2Item(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    public void registerControllers(software.bernie.geckolib.core.animation.AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new software.bernie.geckolib.core.animation.AnimationController<>(this, "controller", 2, event -> {
+            // Inside the BEWLR (in-hand/GUI) pipeline DataTickets.ENTITY is null, so resolve the
+            // wielder through the client render-context tracker with a local-player fallback.
+            net.minecraft.world.entity.Entity entity = event.getData(software.bernie.geckolib.constant.DataTickets.ENTITY);
+            String animName = org.xeb.xeb.client.DoomfistAnimationResolver.resolveAnimationName(entity, this);
+            return event.setAndContinue(software.bernie.geckolib.core.animation.RawAnimation.begin().thenLoop(animName));
+        }));
+    }
+
+    @Override
+    public software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+
+    @Override
+    public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+        consumer.accept(new net.minecraftforge.client.extensions.common.IClientItemExtensions() {
+            private org.xeb.xeb.client.renderer.DoomfistV2GeoRenderer renderer;
+
+            @Override
+            public net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (this.renderer == null) {
+                    this.renderer = new org.xeb.xeb.client.renderer.DoomfistV2GeoRenderer();
+                }
+                return this.renderer;
+            }
+        });
     }
 
     @Override
@@ -43,8 +76,8 @@ public class DoomfistV2Item extends Item {
     public void appendHoverText(ItemStack stack, @javax.annotation.Nullable Level level, java.util.List<net.minecraft.network.chat.Component> tooltip, net.minecraft.world.item.TooltipFlag flag) {
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc1"));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc2"));
-        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc4", net.minecraft.network.chat.Component.keybind("key.xeb.actuar_1")));
-        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc5", net.minecraft.network.chat.Component.keybind("key.xeb.actuar_2")));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc4", net.minecraft.network.chat.Component.keybind("key.xeb.activa_1")));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc5", net.minecraft.network.chat.Component.keybind("key.xeb.activa_2")));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc3"));
         super.appendHoverText(stack, level, tooltip, flag);
     }

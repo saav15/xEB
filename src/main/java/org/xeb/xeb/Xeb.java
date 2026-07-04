@@ -158,8 +158,9 @@ public class Xeb {
 
         @SubscribeEvent
         public static void registerKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
-            event.register(org.xeb.xeb.client.ModKeyMappings.ACTUAR_1_KEY);
-            event.register(org.xeb.xeb.client.ModKeyMappings.ACTUAR_2_KEY);
+            event.register(org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY);
+            event.register(org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY);
+            event.register(org.xeb.xeb.client.ModKeyMappings.ACTIVA_3_KEY);
         }
 
         @SubscribeEvent
@@ -173,11 +174,14 @@ public class Xeb {
             event.registerEntityRenderer(ModEntities.HOT_POTATO_PROJECTILE.get(),
                     net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
             event.registerEntityRenderer(ModEntities.DEMON_CORE.get(),
-                    net.minecraft.client.renderer.entity.ItemEntityRenderer::new);
+                    org.xeb.xeb.render.DemonCoreRenderer::new);
             event.registerEntityRenderer(ModEntities.WITHERFIST.get(),
                     net.minecraft.client.renderer.entity.WitherSkeletonRenderer::new);
             event.registerEntityRenderer(ModEntities.TANKWITHERFIST.get(),
                     net.minecraft.client.renderer.entity.WitherSkeletonRenderer::new);
+            // Mini-laser projectile (Optic Blast left-click)
+            event.registerEntityRenderer(ModEntities.MINI_LASER.get(),
+                    org.xeb.xeb.client.renderer.MiniLaserRenderer::new);
         }
 
         private static final java.util.Set<Object> patchedRenderers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());

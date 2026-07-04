@@ -55,6 +55,14 @@ public class ModEntities {
                     .build("tankwitherfist")
     );
 
+    public static final RegistryObject<EntityType<MiniLaserProjectileEntity>> MINI_LASER = ENTITY_TYPES.register("mini_laser",
+            () -> EntityType.Builder.<MiniLaserProjectileEntity>of(MiniLaserProjectileEntity::new, MobCategory.MISC)
+                    .sized(0.2F, 0.2F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("mini_laser")
+    );
+
     public static void register(IEventBus eventBus) {
         ENTITY_TYPES.register(eventBus);
     }

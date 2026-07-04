@@ -17,6 +17,11 @@ import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.boss.wither.WitherBoss;
 import net.minecraftforge.network.PacketDistributor;
 
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.PlayerAdvancements;
+import net.minecraft.advancements.Advancement;
+import net.minecraft.resources.ResourceLocation;
+
 import java.util.*;
 
 public class MedallionManager {
@@ -129,6 +134,95 @@ public class MedallionManager {
         }
     }
 
+
+
+    public static List<String> getConflictingBuffIds(List<MedallionData> current) {
+        List<String> conflicts = new ArrayList<>();
+        for (MedallionData m : current) {
+            String id = m.getBuff().getId();
+            switch (id) {
+                case "twin" -> {
+                    conflicts.add("undying");
+                    conflicts.add("mega");
+                }
+                case "undying" -> {
+                    conflicts.add("twin");
+                    conflicts.add("protected");
+                }
+                case "protected" -> {
+                    conflicts.add("shielded");
+                    conflicts.add("undying");
+                }
+                case "shielded" -> {
+                    conflicts.add("protected");
+                }
+                case "mirror" -> {
+                    conflicts.add("spiky");
+                    conflicts.add("resonant");
+                }
+                case "spiky" -> {
+                    conflicts.add("mirror");
+                }
+                case "resonant" -> {
+                    conflicts.add("mirror");
+                }
+            }
+        }
+        return conflicts;
+    }
+
+    public static int getEliteMeterLevel(Player player) {
+        return getEliteMeterLevel(player, true);
+    }
+
+    public static int getEliteMeterLevel(Player player, boolean includeModifiers) {
+        if (!org.xeb.xeb.Config.eliteMeterEnabled) return 10;
+
+        int manualLevel = player.getPersistentData().getInt("xebEliteMeterLevel");
+        int baseLevel = manualLevel;
+
+        if (player instanceof ServerPlayer serverPlayer) {
+            int completedCount = 0;
+            List<String> list = org.xeb.xeb.Config.eliteMeterAdvancements;
+            PlayerAdvancements advancements = serverPlayer.getAdvancements();
+            net.minecraft.server.MinecraftServer server = serverPlayer.getServer();
+            if (server != null) {
+                for (int i = 0; i < list.size(); i++) {
+                    ResourceLocation id = new ResourceLocation(list.get(i));
+                    Advancement advancement = server.getAdvancements().getAdvancement(id);
+                    if (advancement != null && advancements.getOrStartProgress(advancement).isDone()) {
+                        completedCount++;
+                    }
+                }
+            }
+            baseLevel = Math.max(manualLevel, completedCount);
+        }
+
+        // Add +2 levels if Permanight is active in this level and modifiers are enabled
+        if (includeModifiers && player.level() instanceof ServerLevel serverLevel) {
+            if (org.xeb.xeb.world.PermanightSavedData.get(serverLevel).isActive()) {
+                baseLevel += 2;
+            }
+        }
+
+        return Math.max(1, baseLevel);
+    }
+
+    public static int getProgressionMaxMedallions(int level, Difficulty difficulty) {
+        int maxByLvl = 1;
+        if (level >= 10) maxByLvl = 4;
+        else if (level >= 7) maxByLvl = 3;
+        else if (level >= 4) maxByLvl = 2;
+
+        int limitByDiff = switch (difficulty) {
+            case EASY -> 2;
+            case NORMAL -> 3;
+            default -> 4;
+        };
+
+        return Math.min(maxByLvl, limitByDiff);
+    }
+
     public static void assignRandomMedallions(LivingEntity entity, ServerLevel level) {
         if (entity.level().isClientSide()) return;
         
@@ -141,28 +235,119 @@ public class MedallionManager {
         boolean isBoss = isBoss(entity);
         RandomSource random = entity.getRandom();
 
-        double spawnChance = getSpawnChance(isBoss, difficulty);
-        if (random.nextDouble() > spawnChance) {
-            // Did not pass spawn chance check
-            return;
+        // 1. Scan for nearby players to calculate progression level
+        int targetLevel = 10; // Default when disabled
+        if (org.xeb.xeb.Config.eliteMeterEnabled) {
+            double radius = org.xeb.xeb.Config.playerScanRadius;
+            net.minecraft.world.phys.AABB searchBox = entity.getBoundingBox().inflate(radius);
+            List<Player> players = level.getEntitiesOfClass(Player.class, searchBox, p -> !p.isSpectator() && !p.isCreative());
+            
+            if (!players.isEmpty()) {
+                Player lowest = players.get(0);
+                Player highest = players.get(0);
+                int minLvl = getEliteMeterLevel(lowest);
+                int maxLvl = minLvl;
+
+                for (Player p : players) {
+                    int pLvl = getEliteMeterLevel(p);
+                    if (pLvl < minLvl) {
+                        minLvl = pLvl;
+                        lowest = p;
+                    }
+                    if (pLvl > maxLvl) {
+                        maxLvl = pLvl;
+                        highest = p;
+                    }
+                }
+
+                double roll = random.nextDouble();
+                if (roll < 0.60) {
+                    targetLevel = minLvl;
+                } else if (roll < 0.90) {
+                    Player randPlayer = players.get(random.nextInt(players.size()));
+                    targetLevel = getEliteMeterLevel(randPlayer);
+                } else {
+                    targetLevel = maxLvl;
+                }
+            } else {
+                targetLevel = 1; // Default to lvl 1 if no players nearby
+            }
         }
 
-        int maxMedallions = getMaxMedallions(isBoss, difficulty);
-        // Roll medallion count (at least 1, up to maxMedallions)
+        // 2. Gate bosses based on Elite Meter level
+        if (isBoss && org.xeb.xeb.Config.eliteMeterEnabled && targetLevel < org.xeb.xeb.Config.bossMinLevelRequired) {
+            return; // No medallions for this boss
+        }
+
+        // 3. Compute progression-based spawn chance
+        double spawnChance;
+        if (org.xeb.xeb.Config.eliteMeterEnabled) {
+            if (isBoss) {
+                spawnChance = switch (difficulty) {
+                    case EASY -> Math.min(0.60, 0.20 + targetLevel * 0.04);
+                    case NORMAL -> Math.min(0.80, 0.30 + targetLevel * 0.05);
+                    default -> Math.min(1.0, 0.40 + targetLevel * 0.06);
+                };
+            } else {
+                spawnChance = switch (difficulty) {
+                    case EASY -> Math.min(0.30, 0.05 + targetLevel * 0.02);
+                    case NORMAL -> Math.min(0.50, 0.10 + targetLevel * 0.04);
+                    default -> Math.min(0.80, 0.20 + targetLevel * 0.06);
+                };
+            }
+        } else {
+            spawnChance = getSpawnChance(isBoss, difficulty);
+        }
+
+        if (random.nextDouble() > Math.min(1.0D, spawnChance * 1.10D)) {
+            return; // Did not pass spawn chance check
+        }
+
+        // 4. Compute maximum medallion count and roll
+        int maxMedallions = org.xeb.xeb.Config.eliteMeterEnabled ?
+                getProgressionMaxMedallions(targetLevel, difficulty) :
+                getMaxMedallions(isBoss, difficulty);
+
         int count = 1;
         if (maxMedallions > 1) {
-            count = 1 + random.nextInt(maxMedallions);
+            double r = random.nextDouble();
+            if (maxMedallions == 2) {
+                count = r < 0.75 ? 1 : 2;
+            } else if (maxMedallions == 3) {
+                count = r < 0.60 ? 1 : r < 0.90 ? 2 : 3;
+            } else { // 4
+                count = r < 0.50 ? 1 : r < 0.80 ? 2 : r < 0.95 ? 3 : 4;
+            }
         }
 
         List<MedallionData> rolled = new ArrayList<>();
         List<String> excludeIds = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
-            EliteBuff buff = EliteBuffRegistry.getRandomByWeight(random, isBoss, excludeIds);
+            List<String> currentExcludes = new ArrayList<>(excludeIds);
+            currentExcludes.addAll(getConflictingBuffIds(rolled));
+
+            // Dynamically exclude buffs that are too difficult for the current Elite Meter level
+            if (org.xeb.xeb.Config.eliteMeterEnabled) {
+                for (EliteBuff b : EliteBuffRegistry.getAll()) {
+                    double diff = b.getWeight(); // weight parameter represents difficulty
+                    if (targetLevel <= 2 && diff > 1.0D) {
+                        currentExcludes.add(b.getId());
+                    } else if (targetLevel <= 5 && diff > 2.0D) {
+                        currentExcludes.add(b.getId());
+                    } else if (targetLevel <= 8 && diff > 5.0D) {
+                        currentExcludes.add(b.getId());
+                    }
+                }
+            }
+
+            EliteBuff buff = EliteBuffRegistry.getRandomByWeight(random, isBoss, currentExcludes);
             if (buff != null) {
-                MedallionType tier = rollTier(difficulty, random);
+                MedallionType tier = rollTier(difficulty, random, targetLevel);
                 rolled.add(new MedallionData(buff, tier, UUID.randomUUID()));
-                excludeIds.add(buff.getId());
+                if (!buff.isStackable()) {
+                    excludeIds.add(buff.getId());
+                }
             }
         }
 
@@ -171,26 +356,45 @@ public class MedallionManager {
             for (MedallionData m : rolled) {
                 m.getBuff().onAttach(entity, m.getUniqueId());
             }
-            // Refresh hitbox if any Mega medallions were assigned
             refreshDimensionsIfNeeded(entity, rolled);
             syncToTracking(entity);
         }
     }
 
-    private static MedallionType rollTier(Difficulty difficulty, RandomSource random) {
-        double roll = random.nextDouble();
-        if (difficulty == Difficulty.EASY) {
-            return MedallionType.COMMON;
-        } else if (difficulty == Difficulty.NORMAL) {
-            // 80% Common, 20% Rare
-            if (roll < 0.80) return MedallionType.COMMON;
-            return MedallionType.RARE;
-        } else { // Hard or Hardcore
-            // 60% Common, 30% Rare, 10% Legendary
-            if (roll < 0.60) return MedallionType.COMMON;
-            if (roll < 0.90) return MedallionType.RARE;
-            return MedallionType.LEGENDARY;
+    private static MedallionType rollTier(Difficulty difficulty, RandomSource random, int level) {
+        if (!org.xeb.xeb.Config.eliteMeterEnabled) {
+            double roll = random.nextDouble();
+            if (difficulty == Difficulty.EASY) {
+                return MedallionType.COMMON;
+            } else if (difficulty == Difficulty.NORMAL) {
+                if (roll < 0.80) return MedallionType.COMMON;
+                return MedallionType.RARE;
+            } else {
+                if (roll < 0.60) return MedallionType.COMMON;
+                if (roll < 0.90) return MedallionType.RARE;
+                return MedallionType.LEGENDARY;
+            }
         }
+
+        double roll = random.nextDouble();
+        double levelFactor = Math.min(1.0, (level - 1) / 9.0);
+        
+        double commonWeight = 1.0 - (0.60 * levelFactor); // 1.0 down to 0.40
+        double rareWeight = 0.40 * levelFactor;           // 0.0 up to 0.40
+        double legendaryWeight = 0.20 * levelFactor;      // 0.0 up to 0.20
+        
+        if (difficulty == Difficulty.EASY) {
+            legendaryWeight = 0.0;
+            rareWeight = rareWeight * 0.5;
+            commonWeight = 1.0 - rareWeight;
+        } else if (difficulty == Difficulty.NORMAL) {
+            legendaryWeight = legendaryWeight * 0.5;
+            commonWeight = 1.0 - rareWeight - legendaryWeight;
+        }
+        
+        if (roll < commonWeight) return MedallionType.COMMON;
+        if (roll < (commonWeight + rareWeight)) return MedallionType.RARE;
+        return MedallionType.LEGENDARY;
     }
 
     public static void copyMedallions(LivingEntity source, LivingEntity target) {

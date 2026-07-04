@@ -21,7 +21,7 @@ public class ShieldedBuff extends EliteBuff {
     private static final UUID HEALTH_PENALTY_UUID = UUID.fromString("fb41b716-e41c-4b68-b80c-7833de089999");
 
     public ShieldedBuff() {
-        super("shielded", "Shielded", BuffType.UNIVERSAL, 0x4169E1, 2.0D, true);
+        super("shielded", "Shielded", BuffType.UNIVERSAL, 0x4169E1, 5.0D, true);
     }
 
     @Override

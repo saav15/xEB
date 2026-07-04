@@ -10,7 +10,7 @@ import net.minecraftforge.event.entity.living.LivingHurtEvent;
 
 public class BouncyBuff extends EliteBuff {
     public BouncyBuff() {
-        super("bouncy", "Bouncy", BuffType.UNIVERSAL, 0xFF69B4, 5.0D);
+        super("bouncy", "Bouncy", BuffType.UNIVERSAL, 0xFF69B4, 1.0D);
     }
 
     @Override

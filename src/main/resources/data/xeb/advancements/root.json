@@ -1,0 +1,22 @@
+{
+  "display": {
+    "icon": {
+      "item": "xeb:brass_knuckles"
+    },
+    "title": {
+      "translate": "advancements.xeb.root.title"
+    },
+    "description": {
+      "translate": "advancements.xeb.root.description"
+    },
+    "background": "minecraft:textures/block/obsidian.png",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "tick": {
+      "trigger": "minecraft:tick"
+    }
+  }
+}

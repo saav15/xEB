@@ -14,7 +14,7 @@ import java.util.UUID;
 
 public class HealthyBuff extends EliteBuff {
     public HealthyBuff() {
-        super("healthy", "Healthy", BuffType.ENEMY_ONLY, 0x228B22, 5.0D, true);
+        super("healthy", "Healthy", BuffType.ENEMY_ONLY, 0x228B22, 1.0D, true);
     }
 
     @Override

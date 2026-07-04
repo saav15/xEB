@@ -17,9 +17,29 @@ import org.xeb.xeb.medallion.MedallionType;
 
 import java.util.List;
 
-public class DemonCoreEntity extends ItemEntity {
-    private int groundTicks = 0;
+import software.bernie.geckolib.animatable.GeoEntity;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.AnimatableManager;
+import software.bernie.geckolib.core.animation.AnimationController;
+import software.bernie.geckolib.core.animation.RawAnimation;
+import software.bernie.geckolib.util.GeckoLibUtil;
+
+public class DemonCoreEntity extends ItemEntity implements GeoEntity {
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+    private int ticksAlive = 0;
     private boolean playedLandedSound = false;
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "controller", 0, event -> {
+            return event.setAndContinue(RawAnimation.begin().thenLoop("open"));
+        }));
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
 
     public DemonCoreEntity(EntityType<? extends DemonCoreEntity> type, Level level) {
         super(type, level);
@@ -38,26 +58,17 @@ public class DemonCoreEntity extends ItemEntity {
         super.tick();
 
         if (!this.level().isClientSide()) {
-            // Check if it hit the ground
-            if (this.onGround()) {
-                if (!playedLandedSound) {
-                    playedLandedSound = true;
-                    // Play anvil landing sound
-                    this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                            net.minecraft.sounds.SoundEvents.ANVIL_LAND,
-                            net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 1.2F);
-                }
+            // Play landing sound when it hits the ground
+            if (this.onGround() && !playedLandedSound) {
+                playedLandedSound = true;
+                this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                        net.minecraft.sounds.SoundEvents.ANVIL_LAND,
+                        net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 1.2F);
+            }
 
-                groundTicks++;
-                if (groundTicks >= 100) { // 5 seconds (100 ticks)
-                    activate();
-                }
-            } else {
-                if (playedLandedSound) {
-                    // Reset if it somehow falls again (e.g. block under it was broken)
-                    playedLandedSound = false;
-                    groundTicks = 0;
-                }
+            ticksAlive++;
+            if (ticksAlive >= 28) { // 1.4 seconds (28 ticks)
+                activate();
             }
         }
     }

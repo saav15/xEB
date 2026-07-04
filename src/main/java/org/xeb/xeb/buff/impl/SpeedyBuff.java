@@ -12,7 +12,7 @@ import java.util.UUID;
 
 public class SpeedyBuff extends EliteBuff {
     public SpeedyBuff() {
-        super("speedy", "Speedy", BuffType.UNIVERSAL, 0x00CED1, 10.0D, true);
+        super("speedy", "Speedy", BuffType.UNIVERSAL, 0x00CED1, 1.0D, true);
     }
 
     @Override
