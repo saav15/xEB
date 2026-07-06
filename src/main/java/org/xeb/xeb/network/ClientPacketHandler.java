@@ -174,6 +174,7 @@ public class ClientPacketHandler {
                     tag.putDouble("xebSlamTargetX", msg.getTargetX());
                     tag.putDouble("xebSlamTargetY", msg.getTargetY());
                     tag.putDouble("xebSlamTargetZ", msg.getTargetZ());
+                    tag.putDouble("xebSlamStartY", living.getY()); // Store starting Y coordinate on client
                 } else if (msg.getSlamState() == 0) {
                     tag.remove("xebSlamTimer");
                     tag.remove("xebSlamState");

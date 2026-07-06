@@ -76,10 +76,16 @@ public class DoomfistItem extends Item implements software.bernie.geckolib.anima
     public void appendHoverText(ItemStack stack, @javax.annotation.Nullable Level level, java.util.List<net.minecraft.network.chat.Component> tooltip, net.minecraft.world.item.TooltipFlag flag) {
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc1"));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc2"));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc_damage"));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc4", net.minecraft.network.chat.Component.keybind("key.xeb.activa_1")));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc5", net.minecraft.network.chat.Component.keybind("key.xeb.activa_2")));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist.desc3"));
         super.appendHoverText(stack, level, tooltip, flag);
+    }
+
+    @Override
+    public net.minecraft.network.chat.Component getName(ItemStack stack) {
+        return net.minecraft.network.chat.Component.translatable(this.getDescriptionId(stack)).withStyle(net.minecraft.ChatFormatting.RED);
     }
 
     @Override
@@ -92,8 +98,7 @@ public class DoomfistItem extends Item implements software.bernie.geckolib.anima
         
         if (!level.isClientSide()) {
             // Highly satisfying sci-fi gauntlet charge-up hum sound
-            level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                    SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 1.0F, 1.2F);
+            level.playSound(null, player, SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 1.0F, 1.2F);
         }
         return InteractionResultHolder.consume(stack);
     }
@@ -102,7 +107,9 @@ public class DoomfistItem extends Item implements software.bernie.geckolib.anima
     public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
         if (entity instanceof Player player) {
             int ticksCharged = this.getUseDuration(stack) - timeLeft;
-            float chargeRatio = Math.min(50.0F, ticksCharged) / 50.0F; // Max 50 ticks (2.5s)
+            boolean empowered = player.getPersistentData().getBoolean("xebUppercutEmpoweredPunch");
+            float chargeSpeed = empowered ? 1.3F : 1.0F;
+            float chargeRatio = Math.min(50.0F, ticksCharged * chargeSpeed) / 50.0F; // Max 50 ticks (2.5s)
 
             if (!level.isClientSide()) {
                 // Apply 3-second (60 ticks) item cooldown to prevent spamming
@@ -111,8 +118,7 @@ public class DoomfistItem extends Item implements software.bernie.geckolib.anima
                 // If fully charged, give Charged Fist II for 5 seconds (amplifier 1 is level II)
                 if (chargeRatio >= 1.0F) {
                     player.addEffect(new MobEffectInstance(ModEffects.CHARGED_FIST.get(), 100, 1));
-                    level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                            SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.5F, 0.5F);
+                    level.playSound(null, player, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.5F, 0.5F);
                 }
 
                 // Activate dash state in player NBT
@@ -129,13 +135,18 @@ public class DoomfistItem extends Item implements software.bernie.geckolib.anima
                 );
 
                 // Deep rocket blast sound on release
-                level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                        SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.2F, 0.6F);
+                level.playSound(null, player, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.2F, 0.6F);
             }
 
-            // Launch the player forward
+            // Launch the player forward (with 1.3x speed/distance multiplier if empowered)
             Vec3 look = player.getLookAngle();
             double speed = 0.8D + chargeRatio * 1.6D; // Up to 2.4 blocks/tick
+            if (empowered) {
+                speed *= 1.3D;
+                if (!level.isClientSide()) {
+                    player.getPersistentData().remove("xebUppercutEmpoweredPunch");
+                }
+            }
             Vec3 motion = new Vec3(look.x * speed, look.y * speed * 0.5D + 0.2D, look.z * speed);
             player.setDeltaMovement(motion);
             player.hurtMarked = true; // Sync velocity to client

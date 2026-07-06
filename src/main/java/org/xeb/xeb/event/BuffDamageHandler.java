@@ -47,6 +47,7 @@ public class BuffDamageHandler {
         // Sets the weapon effective base to 14: scales current damage proportionally
         // so BetterCombat swing multipliers and combos still apply on top.
         if (event.getSource().getEntity() instanceof net.minecraft.world.entity.player.Player attackerPlayer && !attackerPlayer.level().isClientSide()) {
+            org.xeb.xeb.item.QuantumCatBarrageItem.recordDamageDealt(attackerPlayer, event.getAmount());
             if (attackerPlayer.getMainHandItem().is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get())) {
                 net.minecraft.nbt.CompoundTag tag = attackerPlayer.getPersistentData();
                 if (tag.getBoolean("xebUltraCharged")) {

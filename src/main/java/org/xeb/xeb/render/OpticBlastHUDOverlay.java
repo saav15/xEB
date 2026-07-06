@@ -344,6 +344,11 @@ public class OpticBlastHUDOverlay {
         // Gene Splice icon
         renderAbilityBox(g, mc, xStart + boxW + spacing, yStart, key2, "GENE", spliceCD,
                 OpticBlastItem.GENE_SPLICE_COOLDOWN, spliceFiring, time);
+
+        // Ultimate Curio box
+        if (org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player)) {
+            DoomfistHUDOverlay.renderUltimateBox(g, mc, player, screenH);
+        }
     }
 
     private static void renderAbilityBox(GuiGraphics g, Minecraft mc, int x, int y,

@@ -28,5 +28,15 @@ public class XEBNetwork {
         CHANNEL.registerMessage(id++, OpticBlastBeamPacket.class, OpticBlastBeamPacket::encode, OpticBlastBeamPacket::decode, OpticBlastBeamPacket::handle);
         CHANNEL.registerMessage(id++, OpticBlastEnergySyncPacket.class, OpticBlastEnergySyncPacket::encode, OpticBlastEnergySyncPacket::decode, OpticBlastEnergySyncPacket::handle);
         CHANNEL.registerMessage(id++, OpticBlastChainBeamPacket.class, OpticBlastChainBeamPacket::encode, OpticBlastChainBeamPacket::decode, OpticBlastChainBeamPacket::handle);
+        CHANNEL.registerMessage(id++, GoldenFlowerSyncPacket.class, GoldenFlowerSyncPacket::encode, GoldenFlowerSyncPacket::decode, GoldenFlowerSyncPacket::handle);
+        CHANNEL.registerMessage(id++, GoldenFlowerDanceStartPacket.class, GoldenFlowerDanceStartPacket::encode, GoldenFlowerDanceStartPacket::decode, GoldenFlowerDanceStartPacket::handle);
+        CHANNEL.registerMessage(id++, GoldenFlowerDanceStrikePacket.class, GoldenFlowerDanceStrikePacket::encode, GoldenFlowerDanceStrikePacket::decode, GoldenFlowerDanceStrikePacket::handle);
+        CHANNEL.registerMessage(id++, JaronaDashPacket.class, JaronaDashPacket::encode, JaronaDashPacket::decode, JaronaDashPacket::handle);
+        CHANNEL.registerMessage(id++, GoldenFlowerDanceReturnPacket.class, GoldenFlowerDanceReturnPacket::encode, GoldenFlowerDanceReturnPacket::decode, GoldenFlowerDanceReturnPacket::handle);
+        CHANNEL.registerMessage(id++, CrazyDiamondAttackPacket.class, CrazyDiamondAttackPacket::encode, CrazyDiamondAttackPacket::decode, CrazyDiamondAttackPacket::handle);
+        CHANNEL.registerMessage(id++, CrazyDiamondSyncPacket.class, CrazyDiamondSyncPacket::encode, CrazyDiamondSyncPacket::decode, CrazyDiamondSyncPacket::handle);
+        CHANNEL.registerMessage(id++, BrimstoneBeamPacket.class, BrimstoneBeamPacket::encode, BrimstoneBeamPacket::decode, BrimstoneBeamPacket::handle);
+        CHANNEL.registerMessage(id++, TearsLeftClickPacket.class, TearsLeftClickPacket::encode, TearsLeftClickPacket::decode, TearsLeftClickPacket::handle);
+        CHANNEL.registerMessage(id++, TearsSyncPacket.class, TearsSyncPacket::encode, TearsSyncPacket::decode, TearsSyncPacket::handle);
     }
 }

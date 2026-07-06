@@ -27,10 +27,51 @@ public class DoomfistHUDOverlay {
             ItemStack offHand = player.getOffhandItem();
             boolean holdsV1 = mainHand.is(org.xeb.xeb.item.ModItems.DOOMFIST.get()) || offHand.is(org.xeb.xeb.item.ModItems.DOOMFIST.get());
             boolean holdsV2 = mainHand.is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get()) || offHand.is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get());
+            boolean holdsOptic = mainHand.is(org.xeb.xeb.item.ModItems.OPTIC_BLAST.get()) || offHand.is(org.xeb.xeb.item.ModItems.OPTIC_BLAST.get());
+            boolean holdsFlower = mainHand.is(org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get()) || offHand.is(org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get());
+            boolean holdsCD = mainHand.is(org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get()) || offHand.is(org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get());
+            boolean holdsTears = mainHand.is(org.xeb.xeb.item.ModItems.THE_TEARS.get()) || offHand.is(org.xeb.xeb.item.ModItems.THE_TEARS.get());
+            boolean hasUltimate = org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player);
             
             if (holdsV1 || holdsV2) {
                 renderAbilityCooldowns(event, mc, player, holdsV2);
                 renderDamageMitigationFlash(event, mc, player);
+                if (hasUltimate) {
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                }
+            } else if (holdsCD) {
+                renderCrazyDiamondAbilityCooldowns(event, mc, player);
+                renderCrazyDiamondFistCharges(event, mc, player);
+                if (hasUltimate) {
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                }
+            } else if (holdsTears) {
+                renderTheTearsAbilityCooldowns(event, mc, player);
+                if (hasUltimate) {
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                }
+            } else if (!holdsOptic && !holdsFlower && !holdsCD && !holdsTears && hasUltimate) {
+                renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+            }
+
+            // Render height-based extra damage indicator during active Seismic Slam (V1)
+            if (holdsV1 && player.getPersistentData().getInt("xebSlamState") == 2 && player.getPersistentData().contains("xebSlamStartY")) {
+                double startY = player.getPersistentData().getDouble("xebSlamStartY");
+                double currentY = player.getY();
+                double heightFallen = Math.max(0.0D, startY - currentY);
+                int extraDamage = (int) Math.round(heightFallen * 1.5D);
+                
+                if (extraDamage > 0) {
+                    GuiGraphics g = event.getGuiGraphics();
+                    int width = event.getWindow().getGuiScaledWidth();
+                    int height = event.getWindow().getGuiScaledHeight();
+                    String text = "[ " + extraDamage + " ]";
+                    int textWidth = mc.font.width(text);
+                    int drawX = width / 2 - textWidth / 2;
+                    int drawY = height / 2 + 5; // Lowered a bit below crosshair to avoid overlap
+                    
+                    g.drawString(mc.font, text, drawX, drawY, 0xFFE5F5FF, true);
+                }
             }
 
             boolean isUsingV1 = player.isUsingItem() && player.getUseItem().is(org.xeb.xeb.item.ModItems.DOOMFIST.get());
@@ -38,7 +79,8 @@ public class DoomfistHUDOverlay {
 
             if (isUsingV1 || isUsingV2) {
                 int ticksUsing = player.getTicksUsingItem();
-                float progress = Math.min(50.0F, ticksUsing) / 50.0F; // 2.5s = 50 ticks
+                float chargeSpeed = (isUsingV1 && player.getPersistentData().getBoolean("xebUppercutEmpoweredPunch")) ? 1.3F : 1.0F;
+                float progress = Math.min(50.0F, ticksUsing * chargeSpeed) / 50.0F; // 2.5s = 50 ticks
 
                 int width = event.getWindow().getGuiScaledWidth();
                 int height = event.getWindow().getGuiScaledHeight();
@@ -236,6 +278,290 @@ public class DoomfistHUDOverlay {
                 RenderSystem.disableBlend();
             } else {
                 tag.remove("xebBlockFlashTicks");
+            }
+        }
+    }
+
+    public static void renderUltimateBox(GuiGraphics g, Minecraft mc, Player player, int screenH) {
+        int x = org.xeb.xeb.Config.opticBlastHudX + 60;
+        int y = screenH - org.xeb.xeb.Config.opticBlastHudY;
+        
+        int boxW = 24;
+        int boxH = 24;
+        
+        g.fill(x - 1, y - 1, x + boxW + 1, y + boxH + 1, 0xFF000000);
+        g.fill(x, y, x + boxW, y + boxH, 0x44000000);
+        
+        ItemStack curioStack = new ItemStack(org.xeb.xeb.item.ModItems.QUANTUM_CAT_BARRAGE.get());
+        g.renderItem(curioStack, x + 4, y + 4);
+        
+        float cdPercent = player.getCooldowns().getCooldownPercent(org.xeb.xeb.item.ModItems.QUANTUM_CAT_BARRAGE.get(), 0.0f);
+        if (cdPercent > 0.0f) {
+            int overlayH = (int) (boxH * cdPercent);
+            g.fill(x, y + boxH - overlayH, x + boxW, y + boxH, 0x99555555);
+            
+            float secondsLeft = cdPercent * 180.0F;
+            String timerText = String.format("%d", (int) Math.ceil(secondsLeft));
+            int textW = mc.font.width(timerText);
+            g.drawString(mc.font, timerText, x + (boxW - textW) / 2, y + (boxH - mc.font.lineHeight) / 2, 0xFFFF5555, true);
+        }
+        
+        int borderColor = (cdPercent > 0.0f) ? 0x44FFFFFF : 0xBBFFFFFF;
+        g.fill(x, y, x + boxW, y + 1, borderColor);
+        g.fill(x, y + boxH - 1, x + boxW, y + boxH, borderColor);
+        g.fill(x, y, x + 1, y + boxH, borderColor);
+        g.fill(x + boxW - 1, y, x + boxW, y + boxH, borderColor);
+        
+        String key = org.xeb.xeb.client.ModKeyMappings.ACTIVA_3_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        g.drawString(mc.font, key, x + 2, y + boxH - 9, 0xFFFFFFFF, true);
+    }
+
+    private static void renderCrazyDiamondAbilityCooldowns(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player) {
+        int width = event.getWindow().getGuiScaledWidth();
+        int height = event.getWindow().getGuiScaledHeight();
+        
+        int xStart = org.xeb.xeb.Config.opticBlastHudX;
+        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
+        
+        GuiGraphics g = event.getGuiGraphics();
+        net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
+        
+        int a1CD = tag.contains("xebCDA1CooldownTicks") ? tag.getInt("xebCDA1CooldownTicks") : 0;
+        int a2CD = tag.contains("xebCDA2CooldownTicks") ? tag.getInt("xebCDA2CooldownTicks") : 0;
+        
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        
+        String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        
+        // "Dora!": max cooldown is 300 ticks (15s)
+        renderAbilityIconBox(g, mc, xStart, yStart, key1, "DORA", a1CD, 300, false);
+        // "Restore!": max cooldown is 300 ticks (15s)
+        renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "RESTO", a2CD, 300, false);
+        
+        RenderSystem.disableBlend();
+    }
+
+    private static void renderCrazyDiamondFistCharges(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player) {
+        int width = event.getWindow().getGuiScaledWidth();
+        int height = event.getWindow().getGuiScaledHeight();
+        
+        int centerX = width / 2;
+        int centerY = height / 2;
+        
+        // Honeycomb layout
+        int[][] cellPositions = {
+            {centerX + 15, centerY - 4},
+            {centerX + 23, centerY - 9},
+            {centerX + 23, centerY + 1}
+        };
+        
+        GuiGraphics g = event.getGuiGraphics();
+        net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
+        
+        int punches = tag.getInt("xebCDPunches");
+        int chargeTimer = tag.getInt("xebCDChargeTimer");
+        int activeBarrageTimer = tag.getInt("xebCDBarrageTimer");
+        
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        
+        for (int i = 0; i < 3; i++) {
+            int x = cellPositions[i][0];
+            int y = cellPositions[i][1];
+            drawHoneycombCell(g, x, y, punches, chargeTimer, i, activeBarrageTimer);
+        }
+        
+        RenderSystem.disableBlend();
+    }
+
+    private static void drawHoneycombCell(GuiGraphics g, int x, int y, int punches, int chargeTimer, int cellIndex, int activeBarrageTimer) {
+        // Border outline (black)
+        g.fill(x + 3, y,     x + 7, y + 1, 0xFF000000);
+        g.fill(x + 2, y + 1, x + 8, y + 2, 0xFF000000);
+        g.fill(x + 1, y + 2, x + 9, y + 3, 0xFF000000);
+        g.fill(x,     y + 3, x + 10, y + 5, 0xFF000000);
+        g.fill(x + 1, y + 5, x + 9, y + 6, 0xFF000000);
+        g.fill(x + 2, y + 6, x + 8, y + 7, 0xFF000000);
+        g.fill(x + 3, y + 7, x + 7, y + 8, 0xFF000000);
+        
+        // Empty inside (dark grey transparent)
+        g.fill(x + 3, y + 1, x + 7, y + 2, 0x44000000);
+        g.fill(x + 2, y + 2, x + 8, y + 3, 0x44000000);
+        g.fill(x + 1, y + 3, x + 9, y + 5, 0x44000000);
+        g.fill(x + 2, y + 5, x + 8, y + 6, 0x44000000);
+        g.fill(x + 3, y + 6, x + 7, y + 7, 0x44000000);
+        
+        boolean isCharged = cellIndex < punches;
+        boolean isCharging = cellIndex == punches && activeBarrageTimer <= 0;
+        
+        int fillColor = 0xFFFF55AA; // pink
+        int fistColor = 0xFF888888;
+        
+        if (isCharged) {
+            fistColor = 0xFFFFFFFF;
+            // Solid pink inside
+            g.fill(x + 3, y + 1, x + 7, y + 2, fillColor);
+            g.fill(x + 2, y + 2, x + 8, y + 3, fillColor);
+            g.fill(x + 1, y + 3, x + 9, y + 5, fillColor);
+            g.fill(x + 2, y + 5, x + 8, y + 6, fillColor);
+            g.fill(x + 3, y + 6, x + 7, y + 7, fillColor);
+        } else if (isCharging) {
+            fistColor = 0xFF555555;
+            float progress = Math.min(1.0F, chargeTimer / 60.0F);
+            int fillH = (int) (6 * progress); // 0 to 6 rows from bottom
+            
+            // Fill rows from bottom
+            if (fillH >= 1) g.fill(x + 3, y + 6, x + 7, y + 7, 0xFF66CCFF); // row 6
+            if (fillH >= 2) g.fill(x + 2, y + 5, x + 8, y + 6, 0xFF66CCFF); // row 5
+            if (fillH >= 3) g.fill(x + 1, y + 4, x + 9, y + 5, 0xFF66CCFF); // row 4
+            if (fillH >= 4) g.fill(x + 1, y + 3, x + 9, y + 4, 0xFF66CCFF); // row 3
+            if (fillH >= 5) g.fill(x + 2, y + 2, x + 8, y + 3, 0xFF66CCFF); // row 2
+            if (fillH >= 6) g.fill(x + 3, y + 1, x + 7, y + 2, 0xFF66CCFF); // row 1
+        }
+        
+        // Draw pixel-art fist in center
+        g.fill(x + 3, y + 2, x + 4, y + 3, fistColor);
+        g.fill(x + 6, y + 2, x + 7, y + 3, fistColor);
+        g.fill(x + 3, y + 3, x + 7, y + 5, fistColor);
+        g.fill(x + 4, y + 5, x + 6, y + 6, fistColor);
+    }
+
+    private static void renderTheTearsAbilityCooldowns(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player) {
+        int width = event.getWindow().getGuiScaledWidth();
+        int height = event.getWindow().getGuiScaledHeight();
+        
+        int xStart = org.xeb.xeb.Config.opticBlastHudX;
+        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
+        
+        GuiGraphics g = event.getGuiGraphics();
+        net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
+        
+        int a1CD = tag.contains("xebTearsA1Cooldown") ? tag.getInt("xebTearsA1Cooldown") : 0;
+        int a2CD = tag.contains("xebTearsA2Cooldown") ? tag.getInt("xebTearsA2Cooldown") : 0;
+        int imbueType = tag.contains("xebTearsImbueType") ? tag.getInt("xebTearsImbueType") : 0;
+        int imbueDur = tag.contains("xebTearsImbueDuration") ? tag.getInt("xebTearsImbueDuration") : 0;
+        
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        
+        String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        
+        // Activa 1: Playdough Cookie
+        if (imbueDur > 0) {
+            String label = "NONE";
+            int color = 0xFFFFFFFF;
+            if (imbueType == 1) { label = "PURP"; color = 0xFFB000FF; }
+            else if (imbueType == 2) { label = "WHIT"; color = 0xFFFFFFFF; }
+            else if (imbueType == 3) { label = "DARK"; color = 0xFF404040; }
+            else if (imbueType == 4) { label = "COLD"; color = 0xFF90E0FF; }
+            
+            String secsLeft = String.format("%.1fs", imbueDur / 20.0F);
+            renderAbilityIconBoxWithCustomColor(g, mc, xStart, yStart, secsLeft, label, color);
+        } else {
+            renderAbilityIconBox(g, mc, xStart, yStart, key1, "COOKI", a1CD, 300, false);
+        }
+        
+        // Activa 2: Camo Undies
+        renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "CAMO", a2CD, 400, false);
+        
+        // Circular crosshair HUD next to crosshair (dark donut green fill)
+        int centerX = width / 2;
+        int centerY = height / 2;
+        int hudX = centerX + 15;
+        int hudY = centerY - 15;
+        
+        int charge = tag.getInt("xebBrimstoneCharge");
+        boolean instant = tag.getBoolean("xebNextBrimstoneInstant");
+        int firing = tag.getInt("xebBrimstoneFiringTicks");
+        
+        // Draw base dark donut
+        drawDonut(g, hudX, hudY, 6, 2, 0x80202020);
+        
+        if (firing > 0) {
+            // Firing: pulsing green donut
+            int pulseColor = ((mc.level.getGameTime() % 10) < 5) ? 0xFF00FF00 : 0xFF00AA00;
+            drawDonut(g, hudX, hudY, 6, 2, pulseColor);
+        } else if (instant) {
+            // Next Brimstone instant: fully green donut
+            drawDonut(g, hudX, hudY, 6, 2, 0xFF00FF00);
+        } else if (charge > 0) {
+            // Charging: green clockwise fill progress
+            float progress = Math.min(1.0F, (float) charge / 80.0F);
+            drawDonutProgress(g, hudX, hudY, 6, 2, progress, 0xFF00FF00);
+        }
+        
+        // Inner colored ring wrapping the donut HUD (Playdough Cookie active element color, increases thickness towards inside)
+        if (imbueType > 0) {
+            int ringColor = 0xFFFFFFFF;
+            if (imbueType == 1) ringColor = 0xFFB000FF; // Purple
+            else if (imbueType == 2) ringColor = 0xFFFFFFFF; // White
+            else if (imbueType == 3) ringColor = 0xFF352535; // Visible dark void
+            else if (imbueType == 4) ringColor = 0xFF90E0FF; // Cold
+            
+            drawDonut(g, hudX, hudY, 4, 2, ringColor);
+        }
+        
+        RenderSystem.disableBlend();
+    }
+
+    private static void renderAbilityIconBoxWithCustomColor(GuiGraphics g, Minecraft mc, int x, int y, String key, String label, int color) {
+        int boxW = 24;
+        int boxH = 24;
+        
+        g.fill(x - 1, y - 1, x + boxW + 1, y + boxH + 1, 0xFF000000);
+        g.fill(x, y, x + boxW, y + boxH, 0x44000000);
+        
+        g.fill(x, y, x + boxW, y + 1, color);
+        g.fill(x, y + boxH - 1, x + boxW, y + boxH, color);
+        g.fill(x, y, x + 1, y + boxH, color);
+        g.fill(x + boxW - 1, y, x + boxW, y + boxH, color);
+        
+        int keyColor = 0xFFFFFFFF;
+        int textWidth = mc.font.width(key);
+        if (textWidth > boxW - 2) {
+            float scale = (float) (boxW - 2) / textWidth;
+            g.pose().pushPose();
+            g.pose().translate(x + boxW / 2.0F, y + boxH / 2.0F, 0);
+            g.pose().scale(scale, scale, 1.0F);
+            g.drawString(mc.font, key, -textWidth / 2.0F, -mc.font.lineHeight / 2.0F, keyColor, false);
+            g.pose().popPose();
+        } else {
+            int keyX = x + (boxW - textWidth) / 2;
+            int keyY = y + (boxH - mc.font.lineHeight) / 2;
+            g.drawString(mc.font, key, keyX, keyY, keyColor, false);
+        }
+        
+        g.drawString(mc.font, label, x, y - 9, color, false);
+    }
+
+    private static void drawDonut(GuiGraphics g, int cx, int cy, int radius, int thickness, int color) {
+        for (int x = -radius - thickness; x <= radius + thickness; x++) {
+            for (int y = -radius - thickness; y <= radius + thickness; y++) {
+                double dist = Math.sqrt(x*x + y*y);
+                if (dist >= radius && dist < radius + thickness) {
+                    g.fill(cx + x, cy + y, cx + x + 1, cy + y + 1, color);
+                }
+            }
+        }
+    }
+
+    private static void drawDonutProgress(GuiGraphics g, int cx, int cy, int radius, int thickness, float progress, int color) {
+        double maxAngle = progress * 2.0D * Math.PI - Math.PI / 2.0D;
+        for (int x = -radius - thickness; x <= radius + thickness; x++) {
+            for (int y = -radius - thickness; y <= radius + thickness; y++) {
+                double dist = Math.sqrt(x*x + y*y);
+                if (dist >= radius && dist < radius + thickness) {
+                    double angle = Math.atan2(y, x);
+                    if (angle < -Math.PI / 2.0D) {
+                        angle += 2.0D * Math.PI;
+                    }
+                    if (angle <= maxAngle) {
+                        g.fill(cx + x, cy + y, cx + x + 1, cy + y + 1, color);
+                    }
+                }
             }
         }
     }

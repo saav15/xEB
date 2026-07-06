@@ -28,6 +28,10 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.DOOMFIST_V2.get());
                         output.accept(ModItems.MOON_TEAR.get());
                         output.accept(ModItems.OPTIC_BLAST.get());
+                        output.accept(ModItems.GOLDEN_FLOWER.get());
+                        output.accept(ModItems.QUANTUM_CAT_BARRAGE.get());
+                        output.accept(ModItems.BROKEN_DIAMOND.get());
+                        output.accept(ModItems.THE_TEARS.get());
                     })
                     .build()
     );

@@ -42,10 +42,15 @@ public class Xeb {
         // Register configuration
         net.minecraftforge.fml.ModLoadingContext.get().registerConfig(net.minecraftforge.fml.config.ModConfig.Type.CLIENT, Config.SPEC);
 
+        // Register client config screen factory
+        net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
+                () -> () -> registerClientConfigScreen());
+
         // Register custom systems
         ModAttributes.register(modEventBus);
         ModEffects.register(modEventBus);
         ModEntities.register(modEventBus);
+        org.xeb.xeb.sound.ModSounds.register(modEventBus);
         org.xeb.xeb.item.ModItems.register(modEventBus);
         org.xeb.xeb.item.ModCreativeModeTabs.register(modEventBus);
 
@@ -53,6 +58,7 @@ public class Xeb {
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::registerEntityAttributes);
         modEventBus.addListener(this::onAttributeModification);
+        modEventBus.addListener(this::enqueueIMC);
 
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
@@ -64,6 +70,15 @@ public class Xeb {
         registerAllBuffs();
 
         LOGGER.info("xEB (xd Elite Buffs) loaded!");
+    }
+
+    private static void registerClientConfigScreen() {
+        net.minecraftforge.fml.ModLoadingContext.get().registerExtensionPoint(
+                net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory(
+                        (mc, parent) -> new org.xeb.xeb.client.gui.HUDPositionScreen(parent)
+                )
+        );
     }
 
     private void registerAllBuffs() {
@@ -114,6 +129,7 @@ public class Xeb {
         event.put(ModEntities.ELITE_FLY.get(), EliteFlyEntity.createAttributes().build());
         event.put(ModEntities.WITHERFIST.get(), org.xeb.xeb.entity.WitherfistEntity.createAttributes().build());
         event.put(ModEntities.TANKWITHERFIST.get(), org.xeb.xeb.entity.TankWitherfistEntity.createAttributes().build());
+        event.put(ModEntities.CRAZY_DIAMOND.get(), org.xeb.xeb.entity.CrazyDiamondEntity.createAttributes().build());
     }
 
     @SuppressWarnings("unchecked")
@@ -123,6 +139,22 @@ public class Xeb {
             EntityType<? extends LivingEntity> livingType = (EntityType<? extends LivingEntity>) entityType;
             if (event.has(livingType, Attributes.MAX_HEALTH)) {
                 event.add(livingType, ModAttributes.MANA.get(), 20.0D);
+            }
+        }
+    }
+
+    private void enqueueIMC(final net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent event) {
+        if (net.minecraftforge.fml.ModList.get().isLoaded("curios")) {
+            try {
+                Class<?> builderClass = Class.forName("top.theillusivec4.curios.api.SlotTypeMessage$Builder");
+                Object builder = builderClass.getConstructor(String.class).newInstance("ultimate");
+                builderClass.getMethod("size", int.class).invoke(builder, 1);
+                builderClass.getMethod("icon", net.minecraft.resources.ResourceLocation.class).invoke(builder, new net.minecraft.resources.ResourceLocation("curios", "slot/empty_charm_slot"));
+                Object message = builderClass.getMethod("build").invoke(builder);
+                net.minecraftforge.fml.InterModComms.sendTo("curios", "register_type", () -> message);
+                LOGGER.info("Successfully registered custom Curios slot 'ultimate' via IMC.");
+            } catch (Exception e) {
+                LOGGER.error("Failed to register custom Curios slot 'ultimate' via IMC", e);
             }
         }
     }
@@ -182,6 +214,16 @@ public class Xeb {
             // Mini-laser projectile (Optic Blast left-click)
             event.registerEntityRenderer(ModEntities.MINI_LASER.get(),
                     org.xeb.xeb.client.renderer.MiniLaserRenderer::new);
+            event.registerEntityRenderer(ModEntities.FLOWER_PROJECTILE.get(),
+                    org.xeb.xeb.client.renderer.FlowerProjectileRenderer::new);
+            event.registerEntityRenderer(ModEntities.FLOWER_PELLET.get(),
+                    org.xeb.xeb.client.renderer.FlowerPelletRenderer::new);
+            event.registerEntityRenderer(ModEntities.CRAZY_DIAMOND.get(),
+                    org.xeb.xeb.client.renderer.CrazyDiamondRenderer::new);
+            event.registerEntityRenderer(ModEntities.RESTORE_PROJECTILE.get(),
+                    org.xeb.xeb.client.renderer.RestoreProjectileRenderer::new);
+            event.registerEntityRenderer(ModEntities.TEARS_PROJECTILE.get(),
+                    org.xeb.xeb.client.renderer.TearsProjectileRenderer::new);
         }
 
         private static final java.util.Set<Object> patchedRenderers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
@@ -219,6 +261,7 @@ public class Xeb {
                     livingRenderer.addLayer(new MobColorOverlay<>(livingRenderer));
                     livingRenderer.addLayer(new GlowEyeOverlay<>(livingRenderer));
                     livingRenderer.addLayer(new org.xeb.xeb.render.DoomfistRenderLayer<>(livingRenderer));
+                    livingRenderer.addLayer(new org.xeb.xeb.render.OpticBlastPlayerLayer<>(livingRenderer));
                 }
             };
 

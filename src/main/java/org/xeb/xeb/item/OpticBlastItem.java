@@ -160,8 +160,7 @@ public class OpticBlastItem extends Item implements GeoItem {
 
         if (!level.isClientSide()) {
             // Beam charge-up sound
-            level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                    SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.8F, 1.8F);
+            level.playSound(null, player, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.8F, 1.8F);
         }
         return InteractionResultHolder.consume(stack);
     }
@@ -198,8 +197,7 @@ public class OpticBlastItem extends Item implements GeoItem {
             // If energy > 0: NO cooldown — player managed their resource well
 
             // Stop beam sound
-            level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                    SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.6F, 1.5F);
+            level.playSound(null, player, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.6F, 1.5F);
 
             // Notify clients to stop rendering beam
             org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
@@ -240,8 +238,7 @@ public class OpticBlastItem extends Item implements GeoItem {
 
                 player.level().addFreshEntity(laser);
 
-                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                        SoundEvents.AMETHYST_BLOCK_STEP, SoundSource.PLAYERS, 0.7F, 1.8F);
+                player.level().playSound(null, player, SoundEvents.AMETHYST_BLOCK_STEP, SoundSource.PLAYERS, 0.7F, 1.8F);
             }
         }
         return false; // Don't cancel the swing animation
@@ -251,10 +248,15 @@ public class OpticBlastItem extends Item implements GeoItem {
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.xeb.optic_blast.desc1"));
         tooltip.add(Component.translatable("item.xeb.optic_blast.desc2"));
-        tooltip.add(Component.translatable("item.xeb.optic_blast.desc3"));
+        tooltip.add(Component.translatable("item.xeb.optic_blast.desc_damage"));
         tooltip.add(Component.translatable("item.xeb.optic_blast.desc4", Component.keybind("key.xeb.activa_1")));
         tooltip.add(Component.translatable("item.xeb.optic_blast.desc5", Component.keybind("key.xeb.activa_2")));
         tooltip.add(Component.translatable("item.xeb.optic_blast.desc6"));
         super.appendHoverText(stack, level, tooltip, flag);
+    }
+
+    @Override
+    public Component getName(ItemStack stack) {
+        return Component.translatable(this.getDescriptionId(stack)).withStyle(net.minecraft.ChatFormatting.RED);
     }
 }

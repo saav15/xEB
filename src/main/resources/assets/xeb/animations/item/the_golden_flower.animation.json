@@ -1,0 +1,154 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"Idle": {
+			"loop": true,
+			"animation_length": 3.2083,
+			"bones": {
+				"Petal6": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.2083": {
+							"vector": [10, 0, 0]
+						},
+						"1.125": {
+							"vector": [0, 0, 0]
+						},
+						"2.125": {
+							"vector": [0, 0, 0]
+						}
+					}
+				},
+				"Petal": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.9167": {
+							"vector": [-20, 0, 0]
+						},
+						"1.9583": {
+							"vector": [15, 0, 0]
+						},
+						"2.8333": {
+							"vector": [0, 0, 0]
+						}
+					}
+				},
+				"Petal2": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"1.1667": {
+							"vector": [-20, 0, 0],
+							"easing": "linear"
+						},
+						"2.2083": {
+							"vector": [0, 0, 0]
+						},
+						"3.0": {
+							"vector": [0, 0, 0]
+						}
+					}
+				},
+				"Petal3": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"1.4167": {
+							"vector": [0, -10, 0],
+							"easing": "linear"
+						},
+						"2.4583": {
+							"vector": [0, 8.33, 0]
+						},
+						"3.2083": {
+							"vector": [0, 0, 0]
+						}
+					}
+				},
+				"Petal4": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.6667": {
+							"vector": [0, 10, 0]
+						},
+						"1.7083": {
+							"vector": [0, -6.67, 0]
+						},
+						"2.5417": {
+							"vector": [0, 0, 0]
+						}
+					}
+				},
+				"Petal5": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.4167": {
+							"vector": [10, 0, 0]
+						},
+						"1.4583": {
+							"vector": [-5, 0, 0]
+						},
+						"2.2917": {
+							"vector": [0, 0, 0]
+						}
+					}
+				}
+			}
+		},
+		"Wink": {
+			"loop": "hold_on_last_frame",
+			"bones": {
+				"Happy": {
+					"scale": {
+						"vector": [0.97, 0.96, 0.97]
+					}
+				},
+				"Wink": {
+					"scale": {
+						"vector": [1.08, 1.11, 1.11]
+					}
+				}
+			}
+		},
+		"Scary": {
+			"loop": true,
+			"bones": {
+				"Happy": {
+					"scale": {
+						"vector": [0.97, 0.96, 0.99]
+					}
+				},
+				"Scary": {
+					"scale": {
+						"vector": [1.08, 1.11, 1.11]
+					}
+				}
+			}
+		},
+		"Dots": {
+			"loop": true,
+			"bones": {
+				"Happy": {
+					"scale": {
+						"vector": [0.97, 0.96, 0.97]
+					}
+				},
+				"Dots": {
+					"scale": {
+						"vector": [1.08, 1.11, 1.11]
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,79 @@
+{
+	"format_version": "1.12.0",
+	"minecraft:geometry": [
+		{
+			"description": {
+				"identifier": "geometry.medallion_bronze",
+				"texture_width": 32,
+				"texture_height": 32,
+				"visible_bounds_width": 2,
+				"visible_bounds_height": 2,
+				"visible_bounds_offset": [0, 0, 0]
+			},
+			"bones": [
+				{
+					"name": "bronzeFrame",
+					"pivot": [0, 0, 0],
+					"cubes": [
+						{"origin": [-1.65, 2.5, -0.8], "size": [3.3, 1, 1.6], "uv": [0, 0]},
+						{"origin": [-1.65, -3.5, -0.8], "size": [3.3, 1, 1.6], "uv": [0, 0]},
+						{"origin": [-3.5, -1.65, -0.8], "size": [1, 3.3, 1.6], "uv": [0, 0]},
+						{"origin": [2.5, -1.65, -0.8], "size": [1, 3.3, 1.6], "uv": [0, 0]}
+					]
+				},
+				{
+					"name": "cornerTR",
+					"parent": "bronzeFrame",
+					"pivot": [2.575, 2.575, 0],
+					"rotation": [0, 0, -45],
+					"cubes": [
+						{"origin": [2.075, 1.275, -0.79], "size": [1, 2.6, 1.58], "uv": [0, 0]}
+					]
+				},
+				{
+					"name": "cornerBR",
+					"parent": "bronzeFrame",
+					"pivot": [2.575, -2.575, 0],
+					"rotation": [0, 0, 45],
+					"cubes": [
+						{"origin": [2.075, -3.875, -0.79], "size": [1, 2.6, 1.58], "uv": [0, 0]}
+					]
+				},
+				{
+					"name": "cornerBL",
+					"parent": "bronzeFrame",
+					"pivot": [-2.575, -2.575, 0],
+					"rotation": [0, 0, -45],
+					"cubes": [
+						{"origin": [-3.075, -3.875, -0.79], "size": [1, 2.6, 1.58], "uv": [0, 0]}
+					]
+				},
+				{
+					"name": "cornerTL",
+					"parent": "bronzeFrame",
+					"pivot": [-2.575, 2.575, 0],
+					"rotation": [0, 0, 45],
+					"cubes": [
+						{"origin": [-3.075, 1.275, -0.79], "size": [1, 2.6, 1.58], "uv": [0, 0]}
+					]
+				},
+				{
+					"name": "bronzeRibbon",
+					"pivot": [0, 0, 0],
+					"cubes": [
+						{"origin": [-1.5, -8.0, -0.4], "size": [1, 5, 0.8], "uv": [0, 16]},
+						{"origin": [0.5, -8.0, -0.4], "size": [1, 5, 0.8], "uv": [0, 16]}
+					]
+				},
+				{
+					"name": "icon",
+					"parent": "bronzeFrame",
+					"pivot": [0, 0, 0],
+					"cubes": [
+						{"origin": [-2.5, -2.5, 0], "size": [5, 5, 0], "uv": [0, 0]}
+					]
+				}
+			]
+		}
+	]
+}

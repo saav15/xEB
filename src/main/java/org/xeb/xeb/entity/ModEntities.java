@@ -63,6 +63,45 @@ public class ModEntities {
                     .build("mini_laser")
     );
 
+    public static final RegistryObject<EntityType<FlowerProjectileEntity>> FLOWER_PROJECTILE = ENTITY_TYPES.register("flower_projectile",
+            () -> EntityType.Builder.<FlowerProjectileEntity>of(FlowerProjectileEntity::new, MobCategory.MISC)
+                    .sized(0.25F, 0.25F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("flower_projectile")
+    );
+
+    public static final RegistryObject<EntityType<FlowerPelletEntity>> FLOWER_PELLET = ENTITY_TYPES.register("flower_pellet",
+            () -> EntityType.Builder.<FlowerPelletEntity>of(FlowerPelletEntity::new, MobCategory.MISC)
+                    .sized(0.25F, 0.25F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("flower_pellet")
+    );
+
+    public static final RegistryObject<EntityType<CrazyDiamondEntity>> CRAZY_DIAMOND = ENTITY_TYPES.register("crazy_diamond",
+            () -> EntityType.Builder.of(CrazyDiamondEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 1.8F)
+                    .clientTrackingRange(10)
+                    .build("crazy_diamond")
+    );
+
+    public static final RegistryObject<EntityType<RestoreProjectileEntity>> RESTORE_PROJECTILE = ENTITY_TYPES.register("restore_projectile",
+            () -> EntityType.Builder.<RestoreProjectileEntity>of(RestoreProjectileEntity::new, MobCategory.MISC)
+                    .sized(0.8F, 0.8F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("restore_projectile")
+    );
+
+    public static final RegistryObject<EntityType<org.xeb.xeb.entity.TearsProjectileEntity>> TEARS_PROJECTILE = ENTITY_TYPES.register("tears_projectile",
+            () -> EntityType.Builder.<org.xeb.xeb.entity.TearsProjectileEntity>of(org.xeb.xeb.entity.TearsProjectileEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 0.6F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("tears_projectile")
+    );
+
     public static void register(IEventBus eventBus) {
         ENTITY_TYPES.register(eventBus);
     }

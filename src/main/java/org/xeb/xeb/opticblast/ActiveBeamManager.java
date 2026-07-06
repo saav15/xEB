@@ -72,7 +72,7 @@ public class ActiveBeamManager {
         double closestDist = Double.MAX_VALUE;
 
         for (Map.Entry<UUID, BeamData> entry : activeBeams.entrySet()) {
-            if (entry.getKey().equals(ownerUUID)) continue; // don't collide with self
+            if (entry.getValue().getOwnerUUID().equals(ownerUUID)) continue; // don't collide with self
 
             BeamData other = entry.getValue();
             Vec3 otherStart = other.getStart();

@@ -8,11 +8,16 @@ import org.xeb.xeb.medallion.MedallionData;
 import org.xeb.xeb.medallion.MedallionManager;
 import org.xeb.xeb.network.BuffParticlePacket;
 import org.xeb.xeb.network.XEBNetwork;
+import org.xeb.xeb.network.CrazyDiamondSyncPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -29,6 +34,163 @@ public class BuffTickHandler {
         if (!org.xeb.xeb.Config.enabled) return;
         LivingEntity entity = event.getEntity();
         if (entity.level().isClientSide()) return;
+
+        // ── Golden Flower Weapon Server Ticks ──
+        if (entity instanceof net.minecraft.world.entity.player.Player player) {
+            boolean holdsFlower = player.getMainHandItem().is(org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get())
+                    || player.getOffhandItem().is(org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get());
+
+            net.minecraft.nbt.CompoundTag pData = player.getPersistentData();
+            
+            // Handle Seismic Slam absorption decay
+            if (pData.contains("xebSeismicAbsorptionTimer")) {
+                int timer = pData.getInt("xebSeismicAbsorptionTimer") - 1;
+                if (timer <= 0) {
+                    float amt = pData.getFloat("xebSeismicAbsorptionAmount");
+                    player.setAbsorptionAmount(Math.max(0.0F, player.getAbsorptionAmount() - amt));
+                    pData.remove("xebSeismicAbsorptionTimer");
+                    pData.remove("xebSeismicAbsorptionAmount");
+                } else {
+                    pData.putInt("xebSeismicAbsorptionTimer", timer);
+                }
+            }
+
+            if (!pData.contains("xebGoldenFlowerCharges")) pData.putInt("xebGoldenFlowerCharges", 6);
+            if (!pData.contains("xebGoldenFlowerRechargeTimer")) pData.putInt("xebGoldenFlowerRechargeTimer", 0);
+            if (!pData.contains("xebJaronaCharges")) pData.putInt("xebJaronaCharges", 3);
+            if (!pData.contains("xebJaronaRechargeTimer")) pData.putInt("xebJaronaRechargeTimer", 0);
+            if (!pData.contains("xebGoldenFlowerDanceCooldown")) pData.putInt("xebGoldenFlowerDanceCooldown", 0);
+            if (!pData.contains("xebFlowerDanceActive")) pData.putBoolean("xebFlowerDanceActive", false);
+            if (!pData.contains("xebFlowerDanceTicksRemaining")) pData.putInt("xebFlowerDanceTicksRemaining", 0);
+            if (!pData.contains("xebJaronaDashTicks")) pData.putInt("xebJaronaDashTicks", 0);
+
+            int charges = pData.getInt("xebGoldenFlowerCharges");
+            int rechargeTimer = pData.getInt("xebGoldenFlowerRechargeTimer");
+            int jaronaCharges = pData.getInt("xebJaronaCharges");
+            int jaronaTimer = pData.getInt("xebJaronaRechargeTimer");
+            int danceCD = pData.getInt("xebGoldenFlowerDanceCooldown");
+            boolean danceActive = pData.getBoolean("xebFlowerDanceActive");
+            int danceTicks = pData.getInt("xebFlowerDanceTicksRemaining");
+            int jaronaDashTicks = pData.getInt("xebJaronaDashTicks");
+
+            int oldCharges = charges;
+            int oldJaronaCharges = jaronaCharges;
+            int oldDanceCD = danceCD;
+
+            // Tick Dance active state
+            if (danceActive) {
+                danceTicks--;
+                pData.putInt("xebFlowerDanceTicksRemaining", danceTicks);
+                if (danceTicks <= 0) {
+                    pData.putBoolean("xebFlowerDanceActive", false);
+                    danceActive = false;
+                }
+            }
+            if (danceCD > 0) {
+                danceCD--;
+                pData.putInt("xebGoldenFlowerDanceCooldown", danceCD);
+            }
+
+            // Passive Kinetic Spikes 1 + loadedCount (Only active when actually holding the weapon)
+            if (holdsFlower && !danceActive) {
+                int loaded = pData.getInt("xebGoldenFlowerLoadedCount");
+                int amp = Math.max(0, loaded);
+                MobEffectInstance activeSpikes = player.getEffect(ModEffects.KINETIC_SPIKES.get());
+                if (activeSpikes == null || activeSpikes.getDuration() <= 20 || activeSpikes.getAmplifier() != amp) {
+                    player.addEffect(new MobEffectInstance(ModEffects.KINETIC_SPIKES.get(), 40, amp, false, false, true));
+                }
+            } else {
+                player.removeEffect(ModEffects.KINETIC_SPIKES.get());
+            }
+
+            // Passive flower recharge (every 1.5 seconds / 30 ticks) - runs in background
+            if (charges < 6) {
+                rechargeTimer++;
+                if (rechargeTimer >= 30) {
+                    charges++;
+                    rechargeTimer = 0;
+                }
+                pData.putInt("xebGoldenFlowerCharges", charges);
+                pData.putInt("xebGoldenFlowerRechargeTimer", rechargeTimer);
+            }
+
+            // Passive Jarona recharge (every 6 seconds / 120 ticks) - runs in background
+            if (jaronaCharges < 3) {
+                jaronaTimer++;
+                if (jaronaTimer >= 120) {
+                    jaronaCharges++;
+                    jaronaTimer = 0;
+                }
+                pData.putInt("xebJaronaCharges", jaronaCharges);
+                pData.putInt("xebJaronaRechargeTimer", jaronaTimer);
+            }
+
+            // Jarona dash ticks - AABB sweeps for damage
+            if (jaronaDashTicks > 0) {
+                jaronaDashTicks--;
+                pData.putInt("xebJaronaDashTicks", jaronaDashTicks);
+
+                int comboStep = pData.getInt("xebJaronaComboStep");
+                float damage = 8.0F;
+                if (comboStep == 2) damage = 14.0F;
+                else if (comboStep == 3) damage = 20.0F;
+
+                // AABB sweep in front of player
+                Vec3 eye = player.getEyePosition(1.0F);
+                Vec3 look = player.getLookAngle();
+                Vec3 center = eye.add(look.scale(1.8D));
+                net.minecraft.world.phys.AABB sweepBox = new net.minecraft.world.phys.AABB(
+                        center.x - 1.5D, center.y - 1.2D, center.z - 1.5D,
+                        center.x + 1.5D, center.y + 1.2D, center.z + 1.5D
+                );
+
+                List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, sweepBox,
+                        e -> e instanceof LivingEntity && e.isAlive() && e != player && !e.isSpectator() && e.isPickable());
+
+                if (!targets.isEmpty()) {
+                    String hitKey = "xebJaronaHitEntityIdsStep" + comboStep + "_" + pData.getLong("xebLastJaronaTime");
+                    for (LivingEntity target : targets) {
+                        String idStr = String.valueOf(target.getId());
+                        String hitList = pData.getString(hitKey);
+                        if (!hitList.contains(idStr)) {
+                            pData.putString(hitKey, hitList + "," + idStr);
+
+                            // Deal damage
+                            net.minecraft.world.damagesource.DamageSource src = player.damageSources().mobAttack(player);
+                            target.hurt(src, damage);
+
+                            // Knockback
+                            target.knockback(0.4D + (comboStep * 0.2D), -look.x, -look.z);
+
+                            // Impact sound
+                            player.level().playSound(null, target.getX(), target.getY(), target.getZ(),
+                                    SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.0F, 0.7F + (comboStep * 0.2F));
+                        }
+                    }
+                }
+            }
+
+            // Sync final state conditionally (to minimize network traffic when not holding)
+            boolean shouldSync = holdsFlower;
+            if (!holdsFlower) {
+                if (charges != oldCharges || jaronaCharges != oldJaronaCharges || (danceCD == 0 && oldDanceCD > 0)) {
+                    shouldSync = true;
+                }
+            }
+
+            if (shouldSync && player instanceof ServerPlayer serverPlayer) {
+                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                        new org.xeb.xeb.network.GoldenFlowerSyncPacket(
+                                player.getId(),
+                                charges,
+                                rechargeTimer,
+                                pData.getInt("xebGoldenFlowerLoadedCount"),
+                                jaronaCharges,
+                                jaronaTimer,
+                                danceCD
+                        ));
+            }
+        }
 
         // ── Tinfoil Hat: cure Madness, Fear, and Petrify ──
         if (org.xeb.xeb.compat.ModCompatManager.hasHelmetOrCurio(entity, org.xeb.xeb.item.ModItems.TINFOIL_HAT.get())) {
@@ -225,7 +387,7 @@ public class BuffTickHandler {
                     float chargeRatio = tag.getFloat("xebDoomfistChargeRatio");
                     net.minecraft.world.phys.AABB hitBox = player.getBoundingBox().inflate(1.2D);
                     List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, hitBox,
-                            e -> e != player && e.isAlive() && !e.isAlliedTo(player));
+                            e -> e != player && e.isAlive() && !e.isAlliedTo(player) && !(e instanceof org.xeb.xeb.entity.CrazyDiamondEntity));
 
                     if (!targets.isEmpty()) {
                         LivingEntity target = targets.get(0);
@@ -296,6 +458,7 @@ public class BuffTickHandler {
                     } else {
                         // Cast complete: raycast along crosshair, projecting down to ground if it misses
                         tag.putInt("xebSlamState", 2);
+                        tag.putDouble("xebSlamStartY", player.getY()); // Store starting Y for height damage calculations
                         net.minecraft.world.phys.Vec3 landPos = getSlamTarget(player, player.level());
                         
                         // Store target coordinates in NBT
@@ -519,6 +682,369 @@ public class BuffTickHandler {
             } else {
                 tag.remove("xebFallProtectGroundTicks");
             }
+
+            // --- Crazy Diamond Cooldowns ---
+            if (tag.contains("xebCDA1CooldownTicks")) {
+                int cd = tag.getInt("xebCDA1CooldownTicks");
+                if (cd > 0) tag.putInt("xebCDA1CooldownTicks", cd - 1);
+            }
+            if (tag.contains("xebCDA2CooldownTicks")) {
+                int cd = tag.getInt("xebCDA2CooldownTicks");
+                if (cd > 0) tag.putInt("xebCDA2CooldownTicks", cd - 1);
+            }
+
+            // --- Crazy Diamond Levitation/Slow Falling ---
+            if (tag.contains("xebCDLevitateTicks")) {
+                int levTicks = tag.getInt("xebCDLevitateTicks");
+                if (levTicks > 0) {
+                    tag.putInt("xebCDLevitateTicks", levTicks - 1);
+                    net.minecraft.world.phys.Vec3 motion = player.getDeltaMovement();
+                    if (motion.y < -0.05D) {
+                        player.setDeltaMovement(motion.x, -0.05D, motion.z);
+                        player.hurtMarked = true;
+                    }
+                    player.fallDistance = 0.0F;
+                } else {
+                    tag.remove("xebCDLevitateTicks");
+                }
+            }
+
+            // --- Crazy Diamond Barrage Ticking (Dorarara!) ---
+            if (tag.contains("xebCDBarrageTimer")) {
+                int timer = tag.getInt("xebCDBarrageTimer");
+                if (timer > 0) {
+                    tag.putInt("xebCDBarrageTimer", timer - 1);
+                    
+                    // Slow fall force
+                    Vec3 motion = player.getDeltaMovement();
+                    if (motion.y < -0.05D) {
+                        player.setDeltaMovement(motion.x, -0.05D, motion.z);
+                        player.hurtMarked = true;
+                    }
+                    player.fallDistance = 0.0F;
+
+                    // Tick damage & healing every 10 ticks (0.5s)
+                    if (timer % 10 == 0) {
+                        int N = tag.getInt("xebCDActiveBarrages");
+                        if (N > 0) {
+                            List<LivingEntity> allies = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0D),
+                                    (e) -> e != player && e.isAlive() && (player.isAlliedTo(e) || (e instanceof net.minecraft.world.entity.OwnableEntity ownable && player.getUUID().equals(ownable.getOwnerUUID()))));
+                            
+                            double searchRange = N == 1 ? 3.0D : (N == 2 ? 5.0D : 8.0D);
+                            List<LivingEntity> enemies = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(searchRange),
+                                    (e) -> e != player && e.isAlive() && !e.isAlliedTo(player) && !(e instanceof org.xeb.xeb.entity.CrazyDiamondEntity));
+                            
+                            if (!enemies.isEmpty()) {
+                                LivingEntity firstEnemy = enemies.get(0);
+                                if (player.level() instanceof ServerLevel serverLevel) {
+                                    for (Entity e : serverLevel.getAllEntities()) {
+                                        if (e instanceof org.xeb.xeb.entity.CrazyDiamondEntity cds && player.getUUID().equals(cds.getOwnerUUID())) {
+                                            cds.setPos(firstEnemy.getX(), firstEnemy.getY(), firstEnemy.getZ());
+                                            cds.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, firstEnemy.getEyePosition());
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            int H = 0;
+                            int A = 0;
+                            if (!allies.isEmpty()) {
+                                if (!enemies.isEmpty()) {
+                                    H = 1;
+                                    A = N - 1;
+                                } else {
+                                    H = N;
+                                    A = 0;
+                                }
+                            } else {
+                                H = 0;
+                                A = N;
+                            }
+                            
+                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                    net.minecraft.sounds.SoundEvents.IRON_GOLEM_HURT, net.minecraft.sounds.SoundSource.PLAYERS, 0.8F, 1.4F);
+                            
+                            if (H > 0) {
+                                allies.sort((a, b) -> Float.compare(a.getHealth() / a.getMaxHealth(), b.getHealth() / b.getMaxHealth()));
+                                LivingEntity allyToHeal = allies.get(0);
+                                float healAmt = (4.5F * 0.3F * 0.5F) * H; // 30% healing of 4.5 damage/sec
+                                allyToHeal.heal(healAmt);
+                                if (player.level() instanceof ServerLevel serverLevel) {
+                                    serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.HEART, 
+                                            allyToHeal.getX(), allyToHeal.getY(0.5D), allyToHeal.getZ(), 3, 0.2D, 0.2D, 0.2D, 0.05D);
+                                }
+                                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                        net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, net.minecraft.sounds.SoundSource.PLAYERS, 0.3F, 1.8F);
+                            }
+                            
+                            if (A > 0 && !enemies.isEmpty()) {
+                                float damageAmt = 4.5F; // Flat 4.5 damage
+                                for (LivingEntity enemy : enemies) {
+                                    Vec3 enemyMotion = enemy.getDeltaMovement();
+                                    enemy.hurt(player.damageSources().playerAttack(player), damageAmt);
+                                    enemy.setDeltaMovement(enemyMotion);
+                                    enemy.hurtMarked = true;
+                                    if (player.level() instanceof ServerLevel serverLevel) {
+                                        serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, 
+                                                enemy.getX(), enemy.getY(0.5D), enemy.getZ(), 3, 0.1D, 0.1D, 0.1D, 0.1D);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (timer - 1 <= 0) {
+                    tag.remove("xebCDBarrageTimer");
+                    tag.remove("xebCDActiveBarrages");
+                    tag.remove("xebCDLevitateTicks");
+                    
+                    if (player.level() instanceof ServerLevel serverLevel) {
+                        for (Entity e : serverLevel.getAllEntities()) {
+                            if (e instanceof org.xeb.xeb.entity.CrazyDiamondEntity cds && player.getUUID().equals(cds.getOwnerUUID())) {
+                                cds.setAnimState(org.xeb.xeb.entity.CrazyDiamondEntity.STATE_EXHAUSTION, 15);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- Crazy Diamond Active 1 State Machine ---
+            if (tag.contains("xebCDA1State")) {
+                int state = tag.getInt("xebCDA1State");
+                int timer = tag.getInt("xebCDA1Timer");
+                
+                if (timer > 0) {
+                    tag.putInt("xebCDA1Timer", timer - 1);
+                    
+                    if (state == 1) { // Phase 1: Dashing & Searching target within 8 blocks
+                        Vec3 look = player.getLookAngle();
+                        player.setDeltaMovement(look.x * 2.0D, 0.1D, look.z * 2.0D);
+                        player.hurtMarked = true;
+                        
+                        LivingEntity target = null;
+                        double minDist = 8.0D;
+                        for (LivingEntity e : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(8.0D))) {
+                            if (e != player && e.isAlive() && !e.isAlliedTo(player) && !(e instanceof org.xeb.xeb.entity.CrazyDiamondEntity)) {
+                                double dist = player.distanceTo(e);
+                                if (dist < minDist) {
+                                    minDist = dist;
+                                    target = e;
+                                }
+                            }
+                        }
+                        
+                        if (target != null) {
+                            tag.putInt("xebCDA1TargetId", target.getId());
+                            tag.putInt("xebCDA1State", 2);
+                            tag.putInt("xebCDA1Timer", 20); // 1s to approach target
+                            
+                            // Stop player dash
+                            player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+                            player.hurtMarked = true;
+                            
+                            // Deal 8.0 damage
+                            target.hurt(player.damageSources().playerAttack(player), 8.0F);
+                            
+                            // Pull target to player
+                            Vec3 toPlayer = player.position().subtract(target.position()).normalize();
+                            target.setDeltaMovement(toPlayer.x * 1.5D, 0.35D, toPlayer.z * 1.5D);
+                            target.hurtMarked = true;
+                            
+                            // Move Stand to target
+                            if (player.level() instanceof ServerLevel serverLevel) {
+                                for (Entity e : serverLevel.getAllEntities()) {
+                                    if (e instanceof org.xeb.xeb.entity.CrazyDiamondEntity cds && player.getUUID().equals(cds.getOwnerUUID())) {
+                                        cds.setPos(target.getX(), target.getY(), target.getZ());
+                                        cds.setAnimState(org.xeb.xeb.entity.CrazyDiamondEntity.STATE_LOW_PUNCH, 6, target.getId());
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            level.playSound(null, target.getX(), target.getY(), target.getZ(),
+                                    net.minecraft.sounds.SoundEvents.IRON_GOLEM_HURT, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.1F);
+                        } else if (timer - 1 <= 0) { // Dashed but hit nothing: 4s cooldown
+                            tag.remove("xebCDA1State");
+                            tag.remove("xebCDA1Timer");
+                            tag.remove("xebCDLevitateTicks");
+                            tag.putInt("xebCDA1CooldownTicks", 80);
+                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                    new CrazyDiamondSyncPacket(80, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
+                        }
+                    } else if (state == 2) { // Phase 2: Approach target within 5 blocks
+                        int targetId = tag.getInt("xebCDA1TargetId");
+                        Entity targetEntity = level.getEntity(targetId);
+                        if (targetEntity instanceof LivingEntity target && target.isAlive()) {
+                            if (player.distanceTo(target) <= 5.0D) {
+                                // Hit 9.0 damage
+                                target.hurt(player.damageSources().playerAttack(player), 9.0F);
+                                
+                                // Petrify target (3s normally, 1s if Boss or Golden Medallion)
+                                boolean hasGoldMedallion = false;
+                                for (MedallionData m : MedallionManager.getMedallions(target)) {
+                                    if (m.getTier() == org.xeb.xeb.medallion.MedallionType.LEGENDARY) {
+                                        hasGoldMedallion = true;
+                                        break;
+                                    }
+                                }
+                                boolean isBoss = !target.canChangeDimensions() || target.getMaxHealth() > 40.0F || target instanceof net.minecraft.world.entity.player.Player;
+                                int duration = (isBoss || hasGoldMedallion) ? 20 : 60;
+                                
+                                target.addEffect(new MobEffectInstance(org.xeb.xeb.effect.ModEffects.PETRIFY.get(), duration, 0));
+                                
+                                // Move Stand to target and play face punch
+                                if (player.level() instanceof ServerLevel serverLevel) {
+                                    for (Entity e : serverLevel.getAllEntities()) {
+                                        if (e instanceof org.xeb.xeb.entity.CrazyDiamondEntity cds && player.getUUID().equals(cds.getOwnerUUID())) {
+                                            cds.setPos(target.getX(), target.getY(), target.getZ());
+                                            cds.setAnimState(org.xeb.xeb.entity.CrazyDiamondEntity.STATE_FACE_PUNCH, 25, target.getId());
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                // Transition to Phase 3: 2-second window to press DORA! again
+                                tag.putInt("xebCDA1State", 3);
+                                tag.putInt("xebCDA1Timer", 40); // 2 seconds (40 ticks) window
+                                
+                                level.playSound(null, target.getX(), target.getY(), target.getZ(),
+                                        net.minecraft.sounds.SoundEvents.IRON_GOLEM_HURT, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.3F);
+                            } else if (timer - 1 <= 0) { // Timed out before target got close: 9s cooldown
+                                tag.remove("xebCDA1State");
+                                tag.remove("xebCDA1Timer");
+                                tag.remove("xebCDA1TargetId");
+                                tag.remove("xebCDLevitateTicks");
+                                tag.putInt("xebCDA1CooldownTicks", 180);
+                                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                        new CrazyDiamondSyncPacket(180, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
+                            }
+                        } else { // Target died or is missing: 9s cooldown
+                            tag.remove("xebCDA1State");
+                            tag.remove("xebCDA1Timer");
+                            tag.remove("xebCDA1TargetId");
+                            tag.remove("xebCDLevitateTicks");
+                            tag.putInt("xebCDA1CooldownTicks", 180);
+                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                    new CrazyDiamondSyncPacket(180, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
+                        }
+                    } else if (state == 3) { // Phase 3: Waiting for second DORA! key press
+                        if (timer - 1 <= 0) { // Key window expired: 12s cooldown
+                            tag.remove("xebCDA1State");
+                            tag.remove("xebCDA1Timer");
+                            tag.remove("xebCDA1TargetId");
+                            tag.remove("xebCDLevitateTicks");
+                            tag.putInt("xebCDA1CooldownTicks", 240);
+                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                    new CrazyDiamondSyncPacket(240, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
+                        }
+                    } else if (state == 4) { // Phase 4: Waiting for enhanced basic left click kick
+                        if (timer - 1 <= 0) { // Kick window expired: 12s cooldown
+                            tag.remove("xebCDA1State");
+                            tag.remove("xebCDA1Timer");
+                            tag.remove("xebCDA1TargetId");
+                            tag.remove("xebCDLevitateTicks");
+                            tag.putInt("xebCDA1CooldownTicks", 240);
+                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                    new CrazyDiamondSyncPacket(240, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
+                        }
+                    }
+                }
+            }
+
+            // --- Crazy Diamond Active 2 State Machine ---
+            if (tag.contains("xebCDA2State")) {
+                int state = tag.getInt("xebCDA2State");
+                int timer = tag.getInt("xebCDA2Timer");
+                
+                if (timer > 0) {
+                    tag.putInt("xebCDA2Timer", timer - 1);
+                } else {
+                    org.xeb.xeb.entity.CrazyDiamondEntity stand = null;
+                    if (player.level() instanceof ServerLevel serverLevel) {
+                        for (Entity e : serverLevel.getAllEntities()) {
+                            if (e instanceof org.xeb.xeb.entity.CrazyDiamondEntity cds && player.getUUID().equals(cds.getOwnerUUID())) {
+                                stand = cds;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (state == 1) {
+                        tag.putInt("xebCDA2State", 2);
+                        tag.putInt("xebCDA2Timer", 6);
+                        if (stand != null) {
+                            stand.setAnimState(org.xeb.xeb.entity.CrazyDiamondEntity.STATE_WIND_UP, 6);
+                        }
+                    } else if (state == 2) {
+                        net.minecraft.world.level.block.state.BlockState blockState = player.level().getBlockState(player.blockPosition().below());
+                        if (blockState.isAir()) {
+                            blockState = net.minecraft.world.level.block.Blocks.COBBLESTONE.defaultBlockState();
+                        }
+                        
+                        org.xeb.xeb.entity.RestoreProjectileEntity proj = new org.xeb.xeb.entity.RestoreProjectileEntity(player.level(), player, blockState);
+                        proj.shootFromRotation(player, player.getXRot(), player.getYRot(), 0.0F, 1.0F, 0.0F); // 1.0F speed, 0.0F divergence (straight)
+                        player.level().addFreshEntity(proj);
+                        player.getPersistentData().putInt("xebCDA2ProjectileId", proj.getId());
+                        
+                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                net.minecraft.sounds.SoundEvents.SNOWBALL_THROW, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.0F);
+                                
+                        tag.putInt("xebCDA2State", 3);
+                        tag.putInt("xebCDA2Timer", 6);
+                        if (stand != null) {
+                            stand.setAnimState(org.xeb.xeb.entity.CrazyDiamondEntity.STATE_THROWING, 6);
+                        }
+                    } else if (state == 3) {
+                        tag.remove("xebCDA2State");
+                        tag.remove("xebCDA2Timer");
+                        if (stand != null) {
+                            stand.setAnimState(org.xeb.xeb.entity.CrazyDiamondEntity.STATE_IDLE, 0);
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Crazy Diamond general wall slam detection ---
+        if (entity.getPersistentData().contains("xebCDA1SlamTimer")) {
+            int slamTimer = entity.getPersistentData().getInt("xebCDA1SlamTimer");
+            if (slamTimer > 0) {
+                entity.getPersistentData().putInt("xebCDA1SlamTimer", slamTimer - 1);
+
+                if (entity.horizontalCollision) {
+                    entity.getPersistentData().remove("xebCDA1SlamTimer");
+                    float initialDamage = 6.0F;
+
+                    net.minecraft.world.damagesource.DamageSource slamSource = entity.damageSources().generic();
+                    if (entity.getPersistentData().contains("xebCDA1SlamAttacker")) {
+                        UUID attackerUuid = entity.getPersistentData().getUUID("xebCDA1SlamAttacker");
+                        net.minecraft.world.entity.Entity attacker = level.getEntity(attackerUuid);
+                        if (attacker instanceof net.minecraft.world.entity.player.Player pAttacker) {
+                            slamSource = entity.damageSources().playerAttack(pAttacker);
+                        }
+                    }
+
+                    entity.hurt(slamSource, initialDamage);
+
+                    // Impact sounds
+                    level.playSound(null, entity.getX(), entity.getY(), entity.getZ(),
+                            net.minecraft.sounds.SoundEvents.ANVIL_LAND, net.minecraft.sounds.SoundSource.PLAYERS, 1.2F, 0.9F);
+                    level.playSound(null, entity.getX(), entity.getY(), entity.getZ(),
+                            net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.2F);
+
+                    // Explosion particles
+                    if (entity.level() instanceof ServerLevel serverLevel) {
+                        serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION,
+                                entity.getX(), entity.getY(0.5D), entity.getZ(), 5, 0.3D, 0.3D, 0.3D, 0.0D);
+                    }
+                }
+            } else {
+                entity.getPersistentData().remove("xebCDA1SlamTimer");
+                entity.getPersistentData().remove("xebCDA1SlamAttacker");
+            }
         }
 
         // --- Doomfist general wall slam detection ---
@@ -614,12 +1140,17 @@ public class BuffTickHandler {
         List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, area,
                 e -> e != player && e.isAlive() && !e.isAlliedTo(player));
                 
+        double startY = player.getPersistentData().contains("xebSlamStartY") ? player.getPersistentData().getDouble("xebSlamStartY") : pos.y;
+        player.getPersistentData().remove("xebSlamStartY");
+        double heightFallen = Math.max(0.0D, startY - pos.y);
+        
         double baseDamage = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
-        float damage = (float) (baseDamage * 0.6D);
+        float damage = (float) (baseDamage * 0.6D + heightFallen * 1.5F); // Height-proportional extra damage
         
         net.minecraft.world.phys.Vec3 look = player.getLookAngle();
         net.minecraft.world.phys.Vec3 horizLook = new net.minecraft.world.phys.Vec3(look.x, 0.0D, look.z).normalize();
         
+        int hitCount = 0;
         for (LivingEntity target : targets) {
             net.minecraft.world.phys.Vec3 offset = target.position().subtract(pos);
             double dist = offset.horizontalDistance();
@@ -636,8 +1167,17 @@ public class BuffTickHandler {
                     net.minecraft.world.phys.Vec3 pullDir = pos.subtract(target.position()).normalize();
                     target.setDeltaMovement(pullDir.x * 0.3D, 0.4D, pullDir.z * 0.3D);
                     target.hurtMarked = true;
+                    
+                    hitCount++;
                 }
             }
+        }
+        
+        if (hitCount > 0) {
+            float absorptionAmount = hitCount * 1.0F; // 0.5 hearts (1.0 absorption point) per mob hit
+            player.setAbsorptionAmount(player.getAbsorptionAmount() + absorptionAmount);
+            player.getPersistentData().putInt("xebSeismicAbsorptionTimer", 80); // 4 seconds
+            player.getPersistentData().putFloat("xebSeismicAbsorptionAmount", absorptionAmount);
         }
         
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -663,7 +1203,7 @@ public class BuffTickHandler {
             return raycast.getLocation();
         } else {
             // Missed block, project downward from the end point to stick to the floor
-            net.minecraft.world.phys.Vec3 downEnd = new net.minecraft.world.phys.Vec3(end.x, end.y - 30.0D, end.z);
+            net.minecraft.world.phys.Vec3 downEnd = new net.minecraft.world.phys.Vec3(end.x, end.y - 1000.0D, end.z);
             net.minecraft.world.phys.BlockHitResult groundRay = level.clip(new net.minecraft.world.level.ClipContext(
                     end, downEnd, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, player));
             return groundRay.getLocation();
@@ -684,7 +1224,7 @@ public class BuffTickHandler {
         
         net.minecraft.world.phys.AABB area = player.getBoundingBox().inflate(6.0D, 3.0D, 6.0D);
         java.util.List<net.minecraft.world.entity.LivingEntity> targets = level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, area,
-                e -> e != player && e.isAlive() && !e.isAlliedTo(player));
+                e -> e != player && e.isAlive() && !e.isAlliedTo(player) && !(e instanceof org.xeb.xeb.entity.CrazyDiamondEntity));
                 
         double baseDamage = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
         float damage = (float) (baseDamage * 0.8D);
@@ -725,5 +1265,128 @@ public class BuffTickHandler {
                 serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, player.getX() + dx, player.getY() + 0.1D, player.getZ() + dz, 1, 0.1D, 0.0D, 0.1D, 0.02D);
             }
         }
+    }
+
+    public static void executeCrazyDiamondBarrageHit(net.minecraft.world.entity.player.Player player) {
+        net.minecraft.world.level.Level level = player.level();
+        net.minecraft.world.phys.HitResult hit = getCDPOVHitResult(player, 6.0D);
+        net.minecraft.world.entity.LivingEntity target = null;
+        if (hit != null && hit.getType() == net.minecraft.world.phys.HitResult.Type.ENTITY) {
+            net.minecraft.world.phys.EntityHitResult entityHit = (net.minecraft.world.phys.EntityHitResult) hit;
+            if (entityHit.getEntity() instanceof net.minecraft.world.entity.LivingEntity living) {
+                target = living;
+            }
+        }
+        
+        triggerStandSwing(player);
+        
+        if (target == null) return;
+        
+        float baseDamage = (float) player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+        float damage = baseDamage * 0.4F;
+        
+        java.util.List<net.minecraft.world.entity.LivingEntity> allies = level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, player.getBoundingBox().inflate(10.0D),
+                (entity) -> {
+                    if (entity == player || !entity.isAlive()) return false;
+                    if (entity instanceof net.minecraft.world.entity.player.Player otherPlayer) {
+                        return player.isAlliedTo(otherPlayer);
+                    }
+                    if (entity instanceof net.minecraft.world.entity.OwnableEntity ownable) {
+                        return player.getUUID().equals(ownable.getOwnerUUID());
+                    }
+                    return false;
+                });
+        
+        if (!allies.isEmpty()) {
+            allies.sort((a, b) -> Float.compare(a.getHealth() / a.getMaxHealth(), b.getHealth() / b.getMaxHealth()));
+            net.minecraft.world.entity.LivingEntity allyToHeal = allies.get(0);
+            allyToHeal.heal(damage);
+            
+            if (level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.HEART, 
+                        allyToHeal.getX(), allyToHeal.getY(0.5D), allyToHeal.getZ(), 3, 0.2D, 0.2D, 0.2D, 0.05D);
+            }
+            level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                    net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, net.minecraft.sounds.SoundSource.PLAYERS, 0.5F, 1.8F);
+        } else {
+            target.hurt(player.damageSources().playerAttack(player), damage);
+            if (level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, 
+                        target.getX(), target.getY(0.5D), target.getZ(), 3, 0.1D, 0.1D, 0.1D, 0.1D);
+            }
+        }
+        
+        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                net.minecraft.sounds.SoundEvents.IRON_GOLEM_HURT, net.minecraft.sounds.SoundSource.PLAYERS, 0.8F, 1.4F);
+    }
+
+    public static void executeCDA1Phase1(net.minecraft.world.entity.player.Player player, int targetId) {
+        net.minecraft.world.level.Level level = player.level();
+        net.minecraft.world.entity.LivingEntity target = targetId != -1 && level.getEntity(targetId) instanceof net.minecraft.world.entity.LivingEntity living ? living : null;
+        if (target != null && target.isAlive()) {
+            float baseDamage = (float) player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+            target.hurt(player.damageSources().playerAttack(player), baseDamage * 0.8F);
+            
+            if (level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, target.getX(), target.getY(), target.getZ(), 8, 0.3D, 0.1D, 0.3D, 0.1D);
+            }
+            level.playSound(null, target.getX(), target.getY(), target.getZ(), net.minecraft.sounds.SoundEvents.IRON_GOLEM_HURT, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.1F);
+        }
+        triggerStandSwing(player);
+    }
+    
+    public static void executeCDA1Phase3(net.minecraft.world.entity.player.Player player, int targetId) {
+        net.minecraft.world.level.Level level = player.level();
+        net.minecraft.world.entity.LivingEntity target = targetId != -1 && level.getEntity(targetId) instanceof net.minecraft.world.entity.LivingEntity living ? living : null;
+        if (target != null && target.isAlive()) {
+            target.hurt(player.damageSources().playerAttack(player), 4.0F);
+            
+            // Set wallslam data on target (6.0 damage, 40 ticks slam window)
+            target.getPersistentData().putInt("xebCDA1SlamTimer", 40);
+            target.getPersistentData().putUUID("xebCDA1SlamAttacker", player.getUUID());
+            
+            double yawRad = Math.toRadians(player.getYRot());
+            target.knockback(2.5D, -Math.sin(yawRad), Math.cos(yawRad));
+            target.hurtMarked = true;
+            
+            if (level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION, target.getX(), target.getY(0.5D), target.getZ(), 3, 0.2D, 0.2D, 0.2D, 0.1D);
+            }
+            level.playSound(null, target.getX(), target.getY(), target.getZ(), net.minecraft.sounds.SoundEvents.ZOMBIE_ATTACK_IRON_DOOR, net.minecraft.sounds.SoundSource.PLAYERS, 1.2F, 1.0F);
+        }
+        triggerStandSwing(player);
+    }
+    
+    private static void triggerStandSwing(net.minecraft.world.entity.player.Player player) {
+        if (player.level() instanceof ServerLevel serverLevel) {
+            for (net.minecraft.world.entity.Entity e : serverLevel.getAllEntities()) {
+                if (e instanceof org.xeb.xeb.entity.CrazyDiamondEntity cds && player.getUUID().equals(cds.getOwnerUUID())) {
+                    cds.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                    break;
+                }
+            }
+        }
+    }
+
+    private static net.minecraft.world.phys.HitResult getCDPOVHitResult(net.minecraft.world.entity.player.Player player, double reach) {
+        net.minecraft.world.phys.Vec3 start = player.getEyePosition(1.0F);
+        net.minecraft.world.phys.Vec3 look = player.getLookAngle();
+        net.minecraft.world.phys.Vec3 end = start.add(look.scale(reach));
+        
+        net.minecraft.world.phys.BlockHitResult blockHit = player.level().clip(new net.minecraft.world.level.ClipContext(
+                start, end, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, player));
+        
+        double maxDist = blockHit.getType() != net.minecraft.world.phys.HitResult.Type.MISS ? blockHit.getLocation().distanceToSqr(start) : reach * reach;
+        
+        net.minecraft.world.phys.AABB area = player.getBoundingBox().expandTowards(look.scale(reach)).inflate(1.0D);
+        net.minecraft.world.phys.EntityHitResult entityHit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(
+                player, start, end, area,
+                (entity) -> entity instanceof net.minecraft.world.entity.LivingEntity && entity.isAlive() && entity != player && !(entity instanceof org.xeb.xeb.entity.CrazyDiamondEntity),
+                maxDist);
+                
+        if (entityHit != null) {
+            return entityHit;
+        }
+        return blockHit;
     }
 }

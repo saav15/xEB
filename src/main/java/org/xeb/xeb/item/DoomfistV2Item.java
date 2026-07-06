@@ -76,10 +76,16 @@ public class DoomfistV2Item extends Item implements software.bernie.geckolib.ani
     public void appendHoverText(ItemStack stack, @javax.annotation.Nullable Level level, java.util.List<net.minecraft.network.chat.Component> tooltip, net.minecraft.world.item.TooltipFlag flag) {
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc1"));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc2"));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc_damage"));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc4", net.minecraft.network.chat.Component.keybind("key.xeb.activa_1")));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc5", net.minecraft.network.chat.Component.keybind("key.xeb.activa_2")));
         tooltip.add(net.minecraft.network.chat.Component.translatable("item.xeb.doomfist_v2.desc3"));
         super.appendHoverText(stack, level, tooltip, flag);
+    }
+
+    @Override
+    public net.minecraft.network.chat.Component getName(ItemStack stack) {
+        return net.minecraft.network.chat.Component.translatable(this.getDescriptionId(stack)).withStyle(net.minecraft.ChatFormatting.RED);
     }
 
     @Override
@@ -90,8 +96,7 @@ public class DoomfistV2Item extends Item implements software.bernie.geckolib.ani
         player.getPersistentData().putBoolean("xebDoomfistFallProtect", true);
         
         if (!level.isClientSide()) {
-            level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                    SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 1.0F, 1.2F);
+            level.playSound(null, player, SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 1.0F, 1.2F);
         }
         return InteractionResultHolder.consume(stack);
     }
@@ -107,8 +112,7 @@ public class DoomfistV2Item extends Item implements software.bernie.geckolib.ani
 
                 if (chargeRatio >= 1.0F) {
                     player.addEffect(new MobEffectInstance(ModEffects.CHARGED_FIST.get(), 100, 1));
-                    level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                            SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.5F, 0.5F);
+                    level.playSound(null, player, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.5F, 0.5F);
                 }
 
                 net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
@@ -143,8 +147,7 @@ public class DoomfistV2Item extends Item implements software.bernie.geckolib.ani
                         new org.xeb.xeb.network.DoomfistDashPacket(player.getId(), true, chargeRatio)
                 );
 
-                level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                        SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.2F, 0.6F);
+                level.playSound(null, player, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.2F, 0.6F);
             }
 
             // Compute momentum transfer on both client and server for smooth physics

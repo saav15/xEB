@@ -104,6 +104,24 @@ public class HolyShieldClientHandler {
                             }
                         }
 
+                        if (tag.contains("xebCDA1CooldownTicks")) {
+                            int cd = tag.getInt("xebCDA1CooldownTicks");
+                            if (cd > 0) {
+                                tag.putInt("xebCDA1CooldownTicks", cd - 1);
+                            } else {
+                                tag.remove("xebCDA1CooldownTicks");
+                            }
+                        }
+
+                        if (tag.contains("xebCDA2CooldownTicks")) {
+                            int cd = tag.getInt("xebCDA2CooldownTicks");
+                            if (cd > 0) {
+                                tag.putInt("xebCDA2CooldownTicks", cd - 1);
+                            } else {
+                                tag.remove("xebCDA2CooldownTicks");
+                            }
+                        }
+
                         if (tag.contains("xebSlamState")) {
                             int slamState = tag.getInt("xebSlamState");
                             if (slamState == 1) { // Casting

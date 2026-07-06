@@ -230,8 +230,7 @@ public class OpticBlastTickHandler {
 
         // Ambient beam hum sound every 20 ticks
         if (tickCount % 20 == 0) {
-            level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                    SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 0.4F, 2.0F);
+            level.playSound(null, player, SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 0.4F, 2.0F);
         }
     }
 
@@ -345,8 +344,7 @@ public class OpticBlastTickHandler {
         );
 
         // Play stop sound
-        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.5F, 1.8F);
+        player.serverLevel().playSound(null, player, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.5F, 1.8F);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -475,8 +473,7 @@ public class OpticBlastTickHandler {
                 new OpticBlastChainBeamPacket(player.getId(), false, Collections.emptyList())
         );
 
-        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.5F, 1.8F);
+        player.serverLevel().playSound(null, player, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.5F, 1.8F);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

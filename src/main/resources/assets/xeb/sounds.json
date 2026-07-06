@@ -1,0 +1,56 @@
+{
+  "jarona1": {
+    "subtitle": "subtitles.xeb.jarona",
+    "sounds": [
+      "xeb:jarona1"
+    ]
+  },
+  "jarona2": {
+    "subtitle": "subtitles.xeb.jarona",
+    "sounds": [
+      "xeb:jarona2"
+    ]
+  },
+  "jarona3": {
+    "subtitle": "subtitles.xeb.jarona",
+    "sounds": [
+      "xeb:jarona3"
+    ]
+  },
+  "jarona4": {
+    "subtitle": "subtitles.xeb.jarona",
+    "sounds": [
+      "xeb:jarona4"
+    ]
+  },
+  "jaronafake": {
+    "subtitle": "subtitles.xeb.jaronafake",
+    "sounds": [
+      "xeb:jaronafake"
+    ]
+  },
+  "absorbflowerclone": {
+    "subtitle": "subtitles.xeb.absorbflowerclone",
+    "sounds": [
+      "xeb:absorbflowerclone"
+    ]
+  },
+  "flowerdance1": {
+    "subtitle": "subtitles.xeb.flowerdance",
+    "sounds": [
+      "xeb:flowerdance1"
+    ]
+  },
+  "flowerdance2": {
+    "subtitle": "subtitles.xeb.flowerdance",
+    "sounds": [
+      "xeb:flowerdance2"
+    ]
+  },
+  "flowerdancefake": {
+    "subtitle": "subtitles.xeb.flowerdancefake",
+    "sounds": [
+      "xeb:flowerdancefake"
+    ]
+  }
+}
