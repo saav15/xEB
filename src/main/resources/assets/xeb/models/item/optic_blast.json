@@ -126,6 +126,6 @@
     }
   },
   "textures": {
-    "particle": "xeb:item/opticblast"
+    "particle": "xeb:item/optic_blast"
   }
 }

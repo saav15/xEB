@@ -37,6 +37,24 @@ public class WeaponScoringEngine {
     public static double calculateScore(ItemStack stack, boolean inMeleeRange, Player player) {
         if (stack == null || stack.isEmpty()) return -100.0;
 
+        Item item = stack.getItem();
+        if (item == org.xeb.xeb.item.ModItems.OPTIC_BLAST.get() ||
+            item == org.xeb.xeb.item.ModItems.DOOMFIST.get() ||
+            item == org.xeb.xeb.item.ModItems.DOOMFIST_V2.get() ||
+            item == org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get() ||
+            item == org.xeb.xeb.item.ModItems.THE_TEARS.get() ||
+            item == org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get()) {
+            
+            if (item == org.xeb.xeb.item.ModItems.OPTIC_BLAST.get() ||
+                item == org.xeb.xeb.item.ModItems.THE_TEARS.get()) {
+                return inMeleeRange ? 35.0 : 50.0;
+            }
+            if (item == org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get()) {
+                return 45.0;
+            }
+            return inMeleeRange ? 50.0 : 25.0;
+        }
+
         WeaponClass classification = WeaponClassificationEngine.classify(stack);
         if (classification == WeaponClass.NON_WEAPON) {
             return -100.0;
@@ -153,7 +171,6 @@ public class WeaponScoringEngine {
 
         // 8. Ammo check for ranged items
         if (classification == WeaponClass.RANGED) {
-            Item item = stack.getItem();
             if (item instanceof BowItem || item instanceof CrossbowItem) {
                 boolean hasAmmo = player.isCreative() || !player.getProjectile(stack).isEmpty();
                 if (!hasAmmo) {

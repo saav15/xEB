@@ -43,11 +43,24 @@ public class HolyMantleItem extends Item implements GeoItem {
             public net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer getCustomRenderer() {
                 if (this.itemRenderer == null) {
                     this.itemRenderer = new software.bernie.geckolib.renderer.GeoItemRenderer<HolyMantleItem>(new org.xeb.xeb.client.model.HolyMantleGeoModel()) {
+                        private net.minecraft.world.item.ItemDisplayContext currentTransform = net.minecraft.world.item.ItemDisplayContext.NONE;
+
+                        @Override
+                        public void renderByItem(net.minecraft.world.item.ItemStack stack, net.minecraft.world.item.ItemDisplayContext transformType, com.mojang.blaze3d.vertex.PoseStack poseStack, net.minecraft.client.renderer.MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
+                            this.currentTransform = transformType;
+                            super.renderByItem(stack, transformType, poseStack, bufferSource, packedLight, packedOverlay);
+                        }
+
                         @Override
                         public void preRender(com.mojang.blaze3d.vertex.PoseStack poseStack, HolyMantleItem animatable, software.bernie.geckolib.cache.object.BakedGeoModel model, net.minecraft.client.renderer.MultiBufferSource bufferSource, com.mojang.blaze3d.vertex.VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
                             super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, red, green, blue, alpha);
-                            // Shift the 3D model down to the body origin (since it is defined at chest level Y=24.0)
-                            poseStack.translate(0.0F, -1.5F, 0.0F);
+                            if (this.currentTransform == net.minecraft.world.item.ItemDisplayContext.NONE) {
+                                // Shift the 3D model down to the body origin when rendered on player (Y=24.0)
+                                poseStack.translate(0.0F, -1.5F, 0.0F);
+                            } else {
+                                // Center the 3D model for GUI slots, hand held, ground items, etc.
+                                poseStack.translate(-0.5F, -0.51F, -0.5F);
+                            }
                         }
                     };
                 }

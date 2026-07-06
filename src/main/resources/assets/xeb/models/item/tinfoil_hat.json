@@ -89,6 +89,6 @@
     }
   },
   "textures": {
-    "particle": "xeb:item/tinfoilhat"
+    "particle": "xeb:item/tinfoil_hat"
   }
 }

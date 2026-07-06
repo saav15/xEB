@@ -58,6 +58,15 @@ public class PlayerBotStateMachine {
     private static int pearlThrowTicks = 0;
     private static int potionThrowTicks = 0;
 
+    private static int holdingCyclonePushTicks = 0;
+    private static int holdingGeneSpliceTicks = 0;
+    private static int holdingPowerBlockTicks = 0;
+    private static int holdingTearsBrimstoneTicks = 0;
+    private static int holdingDoomfistChargeTicks = 0;
+    private static int crazyDiamondDoraTicks = 0;
+    private static int customWeaponRotationTicks = 0;
+    private static int cycloneJumpTicks = 0;
+
     public static BotState getCurrentState() {
         return currentState;
     }
@@ -92,6 +101,14 @@ public class PlayerBotStateMachine {
         potionCooldown = 0;
         pearlThrowTicks = 0;
         potionThrowTicks = 0;
+        holdingCyclonePushTicks = 0;
+        holdingGeneSpliceTicks = 0;
+        holdingPowerBlockTicks = 0;
+        holdingTearsBrimstoneTicks = 0;
+        holdingDoomfistChargeTicks = 0;
+        crazyDiamondDoraTicks = 0;
+        customWeaponRotationTicks = 0;
+        cycloneJumpTicks = 0;
 
         try {
             Minecraft mc = Minecraft.getInstance();
@@ -271,7 +288,12 @@ public class PlayerBotStateMachine {
         long now = System.currentTimeMillis();
         BLACKLISTED_TARGETS.entrySet().removeIf(entry -> entry.getValue() < now);
 
-        double range = 16.0D;
+        double range = 24.0D;
+        ItemStack mainHand = player.getMainHandItem();
+        if (isCustomWeapon(mainHand) || canUseAtRange(mainHand)) {
+            range = 32.0D;
+        }
+
         AABB searchBox = player.getBoundingBox().inflate(range);
         List<LivingEntity> entities = player.level().getEntitiesOfClass(
                 LivingEntity.class, searchBox,
@@ -285,8 +307,17 @@ public class PlayerBotStateMachine {
         double closestDist = Double.MAX_VALUE;
         for (LivingEntity e : entities) {
             double dist = player.distanceToSqr(e);
-            if (dist < closestDist) {
-                closestDist = dist;
+            double priorityWeight = 1.0;
+            if (e instanceof net.minecraft.world.entity.monster.Monster || !e.canChangeDimensions() || e.getMaxHealth() > 40.0F) {
+                priorityWeight = 0.4;
+            }
+            if (e == player.getLastHurtByMob()) {
+                priorityWeight = 0.2;
+            }
+
+            double weightedDist = dist * priorityWeight;
+            if (weightedDist < closestDist) {
+                closestDist = weightedDist;
                 closest = e;
             }
         }
@@ -294,7 +325,13 @@ public class PlayerBotStateMachine {
     }
 
     private static void validateTarget(LocalPlayer player) {
-        if (currentTarget == null || !currentTarget.isAlive() || player.distanceToSqr(currentTarget) > 360.0D) {
+        ItemStack mainHand = player.getMainHandItem();
+        double maxDistSq = 576.0D;
+        if (isCustomWeapon(mainHand) || canUseAtRange(mainHand)) {
+            maxDistSq = 1024.0D;
+        }
+
+        if (currentTarget == null || !currentTarget.isAlive() || player.distanceToSqr(currentTarget) > maxDistSq) {
             currentTarget = null;
             targetUnreachableTicks = 0;
             return;
@@ -305,15 +342,15 @@ public class PlayerBotStateMachine {
         boolean hasSight = player.hasLineOfSight(currentTarget);
 
         boolean withinReach = false;
-        if (canUseAtRange(player.getMainHandItem())) {
-            withinReach = dist <= 24.0D;
+        if (canUseAtRange(mainHand)) {
+            withinReach = dist <= (isCustomWeapon(mainHand) ? 28.0D : 24.0D);
         } else {
             withinReach = dist <= reach;
         }
 
         if (!hasSight || !withinReach) {
             targetUnreachableTicks++;
-            if (targetUnreachableTicks >= 1200) { // 1 minute (1200 ticks)
+            if (targetUnreachableTicks >= 80) { // 4 seconds (80 ticks) target loss timeout
                 currentTarget = null;
                 targetUnreachableTicks = 0;
             }
@@ -457,6 +494,10 @@ public class PlayerBotStateMachine {
 
     private static void executeMeleeCombat(Minecraft mc, LocalPlayer player) {
         ItemStack mainHand = player.getMainHandItem();
+        if (isCustomWeapon(mainHand)) {
+            executeCustomWeaponCombat(mc, player);
+            return;
+        }
         WeaponClass wc = WeaponClassificationEngine.classify(mainHand);
 
         if (mc.options.keyUse.isDown() || player.isUsingItem()) {
@@ -601,6 +642,10 @@ public class PlayerBotStateMachine {
 
     private static void executeRangedCombat(Minecraft mc, LocalPlayer player) {
         ItemStack mainHand = player.getMainHandItem();
+        if (isCustomWeapon(mainHand)) {
+            executeCustomWeaponCombat(mc, player);
+            return;
+        }
         mc.options.keyAttack.setDown(false);
 
         String id = "";
@@ -1020,6 +1065,71 @@ public class PlayerBotStateMachine {
     private static void updateStrategicInventory(Minecraft mc, LocalPlayer player, double dist, boolean inMeleeRange) {
         float healthPct = player.getHealth() / player.getMaxHealth();
 
+        // --- Custom Weapon Rotation & Cooldown-Based Switching ---
+        if (stateTicks % 10 == 0 && healthPct >= 0.45F) {
+            ItemStack currentHeld = player.getMainHandItem();
+            boolean currentIsCustom = isCustomWeapon(currentHeld);
+            boolean currentOnCooldown = currentIsCustom && isCustomWeaponOnCooldown(player, currentHeld);
+
+            // Find all custom weapon slots in the hotbar
+            java.util.List<Integer> customSlots = new java.util.ArrayList<>();
+            for (int i = 0; i < 9; i++) {
+                ItemStack stack = player.getInventory().getItem(i);
+                if (isCustomWeapon(stack)) {
+                    customSlots.add(i);
+                }
+            }
+
+            if (customSlots.size() > 1) { // Only rotate if we have multiple custom weapons
+                boolean shouldRotate = false;
+                if (currentOnCooldown) {
+                    shouldRotate = true; // Switch immediately if on cooldown
+                } else if (currentIsCustom) {
+                    customWeaponRotationTicks += 10;
+                    if (customWeaponRotationTicks >= 100) { // Rotate every 5 seconds (100 ticks)
+                        shouldRotate = true;
+                    }
+                } else {
+                    // Not holding a custom weapon, but we have multiple in the hotbar! Switch to one.
+                    shouldRotate = true;
+                }
+
+                if (shouldRotate) {
+                    customWeaponRotationTicks = 0;
+                    
+                    int currentIndexInSlots = -1;
+                    for (int k = 0; k < customSlots.size(); k++) {
+                        if (customSlots.get(k) == player.getInventory().selected) {
+                            currentIndexInSlots = k;
+                            break;
+                        }
+                    }
+
+                    // Try to find the next custom weapon slot that is NOT on cooldown
+                    int nextSlot = -1;
+                    for (int step = 1; step <= customSlots.size(); step++) {
+                        int index = (currentIndexInSlots + step) % customSlots.size();
+                        int slot = customSlots.get(index);
+                        ItemStack testStack = player.getInventory().getItem(slot);
+                        if (!isCustomWeaponOnCooldown(player, testStack)) {
+                            nextSlot = slot;
+                            break;
+                        }
+                    }
+
+                    if (nextSlot == -1) {
+                        int index = (currentIndexInSlots + 1) % customSlots.size();
+                        nextSlot = customSlots.get(index);
+                    }
+
+                    if (nextSlot != -1 && nextSlot != player.getInventory().selected) {
+                        switchToSlot(mc, player, nextSlot);
+                        return;
+                    }
+                }
+            }
+        }
+
         // A. Curios Auto-Equip (Holy Mantle / Brass Knuckles)
         if (stateTicks % 40 == 0) {
             boolean hasHolyMantleEquipped = org.xeb.xeb.compat.ModCompatManager.hasCurioOrOffhand(player, org.xeb.xeb.item.ModItems.HOLY_MANTLE.get());
@@ -1214,6 +1324,10 @@ public class PlayerBotStateMachine {
             pressKey(mc.options.keyUse, false);
         }
 
+        if (isCustomWeapon(player.getMainHandItem())) {
+            return;
+        }
+
         // 5. Shield Tactical Blocking
         boolean hasShieldEquipped = player.getOffhandItem().getItem() instanceof net.minecraft.world.item.ShieldItem;
         if (!hasShieldEquipped) {
@@ -1307,6 +1421,326 @@ public class PlayerBotStateMachine {
         int bestSlot = HOTBAR_SCANNER.getBestWeaponSlot(player, dist, inMeleeRange);
         if (bestSlot != player.getInventory().selected) {
             switchToSlot(mc, player, bestSlot);
+        }
+    }
+
+    private static boolean isCustomWeapon(net.minecraft.world.item.ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        net.minecraft.world.item.Item item = stack.getItem();
+        return item == org.xeb.xeb.item.ModItems.OPTIC_BLAST.get() ||
+               item == org.xeb.xeb.item.ModItems.DOOMFIST.get() ||
+               item == org.xeb.xeb.item.ModItems.DOOMFIST_V2.get() ||
+               item == org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get() ||
+               item == org.xeb.xeb.item.ModItems.THE_TEARS.get() ||
+               item == org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get();
+    }
+
+    private static boolean isCustomWeaponOnCooldown(LocalPlayer player, net.minecraft.world.item.ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        net.minecraft.world.item.Item item = stack.getItem();
+        if (item == org.xeb.xeb.item.ModItems.OPTIC_BLAST.get()) {
+            return player.getCooldowns().isOnCooldown(item);
+        }
+        if (item == org.xeb.xeb.item.ModItems.DOOMFIST.get() || item == org.xeb.xeb.item.ModItems.DOOMFIST_V2.get()) {
+            long time = player.level().getGameTime();
+            String prefix = item == org.xeb.xeb.item.ModItems.DOOMFIST.get() ? "xebUppercutLastTime" : "xebSlam2LastTime";
+            String prefix2 = item == org.xeb.xeb.item.ModItems.DOOMFIST.get() ? "xebSlamLastTime" : "xebBlockLastTime";
+            long last1 = player.getPersistentData().getLong(prefix);
+            long last2 = player.getPersistentData().getLong(prefix2);
+            int cooldown1 = item == org.xeb.xeb.item.ModItems.DOOMFIST.get() ? 100 : 140;
+            int cooldown2 = item == org.xeb.xeb.item.ModItems.DOOMFIST.get() ? 120 : 140;
+            boolean ab1CD = (time - last1 < cooldown1);
+            boolean ab2CD = (time - last2 < cooldown2);
+            boolean itemCD = player.getCooldowns().isOnCooldown(item);
+            return (ab1CD && ab2CD) || itemCD;
+        }
+        if (item == org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get()) {
+            int danceCD = player.getPersistentData().getInt("xebGoldenFlowerDanceCooldown");
+            int charges = player.getPersistentData().getInt("xebJaronaCharges");
+            return danceCD > 0 && charges <= 0;
+        }
+        if (item == org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get()) {
+            int cd1 = player.getPersistentData().getInt("xebCDA1CooldownTicks");
+            int cd2 = player.getPersistentData().getInt("xebCDA2CooldownTicks");
+            boolean itemCD = player.getCooldowns().isOnCooldown(item);
+            return (cd1 > 0 && cd2 > 0) || itemCD;
+        }
+        if (item == org.xeb.xeb.item.ModItems.THE_TEARS.get()) {
+            int cd1 = player.getPersistentData().getInt("xebTearsA1Cooldown");
+            int cd2 = player.getPersistentData().getInt("xebTearsA2Cooldown");
+            return cd1 > 0 && cd2 > 0;
+        }
+        return player.getCooldowns().isOnCooldown(item);
+    }
+
+    private static void executeCustomWeaponCombat(Minecraft mc, LocalPlayer player) {
+        net.minecraft.world.item.ItemStack mainHand = player.getMainHandItem();
+        net.minecraft.world.item.Item item = mainHand.getItem();
+        double dist = player.distanceTo(currentTarget);
+        long time = player.level().getGameTime();
+
+        lookAtTarget(player, currentTarget);
+
+        // --- Ultimate Curio (Quantum Cat Barrage) support ---
+        if (org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player)) {
+            if (!player.getCooldowns().isOnCooldown(org.xeb.xeb.item.ModItems.QUANTUM_CAT_BARRAGE.get()) && dist <= 10.0D) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(3, true));
+            }
+        }
+
+        // --- GOLDEN FLOWER ---
+        if (item == org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get()) {
+            int danceCD = player.getPersistentData().getInt("xebGoldenFlowerDanceCooldown");
+            if (danceCD <= 0 && dist <= 12.0D) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(1, true));
+            }
+            int charges = player.getPersistentData().getInt("xebJaronaCharges");
+            if (charges > 0 && dist >= 3.0D && dist <= 10.0D && stateTicks % 10 == 0) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(2, true));
+            }
+            if (dist <= 16.0D && stateTicks % 5 == 0) {
+                BetterCombatAttackController.triggerAttack(mc, player, currentTarget);
+            }
+            if (dist <= 16.0D && stateTicks % 15 == 0) {
+                pressKey(mc.options.keyUse, true);
+                mc.execute(() -> pressKey(mc.options.keyUse, false));
+            }
+        }
+
+        // --- OPTIC BLAST ---
+        else if (item == org.xeb.xeb.item.ModItems.OPTIC_BLAST.get()) {
+            boolean isOverheated = player.getCooldowns().isOnCooldown(item);
+            
+            // 1. Cyclone Push Rocket Jump (Auto-push straight up)
+            long lastCyclone = player.getPersistentData().getLong("xebCyclonePushLastTime");
+            boolean isCycloneReady = (time - lastCyclone >= 120);
+            
+            if (isCycloneReady && player.onGround() && cycloneJumpTicks == 0 && holdingCyclonePushTicks == 0 && holdingGeneSpliceTicks == 0 && !isOverheated) {
+                cycloneJumpTicks = 20; // start rocket sequence
+            }
+            
+            if (cycloneJumpTicks > 0) {
+                cycloneJumpTicks--;
+                // Look straight down to rocket upwards
+                player.setXRot(90.0F);
+                player.xRotO = 90.0F;
+                
+                if (cycloneJumpTicks == 15) {
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(1, true));
+                    holdingCyclonePushTicks = 25; // active push duration
+                }
+                
+                if (cycloneJumpTicks == 0) {
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(1, false));
+                }
+                return; // pause other actions while launching
+            }
+
+            // Decrement active push ticks
+            if (holdingCyclonePushTicks > 0) {
+                holdingCyclonePushTicks--;
+                if (holdingCyclonePushTicks == 0) {
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(1, false));
+                }
+            }
+
+            // 2. Gene Splice (Chain Beam if 3+ targets grouped together)
+            long lastSplice = player.getPersistentData().getLong("xebGeneSpliceLastTime");
+            boolean isSpliceReady = (time - lastSplice >= 160);
+            
+            int groupSize = 1;
+            try {
+                net.minecraft.world.phys.AABB targetBox = currentTarget.getBoundingBox().inflate(4.0D);
+                java.util.List<LivingEntity> nearby = player.level().getEntitiesOfClass(LivingEntity.class, targetBox,
+                        e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable());
+                groupSize = nearby.size();
+            } catch (Throwable ignored) {}
+            
+            if (isSpliceReady && groupSize >= 3 && holdingGeneSpliceTicks == 0 && holdingCyclonePushTicks == 0 && cycloneJumpTicks == 0 && !isOverheated) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(2, true));
+                holdingGeneSpliceTicks = 30;
+            }
+            
+            if (holdingGeneSpliceTicks > 0) {
+                holdingGeneSpliceTicks--;
+                if (holdingGeneSpliceTicks == 0) {
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(2, false));
+                }
+            }
+
+            // 3. Primary Beam / Mini Laser Fire
+            if (holdingCyclonePushTicks == 0 && holdingGeneSpliceTicks == 0 && cycloneJumpTicks == 0) {
+                if (!isOverheated && dist <= 24.0D) {
+                    // Channel continuous beam (aiming at target)
+                    pressKey(mc.options.keyUse, true);
+                } else {
+                    pressKey(mc.options.keyUse, false);
+                    if (player.isUsingItem() && mc.gameMode != null) {
+                        mc.gameMode.releaseUsingItem(player);
+                    }
+                    
+                    // Mini laser: swing main hand to shoot mini laser (cooldown MINI_LASER_COOLDOWN = 10 ticks)
+                    long lastMini = player.getPersistentData().getLong("xebMiniLaserLastShot");
+                    if (time - lastMini >= 10 && dist <= 24.0D) {
+                        player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                    }
+                }
+            }
+        }
+
+        // --- DOOMFIST V1 ---
+        else if (item == org.xeb.xeb.item.ModItems.DOOMFIST.get()) {
+            long lastUppercut = player.getPersistentData().getLong("xebUppercutLastTime");
+            if (time - lastUppercut >= 100 && dist <= 3.0D) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(1, true));
+            }
+            long lastSlam = player.getPersistentData().getLong("xebSlamLastTime");
+            if (time - lastSlam >= 120 && !player.onGround()) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(2, true));
+            }
+
+            boolean isPunchOnCooldown = player.getCooldowns().isOnCooldown(item);
+            if (!isPunchOnCooldown && dist <= 15.0D && holdingDoomfistChargeTicks == 0) {
+                holdingDoomfistChargeTicks = 1;
+                pressKey(mc.options.keyUse, true);
+            }
+            if (holdingDoomfistChargeTicks > 0) {
+                holdingDoomfistChargeTicks++;
+                if (holdingDoomfistChargeTicks >= 50) {
+                    pressKey(mc.options.keyUse, false);
+                    if (player.isUsingItem() && mc.gameMode != null) {
+                        mc.gameMode.releaseUsingItem(player);
+                    }
+                    holdingDoomfistChargeTicks = 0;
+                }
+            }
+
+            if (holdingDoomfistChargeTicks == 0 && dist <= 3.5D && stateTicks % 5 == 0) {
+                BetterCombatAttackController.triggerAttack(mc, player, currentTarget);
+            }
+        }
+
+        // --- DOOMFIST V2 ---
+        else if (item == org.xeb.xeb.item.ModItems.DOOMFIST_V2.get()) {
+            long lastSlam2 = player.getPersistentData().getLong("xebSlam2LastTime");
+            if (time - lastSlam2 >= 140 && dist >= 4.0D && dist <= 12.0D) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(1, true));
+            }
+            long lastBlock = player.getPersistentData().getLong("xebBlockLastTime");
+            boolean targetAttacking = currentTarget.swingTime > 0;
+            if (time - lastBlock >= 140 && targetAttacking && holdingPowerBlockTicks == 0) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(2, true));
+                holdingPowerBlockTicks = 20;
+            }
+            if (holdingPowerBlockTicks > 0) {
+                holdingPowerBlockTicks--;
+                if (holdingPowerBlockTicks == 0) {
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(2, false));
+                }
+            }
+
+            boolean isPunchOnCooldown = player.getCooldowns().isOnCooldown(item);
+            if (!isPunchOnCooldown && dist <= 15.0D && holdingDoomfistChargeTicks == 0) {
+                holdingDoomfistChargeTicks = 1;
+                pressKey(mc.options.keyUse, true);
+            }
+            if (holdingDoomfistChargeTicks > 0) {
+                holdingDoomfistChargeTicks++;
+                if (holdingDoomfistChargeTicks >= 50) {
+                    pressKey(mc.options.keyUse, false);
+                    if (player.isUsingItem() && mc.gameMode != null) {
+                        mc.gameMode.releaseUsingItem(player);
+                    }
+                    holdingDoomfistChargeTicks = 0;
+                }
+            }
+
+            if (holdingDoomfistChargeTicks == 0 && dist <= 3.5D && stateTicks % 5 == 0) {
+                BetterCombatAttackController.triggerAttack(mc, player, currentTarget);
+            }
+        }
+
+        // --- CRAZY DIAMOND ---
+        else if (item == org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get()) {
+            boolean isSummoned = false;
+            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                if (e instanceof org.xeb.xeb.entity.CrazyDiamondEntity cds && player.getUUID().equals(cds.getOwnerUUID())) {
+                    isSummoned = true;
+                    break;
+                }
+            }
+            if (!isSummoned && stateTicks % 40 == 0) {
+                pressKey(mc.options.keyUse, true);
+                mc.execute(() -> pressKey(mc.options.keyUse, false));
+            }
+
+            int doraCD = player.getPersistentData().getInt("xebCDA1CooldownTicks");
+            if (doraCD <= 0 && dist >= 3.0D && dist <= 10.0D && crazyDiamondDoraTicks == 0) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(1, true));
+                crazyDiamondDoraTicks = 12;
+            }
+            if (crazyDiamondDoraTicks > 0) {
+                crazyDiamondDoraTicks--;
+                if (crazyDiamondDoraTicks == 0 && dist <= 4.0D) {
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(1, true));
+                }
+            }
+
+            int restoreCD = player.getPersistentData().getInt("xebCDA2CooldownTicks");
+            if (restoreCD <= 0 && dist <= 12.0D && stateTicks % 30 == 0) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(2, true));
+            }
+
+            if (dist <= 6.0D && stateTicks % 4 == 0) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(
+                    new org.xeb.xeb.network.CrazyDiamondAttackPacket(currentTarget.getId())
+                );
+                player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            }
+        }
+
+        // --- THE TEARS ---
+        else if (item == org.xeb.xeb.item.ModItems.THE_TEARS.get()) {
+            int cookieCD = player.getPersistentData().getInt("xebTearsA1Cooldown");
+            if (cookieCD <= 0) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(1, true));
+            }
+            int undiesCD = player.getPersistentData().getInt("xebTearsA2Cooldown");
+            if (undiesCD <= 0 && (dist >= 10.0D || player.getHealth() / player.getMaxHealth() < 0.6F)) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(2, true));
+            }
+
+            boolean tearsOnCooldown = player.getCooldowns().isOnCooldown(item);
+            if (!tearsOnCooldown && dist <= 20.0D) {
+                if (holdingTearsBrimstoneTicks == 0) {
+                    holdingTearsBrimstoneTicks = 1;
+                }
+            } else {
+                if (holdingTearsBrimstoneTicks > 0) {
+                    pressKey(mc.options.keyUse, false);
+                    if (player.isUsingItem() && mc.gameMode != null) {
+                        mc.gameMode.releaseUsingItem(player);
+                    }
+                    holdingTearsBrimstoneTicks = 0;
+                }
+            }
+
+            if (holdingTearsBrimstoneTicks > 0) {
+                pressKey(mc.options.keyUse, true);
+                holdingTearsBrimstoneTicks++;
+                if (holdingTearsBrimstoneTicks >= 85) {
+                    pressKey(mc.options.keyUse, false);
+                    if (player.isUsingItem() && mc.gameMode != null) {
+                        mc.gameMode.releaseUsingItem(player);
+                    }
+                    holdingTearsBrimstoneTicks = 0;
+                }
+            }
+
+            if (holdingTearsBrimstoneTicks == 0 && dist <= 20.0D && stateTicks % 4 == 0) {
+                org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.TearsLeftClickPacket());
+                player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            }
         }
     }
 }
