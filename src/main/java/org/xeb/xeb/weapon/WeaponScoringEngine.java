@@ -31,6 +31,18 @@ public class WeaponScoringEngine {
 
     private static final HeuristicClassifier HEURISTIC = new HeuristicClassifier();
 
+    private static boolean isCustomItem(Item item) {
+        try {
+            if (org.xeb.xeb.item.ModItems.OPTIC_BLAST != null && org.xeb.xeb.item.ModItems.OPTIC_BLAST.isPresent() && item == org.xeb.xeb.item.ModItems.OPTIC_BLAST.get()) return true;
+            if (org.xeb.xeb.item.ModItems.DOOMFIST != null && org.xeb.xeb.item.ModItems.DOOMFIST.isPresent() && item == org.xeb.xeb.item.ModItems.DOOMFIST.get()) return true;
+            if (org.xeb.xeb.item.ModItems.DOOMFIST_V2 != null && org.xeb.xeb.item.ModItems.DOOMFIST_V2.isPresent() && item == org.xeb.xeb.item.ModItems.DOOMFIST_V2.get()) return true;
+            if (org.xeb.xeb.item.ModItems.GOLDEN_FLOWER != null && org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.isPresent() && item == org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get()) return true;
+            if (org.xeb.xeb.item.ModItems.THE_TEARS != null && org.xeb.xeb.item.ModItems.THE_TEARS.isPresent() && item == org.xeb.xeb.item.ModItems.THE_TEARS.get()) return true;
+            if (org.xeb.xeb.item.ModItems.BROKEN_DIAMOND != null && org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.isPresent() && item == org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get()) return true;
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     /**
      * Scores a given ItemStack based on proximity, attributes, durability, enchantments, and mod context.
      */
@@ -38,20 +50,18 @@ public class WeaponScoringEngine {
         if (stack == null || stack.isEmpty()) return -100.0;
 
         Item item = stack.getItem();
-        if (item == org.xeb.xeb.item.ModItems.OPTIC_BLAST.get() ||
-            item == org.xeb.xeb.item.ModItems.DOOMFIST.get() ||
-            item == org.xeb.xeb.item.ModItems.DOOMFIST_V2.get() ||
-            item == org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get() ||
-            item == org.xeb.xeb.item.ModItems.THE_TEARS.get() ||
-            item == org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get()) {
-            
-            if (item == org.xeb.xeb.item.ModItems.OPTIC_BLAST.get() ||
-                item == org.xeb.xeb.item.ModItems.THE_TEARS.get()) {
-                return inMeleeRange ? 35.0 : 50.0;
-            }
-            if (item == org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get()) {
-                return 45.0;
-            }
+        if (isCustomItem(item)) {
+            try {
+                if (org.xeb.xeb.item.ModItems.OPTIC_BLAST.isPresent() && item == org.xeb.xeb.item.ModItems.OPTIC_BLAST.get()) {
+                    return inMeleeRange ? 35.0 : 50.0;
+                }
+                if (org.xeb.xeb.item.ModItems.THE_TEARS.isPresent() && item == org.xeb.xeb.item.ModItems.THE_TEARS.get()) {
+                    return inMeleeRange ? 35.0 : 50.0;
+                }
+                if (org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.isPresent() && item == org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get()) {
+                    return 45.0;
+                }
+            } catch (Throwable ignored) {}
             return inMeleeRange ? 50.0 : 25.0;
         }
 
