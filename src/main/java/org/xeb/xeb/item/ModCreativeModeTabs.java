@@ -25,6 +25,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.BRASS_KNUCKLES.get());
                         output.accept(ModItems.MOB_ENERGY.get());
                         output.accept(ModItems.HOT_POTATO.get());
+                        output.accept(ModItems.HOT_POKER_SPAWN_EGG.get());
                     })
                     .build()
     );

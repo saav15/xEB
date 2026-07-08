@@ -47,6 +47,8 @@
   "xeb.buff.hardy":               "Fuerte",
   "xeb.buff.sticky":              "Pegajoso",
   "entity.xeb.elite_fly":         "Proyectil Fly Élite",
+  "entity.xeb.hot_poker":         "Hot Poker",
+  "item.xeb.hot_poker_spawn_egg": "Huevo generador de Hot Poker",
   "attribute.name.xeb.mana":       "Maná",
   "effect.xeb.kinetic_spikes": "Espinas Kinéticas",
   "entity.xeb.sparkle": "Brillo",

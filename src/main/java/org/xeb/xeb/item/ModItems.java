@@ -49,6 +49,12 @@ public class ModItems {
                     0x1a0030, 0xff0000, // Dark purple shell, red spots
                     new Item.Properties().stacksTo(64)));
 
+    public static final RegistryObject<Item> HOT_POKER_SPAWN_EGG = ITEMS.register("hot_poker_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(
+                    org.xeb.xeb.entity.ModEntities.HOT_POKER,
+                    0x7f2400, 0xff7f00, // Dark red-orange shell, bright orange spots
+                    new Item.Properties().stacksTo(64)));
+
     public static final RegistryObject<Item> OPTIC_BLAST = ITEMS.register("optic_blast",
             () -> new OpticBlastItem(new Item.Properties().stacksTo(1)));
 

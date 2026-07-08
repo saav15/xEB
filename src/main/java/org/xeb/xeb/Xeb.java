@@ -116,6 +116,12 @@ public class Xeb {
         event.enqueueWork(() -> {
             // Initialize cross-mod compatibility hooks
             ModCompatManager.init();
+            net.minecraft.world.entity.SpawnPlacements.register(
+                    ModEntities.HOT_POKER.get(),
+                    net.minecraft.world.entity.SpawnPlacements.Type.ON_GROUND,
+                    net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    org.xeb.xeb.entity.HotPokerEntity::checkHotPokerSpawnRules
+            );
         });
     }
 
@@ -130,6 +136,7 @@ public class Xeb {
         event.put(ModEntities.WITHERFIST.get(), org.xeb.xeb.entity.WitherfistEntity.createAttributes().build());
         event.put(ModEntities.TANKWITHERFIST.get(), org.xeb.xeb.entity.TankWitherfistEntity.createAttributes().build());
         event.put(ModEntities.CRAZY_DIAMOND.get(), org.xeb.xeb.entity.CrazyDiamondEntity.createAttributes().build());
+        event.put(ModEntities.HOT_POKER.get(), org.xeb.xeb.entity.HotPokerEntity.createAttributes().build());
     }
 
     @SuppressWarnings("unchecked")
@@ -224,6 +231,8 @@ public class Xeb {
                     org.xeb.xeb.client.renderer.RestoreProjectileRenderer::new);
             event.registerEntityRenderer(ModEntities.TEARS_PROJECTILE.get(),
                     org.xeb.xeb.client.renderer.TearsProjectileRenderer::new);
+            event.registerEntityRenderer(ModEntities.HOT_POKER.get(),
+                    org.xeb.xeb.client.renderer.HotPokerGeoRenderer::new);
         }
 
         private static final java.util.Set<Object> patchedRenderers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());

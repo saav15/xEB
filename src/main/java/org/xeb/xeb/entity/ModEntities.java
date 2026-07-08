@@ -102,6 +102,13 @@ public class ModEntities {
                     .build("tears_projectile")
     );
 
+    public static final RegistryObject<EntityType<HotPokerEntity>> HOT_POKER = ENTITY_TYPES.register("hot_poker",
+            () -> EntityType.Builder.of(HotPokerEntity::new, MobCategory.MONSTER)
+                    .sized(0.6F, 1.95F)
+                    .clientTrackingRange(8)
+                    .build("hot_poker")
+    );
+
     public static void register(IEventBus eventBus) {
         ENTITY_TYPES.register(eventBus);
     }

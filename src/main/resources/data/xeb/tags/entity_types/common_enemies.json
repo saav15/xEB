@@ -26,6 +26,7 @@
     "minecraft:magma_cube",
     "minecraft:slime",
     "minecraft:shulker",
-    "minecraft:phantom"
+    "minecraft:phantom",
+    "xeb:hot_poker"
   ]
 }

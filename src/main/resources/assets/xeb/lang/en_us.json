@@ -47,6 +47,8 @@
   "xeb.buff.hardy":               "Hardy",
   "xeb.buff.sticky":              "Sticky",
   "entity.xeb.elite_fly":         "Elite Fly Projectile",
+  "entity.xeb.hot_poker":         "Hot Poker",
+  "item.xeb.hot_poker_spawn_egg": "Hot Poker Spawn Egg",
   "attribute.name.xeb.mana":       "Mana",
   "effect.xeb.kinetic_spikes": "Kinetic Spikes",
   "entity.xeb.sparkle": "Sparkle",
