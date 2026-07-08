@@ -1,21 +1,48 @@
-# MacOS DS_Store files
+# ==========================================
+# Elite Buffs - Git Ignore Rules
+# ==========================================
+
+# MacOS/Windows OS metadata
 .DS_Store
+Thumbs.db
 
-# Gradle cache folder
-.gradle
+# Gradle build directories and cache
+.gradle/
+build/
+/build/
 
-# Gradle build folder
-build
+# Minecraft Forge run directories (run game from IDE)
+/run/
+/run-data/
 
-# IntelliJ
-out/
-.idea
-*.iml
-# mpeltonen/sbt-idea plugin
-.idea_modules/
+# Application Logs (untracked from git index)
+/*.log
+/latest.log
+/logs/
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+# Java Virtual Machine Crash logs
 hs_err_pid*
+replay_pid*
 
-# Common working directory
-run
+# IntelliJ IDEA IDE settings
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Eclipse IDE settings
+.classpath
+.project
+.settings/
+.factorypath
+bin/
+
+# NetBeans IDE settings
+nbproject/
+private/
+build.xml
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/

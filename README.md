@@ -51,22 +51,6 @@ Each medallion represents an active buff with its own mechanical properties, inc
 3. Drop the `xd-Elite-Buffs` JAR file into your `.minecraft/mods` folder.
 4. Launch the game and enjoy the chaos!
 
-### For Developers
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/saav15/xEB.git
-   ```
-2. Open the directory in your preferred Java IDE (IntelliJ IDEA recommended).
-3. Import the project as a Gradle project.
-4. Run the Gradle setup tasks to generate IDE launch configurations:
-   - For IntelliJ: `./gradlew genIntellijRuns`
-   - For Eclipse: `./gradlew genEclipseRuns`
-5. Run the game client using the generated `runClient` run configuration.
-6. Build a production jar using:
-   ```bash
-   ./gradlew build
-   ```
-
 ---
 
 ## 📄 License & Credits
