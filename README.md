@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/main/resources/xeb.png" alt="xd Elite Buffs Logo" width="160" />
+</p>
+
 # xd Elite Buffs (xEB)
 
 A feature-rich **Minecraft Forge 1.20.1** mod that introduces a dynamic **Elite Buff and Medallion System** inspired by Mewgenics. Mobs spawn with unique visual medallions rotating and bobbing above their heads, granting them dangerous special abilities, custom color tints, glowing eyes, and custom particle effects.
