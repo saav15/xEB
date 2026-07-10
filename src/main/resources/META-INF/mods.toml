@@ -64,8 +64,8 @@ side = "BOTH"
 # N8 — GeckoLib is a hard runtime requirement; declare it so modpacks that omit it
 # get a clear dependency-resolution error instead of a cryptic NoClassDefFoundError.
 [[dependencies."${mod_id}"]]
-modId = "geckolib3"
+modId = "geckolib"
 mandatory = true
-versionRange = "[3.1.40,)"
+versionRange = "[4.0.0,)"
 ordering = "BEFORE"
 side = "BOTH"
