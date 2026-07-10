@@ -4,7 +4,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
 import org.xeb.xeb.compat.ModCompatAdapter;
-import org.xeb.xeb.mixin.EnchantmentHelperMixin;
+import org.xeb.xeb.compat.CuriosQueryContext;
 import org.xeb.xeb.weapon.WeaponClass;
 import org.xeb.xeb.weapon.WeaponStyleData;
 
@@ -103,7 +103,7 @@ public class CuriosAdapter implements ModCompatAdapter {
     /**
      * Returns all ItemStacks equipped in Curios slots.
      * Uses pre-cached {@link Method} handles — no {@code Class.forName} on the hot path.
-     * Sets {@link EnchantmentHelperMixin#INSIDE_CURIOS_QUERY} so the TinfoilHat mixin
+     * Sets {@link CuriosQueryContext#INSIDE_CURIOS_QUERY} so the TinfoilHat mixin
      * can detect this context in O(1).
      */
     @SuppressWarnings("unchecked")
@@ -113,7 +113,7 @@ public class CuriosAdapter implements ModCompatAdapter {
                 || getCuriosHandler == null || getCurios == null) {
             return list;
         }
-        EnchantmentHelperMixin.INSIDE_CURIOS_QUERY.set(true);
+        CuriosQueryContext.INSIDE_CURIOS_QUERY.set(true);
         try {
             Optional<?> lazyOpt = (Optional<?>) getCuriosHandler.invoke(helperInstance, entity);
             if (lazyOpt == null || !lazyOpt.isPresent()) return list;
@@ -135,7 +135,7 @@ public class CuriosAdapter implements ModCompatAdapter {
             }
         } catch (Exception ignored) {
         } finally {
-            EnchantmentHelperMixin.INSIDE_CURIOS_QUERY.set(false);
+            CuriosQueryContext.INSIDE_CURIOS_QUERY.set(false);
         }
         return list;
     }
