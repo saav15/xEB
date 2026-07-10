@@ -1,4 +1,5 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.utility;
+import java.util.Set;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
@@ -20,6 +21,11 @@ public class TwinBuff extends EliteBuff {
         super("twin", "Twin", BuffType.UNIVERSAL, 0x9400D3, 10.0D, false);
     }
 
+    
+    @Override
+    public Set<String> getConflicts() {
+        return Set.of("undying","mega");
+    }
     @Override
     public void onAttach(LivingEntity entity) {
         // Halve max health

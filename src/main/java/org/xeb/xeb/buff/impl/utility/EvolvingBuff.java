@@ -1,4 +1,4 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.utility;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
@@ -51,7 +51,7 @@ public class EvolvingBuff extends EliteBuff {
                         excludeIds.add(m.getBuff().getId());
                     }
                 }
-                excludeIds.addAll(MedallionManager.getConflictingBuffIds(current));
+                excludeIds.addAll(MedallionManager.getConflictingBuffSet(current));
 
                 EliteBuff newBuff = EliteBuffRegistry.getRandomByWeight(entity.getRandom(), MedallionManager.isBoss(entity), excludeIds);
                 if (newBuff != null) {

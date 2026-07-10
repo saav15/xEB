@@ -1125,7 +1125,7 @@ public class BuffTickHandler {
         for (LivingEntity nearbyEntity : nearby) {
             List<MedallionData> nearbyMedallions = MedallionManager.getMedallions(nearbyEntity);
             for (MedallionData m : nearbyMedallions) {
-                if (m.getBuff() instanceof org.xeb.xeb.buff.impl.ResonantBuff resonantBuff) {
+                if (m.getBuff() instanceof org.xeb.xeb.buff.impl.combat.ResonantBuff resonantBuff) {
                     resonantBuff.handleNearbyItemUse(nearbyEntity, event);
                 }
             }

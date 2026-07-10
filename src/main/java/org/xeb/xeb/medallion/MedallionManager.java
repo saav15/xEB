@@ -136,37 +136,15 @@ public class MedallionManager {
 
 
 
-    public static List<String> getConflictingBuffIds(List<MedallionData> current) {
-        List<String> conflicts = new ArrayList<>();
+    /**
+     * Computes the set of buff IDs that conflict with any buff already in {@code current}.
+     * Each buff declares its own conflicts via {@link EliteBuff#getConflicts()} — no
+     * hardcoded switch needed here.  Returns a {@link Set} for O(1) caller lookups.
+     */
+    public static Set<String> getConflictingBuffSet(List<MedallionData> current) {
+        Set<String> conflicts = new HashSet<>();
         for (MedallionData m : current) {
-            String id = m.getBuff().getId();
-            switch (id) {
-                case "twin" -> {
-                    conflicts.add("undying");
-                    conflicts.add("mega");
-                }
-                case "undying" -> {
-                    conflicts.add("twin");
-                    conflicts.add("protected");
-                }
-                case "protected" -> {
-                    conflicts.add("shielded");
-                    conflicts.add("undying");
-                }
-                case "shielded" -> {
-                    conflicts.add("protected");
-                }
-                case "mirror" -> {
-                    conflicts.add("spiky");
-                    conflicts.add("resonant");
-                }
-                case "spiky" -> {
-                    conflicts.add("mirror");
-                }
-                case "resonant" -> {
-                    conflicts.add("mirror");
-                }
-            }
+            conflicts.addAll(m.getBuff().getConflicts());
         }
         return conflicts;
     }
@@ -321,32 +299,33 @@ public class MedallionManager {
         }
 
         List<MedallionData> rolled = new ArrayList<>();
-        List<String> excludeIds = new ArrayList<>();
+        // Un único Set que crece con cada medallion asignado — O(1) lookups, sin copias por iteración
+        Set<String> excludeSet = new HashSet<>();
 
         for (int i = 0; i < count; i++) {
-            List<String> currentExcludes = new ArrayList<>(excludeIds);
-            currentExcludes.addAll(getConflictingBuffIds(rolled));
+            // Unir conflictos de los medallions ya rodados al excludeSet (operación única por iteración)
+            excludeSet.addAll(getConflictingBuffSet(rolled));
 
-            // Dynamically exclude buffs that are too difficult for the current Elite Meter level
+            // Excluir buffs demasiado difíciles para el nivel actual del Elite Meter
             if (org.xeb.xeb.Config.eliteMeterEnabled) {
                 for (EliteBuff b : EliteBuffRegistry.getAll()) {
-                    double diff = b.getWeight(); // weight parameter represents difficulty
+                    double diff = b.getWeight();
                     if (targetLevel <= 2 && diff > 1.0D) {
-                        currentExcludes.add(b.getId());
+                        excludeSet.add(b.getId());
                     } else if (targetLevel <= 5 && diff > 2.0D) {
-                        currentExcludes.add(b.getId());
+                        excludeSet.add(b.getId());
                     } else if (targetLevel <= 8 && diff > 5.0D) {
-                        currentExcludes.add(b.getId());
+                        excludeSet.add(b.getId());
                     }
                 }
             }
 
-            EliteBuff buff = EliteBuffRegistry.getRandomByWeight(random, isBoss, currentExcludes);
+            EliteBuff buff = EliteBuffRegistry.getRandomByWeight(random, isBoss, new ArrayList<>(excludeSet));
             if (buff != null) {
                 MedallionType tier = rollTier(difficulty, random, targetLevel);
                 rolled.add(new MedallionData(buff, tier, UUID.randomUUID()));
                 if (!buff.isStackable()) {
-                    excludeIds.add(buff.getId());
+                    excludeSet.add(buff.getId());
                 }
             }
         }
@@ -430,17 +409,12 @@ public class MedallionManager {
         if (entity instanceof WitherBoss || entity instanceof EnderDragon) {
             return true;
         }
-        // Custom Boss verification: check tag or max health >= 100
-        if (entity.getMaxHealth() >= 100) {
+        // Use the configurable health threshold (default 300.0, set in config/xeb-client.toml)
+        if (entity.getMaxHealth() >= org.xeb.xeb.Config.bossHealthThreshold) {
             return true;
         }
-        
-        // Also check tag `#xeb:bosses`
-        // We can check if the entity type has the bosses tag dynamically.
-        // In 1.20.1 Forge:
-        // entity.getType().is(...)
-        // Since we will setup our compat manager, we'll also check ModCompatManager.isBoss(entity)
-        return false;
+        // Delegate to ModCompatManager for tag-based and mod-specific boss detection
+        return org.xeb.xeb.compat.ModCompatManager.isBoss(entity);
     }
 
     public static void syncToTracking(LivingEntity entity) {

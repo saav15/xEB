@@ -4,7 +4,10 @@ import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
 import org.xeb.xeb.attribute.ModAttributes;
 import org.xeb.xeb.buff.EliteBuffRegistry;
-import org.xeb.xeb.buff.impl.*;
+import org.xeb.xeb.buff.impl.combat.*;
+import org.xeb.xeb.buff.impl.defense.*;
+import org.xeb.xeb.buff.impl.utility.*;
+import org.xeb.xeb.buff.impl.special.*;
 import org.xeb.xeb.compat.ModCompatManager;
 import org.xeb.xeb.effect.ModEffects;
 import org.xeb.xeb.entity.ModEntities;
@@ -36,6 +39,7 @@ public class Xeb {
     public static final String MODID = "xeb";
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    @SuppressWarnings("deprecation")
     public Xeb() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
@@ -72,6 +76,7 @@ public class Xeb {
         LOGGER.info("xEB (xd Elite Buffs) loaded!");
     }
 
+    @SuppressWarnings("deprecation")
     private static void registerClientConfigScreen() {
         net.minecraftforge.fml.ModLoadingContext.get().registerExtensionPoint(
                 net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
@@ -151,18 +156,17 @@ public class Xeb {
     }
 
     private void enqueueIMC(final net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent event) {
+        // NOTE: Curios slot registration via IMC+Reflection is deprecated and fragile in 1.20.1.
+        // The 'ultimate' slot should be registered via a Curios Datapack (data/curios/slots/ultimate.json)
+        // or via a pack.mcmeta-compatible resource pack included in the modpack.
+        // Example JSON for data/curios/slots/ultimate.json:
+        // { "size": 1, "operation": "SET", "icon": "curios:slot/empty_charm_slot" }
+        //
+        // If Curios API is on the classpath at compile time, use:
+        //   top.theillusivec4.curios.api.CuriosApi.enqueueSlotType(event, SlotTypePreset.CHARM.getIdentifier());
+        // For a custom slot, use their SlotTypeMessage builder directly (no reflection needed).
         if (net.minecraftforge.fml.ModList.get().isLoaded("curios")) {
-            try {
-                Class<?> builderClass = Class.forName("top.theillusivec4.curios.api.SlotTypeMessage$Builder");
-                Object builder = builderClass.getConstructor(String.class).newInstance("ultimate");
-                builderClass.getMethod("size", int.class).invoke(builder, 1);
-                builderClass.getMethod("icon", net.minecraft.resources.ResourceLocation.class).invoke(builder, new net.minecraft.resources.ResourceLocation("curios", "slot/empty_charm_slot"));
-                Object message = builderClass.getMethod("build").invoke(builder);
-                net.minecraftforge.fml.InterModComms.sendTo("curios", "register_type", () -> message);
-                LOGGER.info("Successfully registered custom Curios slot 'ultimate' via IMC.");
-            } catch (Exception e) {
-                LOGGER.error("Failed to register custom Curios slot 'ultimate' via IMC", e);
-            }
+            LOGGER.info("xEB: Curios detected. Register the 'ultimate' slot via Datapack (data/curios/slots/ultimate.json).");
         }
     }
 
@@ -243,34 +247,30 @@ public class Xeb {
             // Helper lambda: patch a single LivingEntityRenderer
             java.util.function.Consumer<EntityRenderer<?>> patchRenderer = (renderer) -> {
                 if (renderer == null || !patchedRenderers.add(renderer)) return;
-                if (renderer instanceof software.bernie.geckolib.renderer.GeoRenderer geoRenderer) {
-                    try {
-                        java.lang.reflect.Method addRenderLayerMethod = null;
-                        Class<?> c = geoRenderer.getClass();
-                        while (c != null && addRenderLayerMethod == null) {
-                            for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
-                                if (m.getName().equals("addRenderLayer") && m.getParameterCount() == 1) {
-                                    addRenderLayerMethod = m;
-                                    break;
-                                }
-                            }
-                            c = c.getSuperclass();
-                        }
-                        if (addRenderLayerMethod != null) {
-                            addRenderLayerMethod.setAccessible(true);
-                            addRenderLayerMethod.invoke(geoRenderer, new MedallionGeoLayer(geoRenderer));
-                            addRenderLayerMethod.invoke(geoRenderer, new MobColorGeoLayer(geoRenderer));
-                            addRenderLayerMethod.invoke(geoRenderer, new GlowEyeGeoLayer(geoRenderer));
-                        }
-                    } catch (Exception e) {
-                        LOGGER.warn("xEB: Failed to add GeckoLib layers: " + e.getMessage());
-                    }
-                } else if (renderer instanceof LivingEntityRenderer livingRenderer) {
-                    livingRenderer.addLayer(new MedallionRenderLayer<>(livingRenderer));
-                    livingRenderer.addLayer(new MobColorOverlay<>(livingRenderer));
-                    livingRenderer.addLayer(new GlowEyeOverlay<>(livingRenderer));
-                    livingRenderer.addLayer(new org.xeb.xeb.render.DoomfistRenderLayer<>(livingRenderer));
-                    livingRenderer.addLayer(new org.xeb.xeb.render.OpticBlastPlayerLayer<>(livingRenderer));
+
+                // --- CASO 1: Entidades nativas de otros mods que USAN GeckoLib ---
+                // GeoEntityRenderer tiene 1 param de tipo en GeckoLib 2.x (1.20.1)
+                if (renderer instanceof software.bernie.geckolib.renderer.GeoEntityRenderer<?> geoEntity) {
+                    geoEntity.addRenderLayer(new MedallionGeoLayer(geoEntity));
+                    geoEntity.addRenderLayer(new MobColorGeoLayer(geoEntity));
+                    geoEntity.addRenderLayer(new GlowEyeGeoLayer(geoEntity));
+                }
+                // --- CASO 2: Entidades Vanilla reemplazadas por GeckoLib (ej: Better Animals) ---
+                else if (renderer instanceof software.bernie.geckolib.renderer.GeoReplacedEntityRenderer<?, ?> geoReplaced) {
+                    geoReplaced.addRenderLayer(new MedallionGeoLayer(geoReplaced));
+                    geoReplaced.addRenderLayer(new MobColorGeoLayer(geoReplaced));
+                    geoReplaced.addRenderLayer(new GlowEyeGeoLayer(geoReplaced));
+                }
+                // --- CASO 3: Entidades Vanilla o de mods que NO usan GeckoLib ---
+                // Tipos raw necesarios: javac no puede unificar dos capturas wildcard independientes
+                // con diamond <>. El @SuppressWarnings({"unchecked","rawtypes"}) del método lo cubre.
+                else if (renderer instanceof LivingEntityRenderer) {
+                    LivingEntityRenderer livingRenderer = (LivingEntityRenderer) renderer;
+                    livingRenderer.addLayer(new MedallionRenderLayer(livingRenderer));
+                    livingRenderer.addLayer(new MobColorOverlay(livingRenderer));
+                    livingRenderer.addLayer(new GlowEyeOverlay(livingRenderer));
+                    livingRenderer.addLayer(new org.xeb.xeb.render.DoomfistRenderLayer(livingRenderer));
+                    livingRenderer.addLayer(new org.xeb.xeb.render.OpticBlastPlayerLayer(livingRenderer));
                 }
             };
 
@@ -279,39 +279,22 @@ public class Xeb {
                 patchRenderer.accept(event.getSkin(skin));
             }
 
-            // Explicitly patch key vanilla mobs that may be missed by the generic loop
-            try { patchRenderer.accept(event.getRenderer(EntityType.CREEPER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ZOMBIE)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.SKELETON)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.SPIDER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.CAVE_SPIDER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ENDERMAN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.BLAZE)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.WITCH)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.GUARDIAN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ELDER_GUARDIAN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.WITHER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.WARDEN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.PIGLIN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.PIGLIN_BRUTE)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.HOGLIN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ZOMBIFIED_PIGLIN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.DROWNED)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.HUSK)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.STRAY)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.WITHER_SKELETON)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.VINDICATOR)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.PILLAGER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.RAVAGER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.GHAST)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.MAGMA_CUBE)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.SLIME)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.SHULKER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.PHANTOM)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.EVOKER)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(EntityType.ZOGLIN)); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(ModEntities.WITHERFIST.get())); } catch (Exception ignored) {}
-            try { patchRenderer.accept(event.getRenderer(ModEntities.TANKWITHERFIST.get())); } catch (Exception ignored) {}
+            // Parchear los mobs vanilla clave (garantizamos el orden; patchedRenderers evita duplicados)
+            @SuppressWarnings("unchecked")
+            EntityType<? extends LivingEntity>[] vanillaTypes = new EntityType[] {
+                EntityType.CREEPER, EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SPIDER,
+                EntityType.CAVE_SPIDER, EntityType.ENDERMAN, EntityType.BLAZE, EntityType.WITCH,
+                EntityType.GUARDIAN, EntityType.ELDER_GUARDIAN, EntityType.WITHER, EntityType.WARDEN,
+                EntityType.PIGLIN, EntityType.PIGLIN_BRUTE, EntityType.HOGLIN, EntityType.ZOMBIFIED_PIGLIN,
+                EntityType.DROWNED, EntityType.HUSK, EntityType.STRAY, EntityType.WITHER_SKELETON,
+                EntityType.VINDICATOR, EntityType.PILLAGER, EntityType.RAVAGER, EntityType.GHAST,
+                EntityType.MAGMA_CUBE, EntityType.SLIME, EntityType.SHULKER, EntityType.PHANTOM,
+                EntityType.EVOKER, EntityType.ZOGLIN,
+                ModEntities.WITHERFIST.get(), ModEntities.TANKWITHERFIST.get()
+            };
+            for (EntityType<? extends LivingEntity> type : vanillaTypes) {
+                try { patchRenderer.accept(event.getRenderer(type)); } catch (Exception ignored) {}
+            }
 
             // Generic loop for all remaining registered living entity renderers (modded mobs)
             for (EntityType<?> type : ForgeRegistries.ENTITY_TYPES) {

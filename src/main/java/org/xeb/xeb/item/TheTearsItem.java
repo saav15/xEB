@@ -37,11 +37,8 @@ import org.xeb.xeb.opticblast.ActiveBeamManager;
 import org.xeb.xeb.opticblast.BeamData;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class TheTearsItem extends Item {
-    private static final Map<UUID, Long> lastHealTicks = new ConcurrentHashMap<>();
-    private static final Map<UUID, Long> lastBackstabSoundTicks = new ConcurrentHashMap<>();
 
     public TheTearsItem(Properties properties) {
         super(properties);
@@ -65,17 +62,20 @@ public class TheTearsItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        
-        // Cooldown or constraints
-        if (player.getCooldowns().isOnCooldown(this)) {
+        CompoundTag pData = player.getPersistentData();
+
+        // Bloquear si el láser ya está disparándose activamente
+        if (pData.getInt("xebBrimstoneFiringTicks") > 0) {
             return InteractionResultHolder.fail(stack);
         }
 
-        CompoundTag tag = player.getPersistentData();
-        if (tag.getBoolean("xebNextBrimstoneInstant")) {
-            tag.putBoolean("xebNextBrimstoneInstant", false);
-            tag.putInt("xebBrimstoneCharge", 0);
-            tag.putInt("xebBrimstoneFiringTicks", 40); // 2s duration
+        CompoundTag stackTag = stack.getOrCreateTag();
+
+        // Disparo instantáneo (otorgado por Activa 2)
+        if (pData.getBoolean("xebNextBrimstoneInstant")) {
+            pData.putBoolean("xebNextBrimstoneInstant", false);
+            pData.putInt("xebBrimstoneCharge", 0);
+            pData.putInt("xebBrimstoneFiringTicks", 40); // 2s de duración
             if (!level.isClientSide()) {
                 level.playSound(null, player, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.2F, 1.8F);
                 level.playSound(null, player, SoundEvents.WITHER_SHOOT, SoundSource.PLAYERS, 1.0F, 0.6F);
@@ -83,6 +83,7 @@ public class TheTearsItem extends Item {
             return InteractionResultHolder.success(stack);
         }
 
+        // Iniciar la carga (el jugador mantiene presionado click derecho)
         player.startUsingItem(hand);
         return InteractionResultHolder.consume(stack);
     }
@@ -90,17 +91,18 @@ public class TheTearsItem extends Item {
     @Override
     public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
         if (!(entity instanceof Player player)) return;
-        CompoundTag tag = player.getPersistentData();
-        int charge = tag.getInt("xebBrimstoneCharge");
+        CompoundTag pData = player.getPersistentData();
+        int charge = pData.getInt("xebBrimstoneCharge");
         if (charge >= 80) {
-            tag.putInt("xebBrimstoneCharge", 0);
-            tag.putInt("xebBrimstoneFiringTicks", 40); // 2s duration
+            pData.putInt("xebBrimstoneCharge", 0);
+            pData.putInt("xebBrimstoneFiringTicks", 40); // 2s de duración
             if (!level.isClientSide()) {
                 level.playSound(null, player, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.2F, 1.8F);
                 level.playSound(null, player, SoundEvents.WITHER_SHOOT, SoundSource.PLAYERS, 1.0F, 0.6F);
             }
         } else {
-            tag.putInt("xebBrimstoneCharge", 0);
+            // Carga insuficiente: resetear la barra
+            pData.putInt("xebBrimstoneCharge", 0);
         }
     }
 
@@ -112,94 +114,113 @@ public class TheTearsItem extends Item {
         boolean holdsOff = player.getOffhandItem().is(this);
         boolean isEquipped = holdsMain || holdsOff;
 
-        // Ensure we only tick once per player even if multiple slots hold the item
+        // Tick solo una vez por jugador aunque haya múltiples slots con el item
         if (isEquipped && ((holdsMain && stack == player.getMainHandItem()) || (!holdsMain && holdsOff && stack == player.getOffhandItem()))) {
             long currentTick = level.getGameTime();
 
-            // --- 1. Passive 1 (Passive Regeneration) ---
+            // Estado TRANSIENT (compartido con ActuarKeyPacket, TearsSyncPacket y el HUD)
+            // → player.getPersistentData(). No es fuga de memoria: es 1 entrada por jugador,
+            //   no un Map estático con UUID como clave.
+            CompoundTag pData = player.getPersistentData();
+
+            // Estado DURABLE ligado al item (viaja con él si el jugador lo tira)
+            // → ItemStack NBT. Solo para valores que DEBEN seguir al item.
+            CompoundTag stackTag = stack.getOrCreateTag();
+
+            // --- 1. Regeneración Pasiva ---
+            // Timestamp en el ItemStack para no interferir con use() ni startUsingItem()
             if (!level.isClientSide()) {
-                long lastHeal = lastHealTicks.getOrDefault(player.getUUID(), 0L);
-                if (currentTick - lastHeal >= 1200) { // 60 seconds
-                    player.heal(2.0F); // 1 heart
-                    lastHealTicks.put(player.getUUID(), currentTick);
+                long lastHeal = stackTag.getLong("xebLastHealTick");
+                if (currentTick - lastHeal >= 1200L) { // 60 segundos
+                    player.heal(2.0F);
+                    stackTag.putLong("xebLastHealTick", currentTick);
                 }
             }
 
-            // --- 2. Decr cooldowns & element timers ---
-            CompoundTag tag = player.getPersistentData();
-            if (tag.getInt("xebTearsA1Cooldown") > 0) {
-                tag.putInt("xebTearsA1Cooldown", tag.getInt("xebTearsA1Cooldown") - 1);
-            }
-            if (tag.getInt("xebTearsA2Cooldown") > 0) {
-                tag.putInt("xebTearsA2Cooldown", tag.getInt("xebTearsA2Cooldown") - 1);
-            }
+            // --- 2. Decrementar cooldowns de habilidades (en pData, igual que ActuarKeyPacket) ---
+            int prevA1 = pData.getInt("xebTearsA1Cooldown");
+            int prevA2 = pData.getInt("xebTearsA2Cooldown");
+            if (prevA1 > 0) pData.putInt("xebTearsA1Cooldown", prevA1 - 1);
+            if (prevA2 > 0) pData.putInt("xebTearsA2Cooldown", prevA2 - 1);
 
-            int imbueDur = tag.getInt("xebTearsImbueDuration");
-            if (imbueDur > 0) {
-                tag.putInt("xebTearsImbueDuration", imbueDur - 1);
-                if (imbueDur - 1 <= 0) {
-                    tag.putInt("xebTearsImbueType", TearsProjectileEntity.IMBUE_NONE);
+            // --- 3. Decrementar duración del imbue (en ItemStack: es estado del item) ---
+            int prevImbueType = stackTag.getInt("xebTearsImbueType");
+            int prevImbueDur  = stackTag.getInt("xebTearsImbueDuration");
+            if (prevImbueDur > 0) {
+                stackTag.putInt("xebTearsImbueDuration", prevImbueDur - 1);
+                if (prevImbueDur - 1 <= 0) {
+                    stackTag.putInt("xebTearsImbueType", TearsProjectileEntity.IMBUE_NONE);
                 }
             }
 
-            // --- 3. Active 2 (Camo Undies burst spawn queue) ---
-            int burstCount = tag.getInt("xebTearsBurstCount");
+            // --- 4. Cola de burst (Activa 2 — en pData para coherencia con ActuarKeyPacket) ---
+            int burstCount = pData.getInt("xebTearsBurstCount");
             if (burstCount > 0) {
-                int burstTimer = tag.getInt("xebTearsBurstTimer") + 1;
+                int burstTimer = pData.getInt("xebTearsBurstTimer") + 1;
                 if (burstTimer >= 2) {
-                    tag.putInt("xebTearsBurstCount", burstCount - 1);
-                    tag.putInt("xebTearsBurstTimer", 0);
+                    pData.putInt("xebTearsBurstCount", burstCount - 1);
+                    pData.putInt("xebTearsBurstTimer", 0);
                     if (!level.isClientSide()) {
                         fireSingleTear(player, level, true);
                     }
                 } else {
-                    tag.putInt("xebTearsBurstTimer", burstTimer);
+                    pData.putInt("xebTearsBurstTimer", burstTimer);
                 }
             }
 
-            // --- 4. Right-Click Brimstone charge ---
+            // --- 5. Carga de Brimstone (click derecho sostenido) ---
             boolean isUsing = player.isUsingItem() && player.getUseItem().is(this);
-            int charge = tag.getInt("xebBrimstoneCharge");
+            int prevCharge   = pData.getInt("xebBrimstoneCharge");
+            int prevFiring   = pData.getInt("xebBrimstoneFiringTicks");
+            boolean prevInstant = pData.getBoolean("xebNextBrimstoneInstant");
 
             if (isUsing) {
-                if (charge < 80) {
-                    charge++;
-                    tag.putInt("xebBrimstoneCharge", charge);
+                if (prevCharge < 80) {
+                    int newCharge = prevCharge + 1;
+                    pData.putInt("xebBrimstoneCharge", newCharge);
+                    // Feedback de audio cada 20 ticks mientras se carga (pitch creciente)
+                    if (!level.isClientSide() && newCharge % 20 == 0) {
+                        level.playSound(null, player, SoundEvents.NOTE_BLOCK_PLING.get(),
+                                SoundSource.PLAYERS, 0.4F, 0.5F + (newCharge / 80.0F) * 1.5F);
+                    }
                 }
             } else {
-                // If not using and not firing, reset charge
-                if (tag.getInt("xebBrimstoneFiringTicks") <= 0 && charge > 0) {
-                    tag.putInt("xebBrimstoneCharge", 0);
+                // Si no se está cargando y no se está disparando, resetear carga
+                if (prevFiring <= 0 && prevCharge > 0) {
+                    pData.putInt("xebBrimstoneCharge", 0);
                 }
             }
 
-            // Sync all states to client
+            // --- 6. Sincronizar al cliente solo si algo cambió ---
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
-                XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
-                        new TearsSyncPacket(
-                                tag.getInt("xebTearsA1Cooldown"),
-                                tag.getInt("xebTearsA2Cooldown"),
-                                tag.getInt("xebTearsImbueType"),
-                                tag.getInt("xebTearsImbueDuration"),
-                                tag.getInt("xebBrimstoneCharge"),
-                                tag.getInt("xebBrimstoneFiringTicks"),
-                                tag.getBoolean("xebNextBrimstoneInstant")
-                        )
-                );
+                int curA1     = pData.getInt("xebTearsA1Cooldown");
+                int curA2     = pData.getInt("xebTearsA2Cooldown");
+                int curImbue  = stackTag.getInt("xebTearsImbueType");
+                int curDur    = stackTag.getInt("xebTearsImbueDuration");
+                int curCharge = pData.getInt("xebBrimstoneCharge");
+                int curFiring = pData.getInt("xebBrimstoneFiringTicks");
+                boolean curInstant = pData.getBoolean("xebNextBrimstoneInstant");
+
+                if (curA1 != prevA1 || curA2 != prevA2
+                        || curImbue != prevImbueType || curDur != prevImbueDur
+                        || curCharge != prevCharge || curFiring != prevFiring
+                        || curInstant != prevInstant) {
+                    XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
+                            new TearsSyncPacket(curA1, curA2, curImbue, curDur, curCharge, curFiring, curInstant));
+                }
             }
 
-            // --- 5. Ticking active Brimstone Laser ---
-            int firingTicks = tag.getInt("xebBrimstoneFiringTicks");
+            // --- 7. Tick del láser Brimstone activo ---
+            int firingTicks = pData.getInt("xebBrimstoneFiringTicks");
             if (firingTicks > 0) {
-                tag.putInt("xebBrimstoneFiringTicks", firingTicks - 1);
+                pData.putInt("xebBrimstoneFiringTicks", firingTicks - 1);
                 if (!level.isClientSide()) {
                     tickBrimstoneLaser(player, level, currentTick);
                 }
             } else {
-                if (firingTicks == 0 && tag.contains("xebBrimstoneFiringTicks")) {
-                    tag.remove("xebBrimstoneFiringTicks");
+                if (firingTicks == 0 && pData.contains("xebBrimstoneFiringTicks")) {
+                    pData.remove("xebBrimstoneFiringTicks");
                     if (!level.isClientSide()) {
-                        // Send stop packet
                         XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
                                 new BrimstoneBeamPacket(player.getId(), false, TearsProjectileEntity.IMBUE_NONE, Collections.emptyList()));
                     }
@@ -209,7 +230,8 @@ public class TheTearsItem extends Item {
     }
 
     private void fireSingleTear(Player player, Level level, boolean isBurst) {
-        CompoundTag tag = player.getPersistentData();
+        ItemStack heldStack = player.getMainHandItem().is(this) ? player.getMainHandItem() : player.getOffhandItem();
+        CompoundTag tag = heldStack.getOrCreateTag();
         boolean leftEye = tag.getBoolean("xebTearsLeftEye");
         tag.putBoolean("xebTearsLeftEye", !leftEye);
 
@@ -222,7 +244,7 @@ public class TheTearsItem extends Item {
         Vec3 eyeOffset = rightVec.scale(leftEye ? -0.3D : 0.3D);
         Vec3 spawnPos = eyePos.add(eyeOffset);
 
-        int imbue = tag.getInt("xebTearsImbueType");
+        int imbue = tag.getInt("xebTearsImbueType"); // read from ItemStack tag
         
         // Spawn TearsProjectileEntity
         TearsProjectileEntity tear = new TearsProjectileEntity(level, player, imbue, false);
@@ -243,8 +265,9 @@ public class TheTearsItem extends Item {
     }
 
     private void tickBrimstoneLaser(Player player, Level level, long currentTick) {
-        CompoundTag tag = player.getPersistentData();
-        int imbue = tag.getInt("xebTearsImbueType");
+        // Imbue es estado del item → ItemStack NBT
+        ItemStack heldStack = player.getMainHandItem().is(this) ? player.getMainHandItem() : player.getOffhandItem();
+        int imbue = heldStack.getOrCreateTag().getInt("xebTearsImbueType");
 
         // Firing from the mouth
         Vec3 mouthPos = player.getEyePosition(1.0F).subtract(0, 0.15D, 0);
@@ -261,7 +284,7 @@ public class TheTearsItem extends Item {
             Vec3 currentPos = mouthPos;
             Vec3 currentDir = lookDir;
             double segmentLength = 2.0D;
-            int maxSegments = 20;
+            int maxSegments = 12;
 
             for (int i = 0; i < maxSegments; i++) {
                 Vec3 nextPos = currentPos.add(currentDir.scale(segmentLength));
@@ -276,7 +299,7 @@ public class TheTearsItem extends Item {
                 Vec3 segmentEnd = (blockHit.getType() != HitResult.Type.MISS) ? blockHit.getLocation() : nextPos;
 
                 // Find entities near segmentEnd
-                AABB sweepBox = new AABB(currentPos, segmentEnd).inflate(1.5D);
+                AABB sweepBox = new AABB(currentPos, segmentEnd).inflate(0.8D);
                 List<LivingEntity> entities = level.getEntitiesOfClass(LivingEntity.class, sweepBox,
                         e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() 
                              && !hitEntities.contains(e) && !(e instanceof CrazyDiamondEntity));
@@ -442,25 +465,28 @@ public class TheTearsItem extends Item {
     }
 
     public static boolean isBackstab(LivingEntity attacker, LivingEntity target) {
-        Vec3 attackerLook = attacker.getLookAngle();
+        Vec3 attackDir = attacker.position().subtract(target.position()).normalize();
         Vec3 targetLook = target.getLookAngle();
-        return attackerLook.dot(targetLook) > 0.5D; // victim facing away
+        return attackDir.dot(targetLook) < -0.5D;
     }
 
     private static void playBackstabSound(Player player, LivingEntity target, long currentTick) {
-        long lastSound = lastBackstabSoundTicks.getOrDefault(target.getUUID(), 0L);
-        if (currentTick - lastSound >= 20) { // 1 second cooldown per target
+        CompoundTag targetData = target.getPersistentData();
+        long lastSound = targetData.getLong("xebLastBackstabSound");
+        if (currentTick - lastSound >= 20) {
             target.level().playSound(null, target, SoundEvents.SLIME_ATTACK, SoundSource.PLAYERS, 1.0F, 1.5F);
-            lastBackstabSoundTicks.put(target.getUUID(), currentTick);
+            targetData.putLong("xebLastBackstabSound", currentTick);
         }
     }
 
     public void triggerLeftClick(Player player, Level level) {
         if (!level.isClientSide()) {
-            long lastTearTime = player.getPersistentData().getLong("xebLastTearShootTime");
+            ItemStack heldStack = player.getMainHandItem().is(this) ? player.getMainHandItem() : player.getOffhandItem();
+            CompoundTag tag = heldStack.getOrCreateTag();
+            long lastTearTime = tag.getLong("xebLastTearShootTime");
             long currentTick = level.getGameTime();
             if (currentTick - lastTearTime >= 8) { // 0.4 seconds (8 ticks)
-                player.getPersistentData().putLong("xebLastTearShootTime", currentTick);
+                tag.putLong("xebLastTearShootTime", currentTick);
                 fireSingleTear(player, level, false);
                 player.swing(InteractionHand.MAIN_HAND, true);
             }

@@ -1,4 +1,5 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.defense;
+import java.util.Set;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
@@ -25,6 +26,11 @@ public class UndyingBuff extends EliteBuff {
         super("undying", "Undying", BuffType.ENEMY_ONLY, 0x8B0000, 10.0D, false);
     }
 
+    
+    @Override
+    public Set<String> getConflicts() {
+        return Set.of("twin","protected");
+    }
     @Override
     public void onAttach(LivingEntity entity) {
         entity.getPersistentData().putBoolean(REVIVED_KEY, false);

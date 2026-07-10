@@ -55,6 +55,15 @@ public abstract class EliteBuff {
         return stackable;
     }
 
+    /**
+     * Returns the set of buff IDs that are incompatible with this buff.
+     * If this buff is assigned, none of the returned IDs will be rolled afterwards.
+     * Override in concrete buffs to declare conflicts; returns empty set by default.
+     */
+    public java.util.Set<String> getConflicts() {
+        return java.util.Collections.emptySet();
+    }
+
     // --- Core lifecycle methods (UUID-aware versions for stacking) ---
 
     /**

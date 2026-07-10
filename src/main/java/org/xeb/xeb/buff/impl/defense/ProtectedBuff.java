@@ -1,4 +1,5 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.defense;
+import java.util.Set;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
@@ -30,6 +31,11 @@ public class ProtectedBuff extends EliteBuff {
         super("protected", "Protected", BuffType.UNIVERSAL, 0xFFD700, 5.0D, false);
     }
 
+    
+    @Override
+    public Set<String> getConflicts() {
+        return Set.of("shielded","undying");
+    }
     @Override
     public void onAttach(LivingEntity entity) {
         CompoundTag tag = entity.getPersistentData();

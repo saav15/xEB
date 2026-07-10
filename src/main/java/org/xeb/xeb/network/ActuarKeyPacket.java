@@ -523,10 +523,16 @@ public class ActuarKeyPacket {
                 } else if (holdsTears) {
                     if (msg.button == 1 && msg.press) {
                             if (player.getPersistentData().getInt("xebTearsA1Cooldown") <= 0) {
-                                int element = 1 + player.getRandom().nextInt(4); // 1 = Purple, 2 = White, 3 = Dark, 4 = Cold
-                                player.getPersistentData().putInt("xebTearsImbueType", element);
-                                player.getPersistentData().putInt("xebTearsImbueDuration", 100); // 5s duration
-                                player.getPersistentData().putInt("xebTearsA1Cooldown", 300); // 15s CD
+                                int element = 1 + player.getRandom().nextInt(4); // 1=Purple 2=White 3=Dark 4=Cold
+                                // Imbue es estado del item → se escribe en el ItemStack NBT
+                                net.minecraft.world.item.ItemStack tearsStack =
+                                        player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.TheTearsItem
+                                        ? player.getMainHandItem() : player.getOffhandItem();
+                                net.minecraft.nbt.CompoundTag stackTag = tearsStack.getOrCreateTag();
+                                stackTag.putInt("xebTearsImbueType", element);
+                                stackTag.putInt("xebTearsImbueDuration", 100); // 5s
+                                // Cooldown de la habilidad → pData (se decrementa en inventoryTick)
+                                player.getPersistentData().putInt("xebTearsA1Cooldown", 300); // 15s
                                 
                                 player.level().playSound(null, player, SoundEvents.GENERIC_EAT, SoundSource.PLAYERS, 1.2F, 1.0F);
                                 player.level().playSound(null, player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);

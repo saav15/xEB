@@ -1,4 +1,4 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.special;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;

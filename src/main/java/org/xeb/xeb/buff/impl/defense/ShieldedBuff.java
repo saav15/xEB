@@ -1,4 +1,5 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.defense;
+import java.util.Set;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
@@ -24,6 +25,11 @@ public class ShieldedBuff extends EliteBuff {
         super("shielded", "Shielded", BuffType.UNIVERSAL, 0x4169E1, 5.0D, true);
     }
 
+    
+    @Override
+    public Set<String> getConflicts() {
+        return Set.of("protected");
+    }
     @Override
     public void onAttach(LivingEntity entity) {}
 

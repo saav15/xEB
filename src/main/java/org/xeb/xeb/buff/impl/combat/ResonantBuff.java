@@ -1,4 +1,5 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.combat;
+import java.util.Set;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
@@ -23,6 +24,11 @@ public class ResonantBuff extends EliteBuff {
         super("resonant", "Resonant", BuffType.ENEMY_ONLY, 0x9370DB, 5.0D);
     }
 
+    
+    @Override
+    public Set<String> getConflicts() {
+        return Set.of("mirror");
+    }
     @Override
     public void onAttach(LivingEntity entity) {}
 

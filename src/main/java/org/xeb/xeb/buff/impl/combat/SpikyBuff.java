@@ -1,4 +1,5 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.combat;
+import java.util.Set;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
@@ -18,6 +19,11 @@ public class SpikyBuff extends EliteBuff {
         super("spiky", "Spiky", BuffType.UNIVERSAL, 0x8B4513, 2.0D, true);
     }
 
+    
+    @Override
+    public Set<String> getConflicts() {
+        return Set.of("mirror");
+    }
     @Override
     public void onAttach(LivingEntity entity) {}
 

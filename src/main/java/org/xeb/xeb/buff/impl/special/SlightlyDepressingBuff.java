@@ -1,4 +1,4 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.special;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
@@ -11,9 +11,9 @@ import net.minecraft.world.phys.AABB;
 
 import java.util.List;
 
-public class DepressingBuff extends EliteBuff {
-    public DepressingBuff() {
-        super("depressing", "Depressing", BuffType.UNIVERSAL, 0x2F4F4F, 5.0D);
+public class SlightlyDepressingBuff extends EliteBuff {
+    public SlightlyDepressingBuff() {
+        super("slightly_depressing", "Slightly Depressing", BuffType.UNIVERSAL, 0x708090, 1.0D);
     }
 
     @Override
@@ -30,7 +30,7 @@ public class DepressingBuff extends EliteBuff {
         int amplifier = 0;
         List<MedallionData> medallions = MedallionManager.getMedallions(entity);
         for (MedallionData m : medallions) {
-            if (m.getBuff().getId().equals("depressing")) {
+            if (m.getBuff().getId().equals("slightly_depressing")) {
                 amplifier = switch (m.getTier()) {
                     case COMMON -> 0;
                     case RARE -> 1;
@@ -40,7 +40,7 @@ public class DepressingBuff extends EliteBuff {
             }
         }
 
-        AABB aabb = entity.getBoundingBox().inflate(10.0D); // Depressing applies at 10 blocks range
+        AABB aabb = entity.getBoundingBox().inflate(2.0D); // Slightly Depressing applies at 2 blocks range
         List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, aabb);
 
         for (LivingEntity target : targets) {

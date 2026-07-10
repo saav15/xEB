@@ -1,4 +1,5 @@
-package org.xeb.xeb.buff.impl;
+package org.xeb.xeb.buff.impl.combat;
+import java.util.Set;
 
 import org.xeb.xeb.buff.BuffType;
 import org.xeb.xeb.buff.EliteBuff;
@@ -30,6 +31,11 @@ public class MirrorBuff extends EliteBuff {
         };
     }
 
+    
+    @Override
+    public Set<String> getConflicts() {
+        return Set.of("spiky","resonant");
+    }
     @Override
     public void onAttach(LivingEntity entity) {
         if (!entity.level().isClientSide()) {
