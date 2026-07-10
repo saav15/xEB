@@ -6,9 +6,7 @@
   "refmap": "xeb.refmap.json",
   "mixins": [
     "CombatTrackerMixin",
-    "EnchantmentHelperMixin"
-  ],
-  "client": [
+    "EnchantmentHelperMixin",
     "HumanoidModelMixin"
   ],
   "injectors": {

@@ -5,6 +5,8 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,7 +19,11 @@ import org.xeb.xeb.client.renderer.OpticBlastBeamRenderer;
  * Mixin to intercept HumanoidModel.setupAnim to force the player's arm
  * to their ear/temple when firing The Optic Blast or using its active abilities.
  * This guarantees the animation works correctly in third-person and overrides all biped defaults.
+ *
+ * @OnlyIn(Dist.CLIENT) — HumanoidModel is a client-only class. Forge will skip this
+ * mixin on dedicated servers thanks to the dist-marker check at load time.
  */
+@OnlyIn(Dist.CLIENT)
 @Mixin(HumanoidModel.class)
 public class HumanoidModelMixin {
     @Shadow public ModelPart rightArm;
