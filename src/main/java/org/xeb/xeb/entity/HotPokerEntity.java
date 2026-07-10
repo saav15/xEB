@@ -114,13 +114,24 @@ public class HotPokerEntity extends Monster implements GeoEntity {
             // Assign standard random medallions first
             MedallionManager.assignRandomMedallions(this, serverLevel);
 
-            // Guarantee a flaming medallion matching the scaled tier
-            java.util.List<MedallionData> meds = new java.util.ArrayList<>(MedallionManager.getMedallions(this));
+            // Guarantee a flaming medallion matching the scaled tier.
+            // N16 fix: use attachMedallion instead of directly mutating the list +
+            // saveMedallions, so onAttach is always called (e.g. FlamingBuff grants
+            // Fire Resistance).  We upgrade the tier if flaming is already present,
+            // otherwise we attach a fresh one.
+            java.util.List<MedallionData> meds = MedallionManager.getMedallions(this);
             boolean found = false;
-            for (int i = 0; i < meds.size(); i++) {
-                MedallionData m = meds.get(i);
+            for (MedallionData m : meds) {
                 if (m.getBuff().getId().equals("flaming")) {
-                    meds.set(i, new MedallionData(m.getBuff(), tier, m.getUniqueId()));
+                    if (m.getTier() != tier) {
+                        // Re-attach with the correct tier by removing the old entry and adding new one
+                        java.util.List<MedallionData> updated = new java.util.ArrayList<>(meds);
+                        updated.removeIf(x -> x.getBuff().getId().equals("flaming"));
+                        updated.add(new MedallionData(m.getBuff(), tier, m.getUniqueId()));
+                        MedallionManager.saveMedallions(this, updated);
+                        MedallionManager.refreshDimensionsIfNeeded(this, updated);
+                        MedallionManager.syncToTracking(this);
+                    }
                     found = true;
                     break;
                 }
@@ -128,12 +139,12 @@ public class HotPokerEntity extends Monster implements GeoEntity {
             if (!found) {
                 var flamingBuff = EliteBuffRegistry.getById("flaming");
                 if (flamingBuff != null) {
-                    meds.add(new MedallionData(flamingBuff, tier, UUID.randomUUID()));
+                    // attachMedallion calls onAttach, saveMedallions, and syncToTracking
+                    MedallionManager.attachMedallion(this,
+                        new MedallionData(flamingBuff, tier, UUID.randomUUID()));
                 }
             }
-            MedallionManager.saveMedallions(this, meds);
-            MedallionManager.refreshDimensionsIfNeeded(this, meds);
-            MedallionManager.syncToTracking(this);
+
         }
 
         return result;
@@ -234,15 +245,16 @@ public class HotPokerEntity extends Monster implements GeoEntity {
                 return Monster.checkMonsterSpawnRules(type, serverLevel, spawnType, pos, random);
             }
             if (serverLevel.dimension() == Level.OVERWORLD) {
-                var ruinedPortalKey = net.minecraft.resources.ResourceKey.create(Registries.STRUCTURE, new net.minecraft.resources.ResourceLocation("minecraft", "ruined_portal"));
-                for (int x = -16; x <= 16; x += 8) {
-                    for (int z = -16; z <= 16; z += 8) {
-                        for (int y = -8; y <= 8; y += 4) {
-                            if (serverLevel.structureManager().getStructureWithPieceAt(pos.offset(x, y, z), ruinedPortalKey).isValid()) {
-                                return Monster.checkMonsterSpawnRules(type, serverLevel, spawnType, pos, random);
-                            }
-                        }
-                    }
+                // N17 fix — the original 5×5×5 nested loop issued 125 getStructureWithPieceAt()
+                // calls per spawn attempt, causing high overhead in chunk ticks near ruined portals.
+                // A single check at the mob's exact position is sufficient because
+                // getStructureWithPieceAt already queries the structure index efficiently.
+                var ruinedPortalKey = net.minecraft.resources.ResourceKey.create(
+                    Registries.STRUCTURE,
+                    new net.minecraft.resources.ResourceLocation("minecraft", "ruined_portal"));
+                if (serverLevel.structureManager()
+                        .getStructureWithPieceAt(pos, ruinedPortalKey).isValid()) {
+                    return Monster.checkMonsterSpawnRules(type, serverLevel, spawnType, pos, random);
                 }
             }
         }

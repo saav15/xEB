@@ -31,7 +31,15 @@ public class MedallionRenderLayer<T extends LivingEntity, M extends EntityModel<
     private static final ResourceLocation GOLD_TEXTURE = new ResourceLocation(Xeb.MODID, "textures/entity/medallion_gold.png");
     private static final ResourceLocation WHITE_TEX = new ResourceLocation(Xeb.MODID, "textures/entity/white.png");
 
-    private final MedallionModel model = new MedallionModel();
+    /**
+     * N12 fix — MedallionModel bakes all ModelParts in its constructor.
+     * Previously {@link #renderMedallionsStatic} created {@code new MedallionRenderLayer(null)}
+     * on every frame call (~60 fps × every tracked entity), triggering ~1200+ bake ops/s in
+     * combat.  A single static instance is shared instead.
+     */
+    private static final MedallionModel SHARED_MODEL = new MedallionModel();
+
+    private final MedallionModel model = SHARED_MODEL;
 
     public MedallionRenderLayer(RenderLayerParent<T, M> parent) {
         super(parent);
@@ -126,9 +134,10 @@ public class MedallionRenderLayer<T extends LivingEntity, M extends EntityModel<
      */
     public static void renderMedallionsStatic(PoseStack poseStack, MultiBufferSource bufferSource,
                                              int packedLight, LivingEntity entity, float partialTick) {
-        // Use a local instance with null parent — renderAtPose never calls getParentModel()/getTextureLocation()
+        // N12 fix — reuse the shared static instance instead of allocating a new
+        // MedallionRenderLayer (which bakes all ModelParts) on every frame.
         @SuppressWarnings({"unchecked", "rawtypes"})
-        MedallionRenderLayer instance = new MedallionRenderLayer(null);
+        MedallionRenderLayer instance = new MedallionRenderLayer(null); // lightweight — model field now points to SHARED_MODEL
         instance.renderAtPose(poseStack, bufferSource, packedLight, entity, partialTick);
     }
 

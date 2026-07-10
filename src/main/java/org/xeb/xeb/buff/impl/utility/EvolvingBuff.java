@@ -62,7 +62,7 @@ public class EvolvingBuff extends EliteBuff {
                     if (updated.size() >= 5) {
                         level.getEntitiesOfClass(net.minecraft.world.entity.player.Player.class, entity.getBoundingBox().inflate(32.0D)).forEach(player -> {
                             if (player instanceof net.minecraft.server.level.ServerPlayer sp) {
-                                org.xeb.xeb.event.MedallionSpawnHandler.grantAdvancement(sp, "xeb:evolved_champion");
+                                org.xeb.xeb.event.EliteAdvancementHandler.grantAdvancement(sp, "xeb:evolved_champion");
                             }
                         });
                     }

@@ -9,17 +9,32 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.xeb.xeb.item.TinfoilHatItem;
 
+/**
+ * Intercepts EnchantmentHelper.getItemEnchantmentLevel so that TinfoilHat
+ * reports 0 enchantment level when queried by Curios (preventing Curios from
+ * applying unintended enchantment bonuses to the hat).
+ *
+ * <p><b>Performance fix (N1):</b> The original used {@link Thread#getStackTrace()}
+ * which is O(call-stack-depth) and was being triggered hundreds of times per tick.
+ * Replaced with a {@link ThreadLocal} boolean flag set by
+ * {@link CuriosQueryScope} before Curios calls {@code getItemEnchantmentLevel},
+ * making the check O(1) with no stack allocation.</p>
+ *
+ * <p>If Curios is not loaded the flag is never set and this mixin is a no-op.</p>
+ */
 @Mixin(EnchantmentHelper.class)
 public class EnchantmentHelperMixin {
+
+    /** Set to {@code true} by {@link CuriosQueryScope} while Curios is evaluating enchantments. */
+    public static final ThreadLocal<Boolean> INSIDE_CURIOS_QUERY = ThreadLocal.withInitial(() -> false);
+
     @Inject(method = "getItemEnchantmentLevel", at = @At("HEAD"), cancellable = true)
-    private static void onGetItemEnchantmentLevel(Enchantment enchantment, ItemStack stack, CallbackInfoReturnable<Integer> cir) {
-        if (!stack.isEmpty() && stack.getItem() instanceof TinfoilHatItem) {
-            for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
-                if (element.getClassName().contains("curios")) {
-                    cir.setReturnValue(0);
-                    return;
-                }
-            }
+    private static void onGetItemEnchantmentLevel(Enchantment enchantment, ItemStack stack,
+                                                   CallbackInfoReturnable<Integer> cir) {
+        if (!stack.isEmpty()
+                && stack.getItem() instanceof TinfoilHatItem
+                && Boolean.TRUE.equals(INSIDE_CURIOS_QUERY.get())) {
+            cir.setReturnValue(0);
         }
     }
 }

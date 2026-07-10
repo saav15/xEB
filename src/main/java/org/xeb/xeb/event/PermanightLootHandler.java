@@ -52,6 +52,11 @@ public class PermanightLootHandler {
             if (remaining > 0) {
                 data.setTicksRemaining(remaining - 1);
                 serverLevel.setDayTime(18000L); // lock visual time to midnight
+                // N11 — flush ticksRemaining to disk every 200 ticks (~10 s) to avoid
+                // I/O spam while still surviving a crash with at most 10 s of lost progress.
+                if (remaining % 200 == 0) {
+                    data.markDirtyTick();
+                }
             } else {
                 // Permanight ends
                 data.setActive(false);

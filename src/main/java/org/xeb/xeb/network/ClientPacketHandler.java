@@ -18,14 +18,35 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ClientPacketHandler {
-    private static final java.util.Map<Integer, ListTag> PENDING_SYNCS = new ConcurrentHashMap<>();
+    /**
+     * Pending medallion sync data for entities that haven't been loaded on the client yet.
+     *
+     * <p><b>N9 fix:</b> The original plain {@code ConcurrentHashMap} had no expiry — entries for
+     * entities that were never loaded (e.g. a mob that despawned before the chunk loaded) would
+     * accumulate indefinitely.  Each entry now carries a creation timestamp; entries older than
+     * {@link #PENDING_TTL_MS} are pruned on each write to cap steady-state memory use.</p>
+     */
+    private static final long PENDING_TTL_MS = 30_000L; // 30 s
+    private static final ConcurrentHashMap<Integer, long[]> PENDING_TIMES = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Integer, ListTag>  PENDING_SYNCS = new ConcurrentHashMap<>();
 
     public static ListTag getPendingSync(int entityId) {
+        PENDING_TIMES.remove(entityId);
         return PENDING_SYNCS.remove(entityId);
     }
 
     public static void addPendingSync(int entityId, ListTag tag) {
+        long now = System.currentTimeMillis();
+        // Prune stale entries before inserting so the map stays bounded.
+        PENDING_TIMES.entrySet().removeIf(e -> {
+            if (now - e.getValue()[0] > PENDING_TTL_MS) {
+                PENDING_SYNCS.remove(e.getKey());
+                return true;
+            }
+            return false;
+        });
         PENDING_SYNCS.put(entityId, tag);
+        PENDING_TIMES.put(entityId, new long[]{now});
     }
 
     public static void handleMedallionSync(MedallionSyncPacket msg) {
