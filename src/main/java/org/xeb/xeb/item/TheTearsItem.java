@@ -417,48 +417,60 @@ public class TheTearsItem extends Item {
         }
 
         // --- 1. Apply Damage & Special element ticks ---
-        for (LivingEntity target : hitEntities) {
-            float baseDmg = 10.0F; // Brimstone deals double Optic Blast damage (5.0F * 2)
-            boolean isBack = isBackstab(player, target);
-            if (isBack) {
-                baseDmg *= 1.05F; // +5% damage multiplier
-                playBackstabSound(player, target, currentTick);
-            }
-
-            target.getPersistentData().putString("xebLastAttackWeapon", "the_tears");
-            target.getPersistentData().putString("xebLastAttackType", "right_click");
-            target.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
-            target.hurt(player.damageSources().playerAttack(player), baseDmg);
-
-            // White imbuement: tick lightning strike
-            if (imbue == TearsProjectileEntity.IMBUE_WHITE) {
-                if (player.getRandom().nextFloat() <= 0.08F) {
-                    LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(level);
-                    if (lightning != null) {
-                        lightning.moveTo(target.position());
-                        level.addFreshEntity(lightning);
-                    }
+        if (!org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(player.getUUID())) {
+            for (LivingEntity target : hitEntities) {
+                float baseDmg = 10.0F; // Brimstone deals double Optic Blast damage (5.0F * 2)
+                boolean isBack = isBackstab(player, target);
+                if (isBack) {
+                    baseDmg *= 1.05F; // +5% damage multiplier
+                    playBackstabSound(player, target, currentTick);
                 }
-            } else if (imbue == TearsProjectileEntity.IMBUE_DARK) {
-                target.addEffect(new MobEffectInstance(MobEffects.WITHER, 60, 1));
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1));
-            } else if (imbue == TearsProjectileEntity.IMBUE_COLD) {
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 3)); // Slowness IV
+
+                target.getPersistentData().putString("xebLastAttackWeapon", "the_tears");
+                target.getPersistentData().putString("xebLastAttackType", "right_click");
+                target.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
+                target.hurt(player.damageSources().playerAttack(player), baseDmg);
+
+                // White imbuement: tick lightning strike
+                if (imbue == TearsProjectileEntity.IMBUE_WHITE) {
+                    if (player.getRandom().nextFloat() <= 0.08F) {
+                        LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(level);
+                        if (lightning != null) {
+                            lightning.moveTo(target.position());
+                            level.addFreshEntity(lightning);
+                        }
+                    }
+                } else if (imbue == TearsProjectileEntity.IMBUE_DARK) {
+                    target.addEffect(new MobEffectInstance(MobEffects.WITHER, 60, 1));
+                    target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1));
+                } else if (imbue == TearsProjectileEntity.IMBUE_COLD) {
+                    target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 3)); // Slowness IV
+                }
             }
         }
 
         // --- 2. Check Beam vs Beam Collision in ActiveBeamManager ---
         Vec3 renderEnd = points.get(points.size() - 1);
 
-        if (struggleCollision == null) {
+        // FIX: solo usar collision point del struggle si el struggle está ACTIVO
+        // Si el struggle terminó, getCollisionPointFor retorna null y calculamos fresh
+        struggleCollision = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(playerUUID);
+        if (struggleCollision != null) {
+            // Struggle activo — usar el collision point del struggle
+            renderEnd = struggleCollision;
+            points.set(points.size() - 1, renderEnd);
+        } else {
+            // No hay struggle activo — calcular colisión fresh este tick
             Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, renderEnd, 0.75D);
             if (beamCollision != null) {
                 double collisionDist = mouthPos.distanceToSqr(beamCollision);
                 double currentEndDist = mouthPos.distanceToSqr(renderEnd);
                 if (collisionDist < currentEndDist) {
-                    // Buscar el otro beam
+                    // Buscar el otro beam owner para iniciar struggle
                     UUID otherOwnerUUID = null;
-                    Vec3 otherStart = null, otherEnd = null;
+                    Vec3 otherStart = null;
+                    Vec3 otherEnd = null;
+
                     for (BeamData otherBeam : ActiveBeamManager.get().getActiveBeams()) {
                         if (!otherBeam.getOwnerUUID().equals(playerUUID)) {
                             otherOwnerUUID = otherBeam.getOwnerUUID();
@@ -468,25 +480,18 @@ public class TheTearsItem extends Item {
                         }
                     }
 
-                    if (otherOwnerUUID != null && otherStart != null && otherEnd != null) {
+                    if (otherOwnerUUID != null && otherStart != null && otherEnd != null && level instanceof ServerLevel serverLevel) {
+                        // Check frontal
                         Vec3 myDir = renderEnd.subtract(mouthPos).normalize();
                         Vec3 otherDir = otherEnd.subtract(otherStart).normalize();
                         double dotProduct = myDir.dot(otherDir);
 
                         if (dotProduct < -0.5D) {
-                            // Frontal — struggle
+                            // Frontal — iniciar struggle
                             renderEnd = beamCollision;
                             points.set(points.size() - 1, renderEnd);
                             org.xeb.xeb.beamstruggle.BeamStruggleManager.onBeamCollision(
-                                    playerUUID, otherOwnerUUID, mouthPos, otherStart, beamCollision, currentTick, (ServerLevel) level);
-                            org.xeb.xeb.beamstruggle.BeamStruggleManager.updateCollisionPoint(playerUUID, beamCollision);
-
-                            if (level instanceof ServerLevel serverLevel) {
-                                serverLevel.sendParticles(ParticleTypes.FLASH, renderEnd.x, renderEnd.y, renderEnd.z,
-                                        1, 0.0D, 0.0D, 0.0D, 0.0D);
-                                serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, renderEnd.x, renderEnd.y, renderEnd.z,
-                                        8, 0.3D, 0.3D, 0.3D, 0.05D);
-                            }
+                                    playerUUID, otherOwnerUUID, mouthPos, otherStart, beamCollision, currentTick, serverLevel);
                         } else {
                             // No frontal — cortar beam y drenar
                             renderEnd = beamCollision;
@@ -500,12 +505,10 @@ public class TheTearsItem extends Item {
                             XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
                                     new BrimstoneBeamPacket(player.getId(), false, TearsProjectileEntity.IMBUE_NONE, Collections.emptyList()));
 
-                            if (level instanceof ServerLevel serverLevel) {
-                                serverLevel.sendParticles(ParticleTypes.FLASH, beamCollision.x, beamCollision.y, beamCollision.z,
-                                        3, 0.0D, 0.0D, 0.0D, 0.0D);
-                                serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, beamCollision.x, beamCollision.y, beamCollision.z,
-                                        15, 0.5D, 0.5D, 0.5D, 0.1D);
-                            }
+                            serverLevel.sendParticles(ParticleTypes.FLASH, beamCollision.x, beamCollision.y, beamCollision.z,
+                                    3, 0.0D, 0.0D, 0.0D, 0.0D);
+                            serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, beamCollision.x, beamCollision.y, beamCollision.z,
+                                    15, 0.5D, 0.5D, 0.5D, 0.1D);
                             level.playSound(null, beamCollision.x, beamCollision.y, beamCollision.z,
                                     SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8F, 1.5F);
                         }

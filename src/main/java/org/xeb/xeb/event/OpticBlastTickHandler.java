@@ -66,10 +66,12 @@ public class OpticBlastTickHandler {
         // Clean up expired beams
         ActiveBeamManager.get().tickBeams(currentTick);
 
-        // Collect external beams and tick struggle decay/timers across all levels (dimensions)
+        // Tick Beam Struggles — detecta beams muertos y pérdida de concentración
+        org.xeb.xeb.beamstruggle.BeamStruggleManager.tickStruggles(server.overworld(), currentTick);
+
+        // Collect external beams across all levels (dimensions)
         for (ServerLevel serverLevel : server.getAllLevels()) {
             org.xeb.xeb.beamstruggle.ExternalBeamRegistry.collectBeams(serverLevel);
-            org.xeb.xeb.beamstruggle.BeamStruggleManager.onServerTick(serverLevel, serverLevel.getGameTime());
         }
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -244,53 +246,34 @@ public class OpticBlastTickHandler {
                     }
 
                     if (otherOwnerUUID != null && otherStart != null && otherEnd != null) {
-                        // BUG 4 fix: verificar si los beams son frontales (look angle dot product < -0.5)
-                        Vec3 myDir = lookDir; // player's look direction
+                        // Check frontal
+                        Vec3 myDir = effectiveEnd.subtract(eyePos).normalize();
                         Vec3 otherDir = otherEnd.subtract(otherStart).normalize();
                         double dotProduct = myDir.dot(otherDir);
 
                         if (dotProduct < -0.5D) {
-                            // Frontal — struggle
+                            // Frontal — iniciar struggle
                             effectiveEnd = beamCollision;
                             hitEntity = null;
-
-                            boolean struggleActive = org.xeb.xeb.beamstruggle.BeamStruggleManager.onBeamCollision(
-                                    ownerUUID, otherOwnerUUID,
-                                    eyePos, otherStart, beamCollision,
-                                    currentTick, level
-                            );
-                            if (struggleActive) {
-                                org.xeb.xeb.beamstruggle.BeamStruggleManager.updateCollisionPoint(ownerUUID, beamCollision);
-                                Vec3 updatedCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(ownerUUID);
-                                if (updatedCol != null) {
-                                    effectiveEnd = updatedCol;
-                                }
-                            }
+                            org.xeb.xeb.beamstruggle.BeamStruggleManager.onBeamCollision(
+                                    ownerUUID, otherOwnerUUID, eyePos, otherStart, beamCollision, currentTick, level);
 
                             level.sendParticles(ParticleTypes.FLASH, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
                                     1, 0.0D, 0.0D, 0.0D, 0.0D);
                             level.sendParticles(ParticleTypes.ELECTRIC_SPARK, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
                                     8, 0.3D, 0.3D, 0.3D, 0.05D);
                         } else {
-                            // NO frontal — los beams se cortan inmediatamente con penalización
+                            // No frontal — cortar beam, drenar energía, cooldown
                             effectiveEnd = beamCollision;
                             hitEntity = null;
-
-                            // Cortar el beam del player
                             if (player.isUsingItem()) {
                                 player.releaseUsingItem();
                             }
                             org.xeb.xeb.item.OpticBlastItem.setEnergy(player, 0.0F);
-                            player.getCooldowns().addCooldown(ModItems.OPTIC_BLAST.get(), 60); // 3s cooldown
+                            player.getCooldowns().addCooldown(ModItems.OPTIC_BLAST.get(), 60);
 
-                            // Cortar el beam del otro owner si es player
-                            net.minecraft.world.entity.Entity otherEnt = null;
-                            for (ServerPlayer otherP : level.getServer().getPlayerList().getPlayers()) {
-                                if (otherP.getUUID().equals(otherOwnerUUID)) {
-                                    otherEnt = otherP;
-                                    break;
-                                }
-                            }
+                            // Cortar el otro beam si es player
+                            net.minecraft.world.entity.Entity otherEnt = level.getPlayerByUUID(otherOwnerUUID);
                             if (otherEnt instanceof ServerPlayer otherPlayer) {
                                 if (otherPlayer.isUsingItem()) {
                                     otherPlayer.releaseUsingItem();
@@ -312,7 +295,8 @@ public class OpticBlastTickHandler {
         }
 
         // --- 5. Deal damage to hit entity ---
-        if (hitEntity != null) {
+        // FIX: no dañar durante struggle activo
+        if (hitEntity != null && !org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(ownerUUID)) {
             hitEntity.getPersistentData().putString("xebLastAttackWeapon", "optic_blast");
             hitEntity.getPersistentData().putString("xebLastAttackType", "right_click");
             hitEntity.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
