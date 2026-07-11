@@ -552,7 +552,7 @@ public class ActuarKeyPacket {
                         } else if (msg.button == 2 && msg.press) {
                             if (player.getPersistentData().getInt("xebTearsA2Cooldown") <= 0) {
                                 player.getPersistentData().putInt("xebTearsA2Cooldown", 400); // 20s CD
-                                player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 400, 0)); // 20s
+                        player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 400, 0)); // 20s
                                 player.getPersistentData().putInt("xebTearsBurstCount", 6);
                                 player.getPersistentData().putInt("xebTearsBurstTimer", 0);
                                 player.getPersistentData().putBoolean("xebNextBrimstoneInstant", true);
@@ -560,7 +560,8 @@ public class ActuarKeyPacket {
                                 player.level().playSound(null, player, SoundEvents.BAT_TAKEOFF, SoundSource.PLAYERS, 1.0F, 1.5F);
                                 player.level().playSound(null, player, SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 0.6F, 1.6F);
                             }
-                             } else if (holdsMecha) {
+                        }
+                    } else if (holdsMecha) {
                         if (msg.button == 1) {
                             if (msg.press) {
                                 if (player.getPersistentData().getInt("xebMechaA1Cooldown") <= 0) {
@@ -814,7 +815,7 @@ public class ActuarKeyPacket {
                             player.swing(InteractionHand.MAIN_HAND, true);
                             org.xeb.xeb.item.HolyDualityBladeItem.syncToClient((ServerPlayer) player);
                         }
-                    }                    }
+                    }
                 }
         });
         ctx.setPacketHandled(true);

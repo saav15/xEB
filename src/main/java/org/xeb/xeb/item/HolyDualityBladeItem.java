@@ -101,10 +101,15 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
         tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc1"));
         tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc2"));
         tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc_damage"));
-        tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc4", "G"));
-        tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc5", "H"));
+        tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc4", Component.keybind("key.xeb.activa_1")));
+        tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc5", Component.keybind("key.xeb.activa_2")));
         tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc3"));
         super.appendHoverText(stack, level, tooltip, flag);
+    }
+
+    @Override
+    public Component getName(ItemStack stack) {
+        return Component.translatable(this.getDescriptionId(stack)).withStyle(net.minecraft.ChatFormatting.RED);
     }
 
     @Override

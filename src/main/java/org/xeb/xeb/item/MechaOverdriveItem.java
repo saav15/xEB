@@ -69,10 +69,15 @@ public class MechaOverdriveItem extends Item implements GeoItem {
         tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc1"));
         tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc2"));
         tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc_damage"));
-        tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc4", "G"));
-        tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc5", "H"));
+        tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc4", Component.keybind("key.xeb.activa_1")));
+        tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc5", Component.keybind("key.xeb.activa_2")));
         tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc3"));
         super.appendHoverText(stack, level, tooltip, flag);
+    }
+
+    @Override
+    public Component getName(ItemStack stack) {
+        return Component.translatable(this.getDescriptionId(stack)).withStyle(net.minecraft.ChatFormatting.RED);
     }
 
     @Override
@@ -166,40 +171,54 @@ public class MechaOverdriveItem extends Item implements GeoItem {
         if (!level.isClientSide()) {
             double momentum = pData.getDouble("xebMechaMomentum");
 
-            if (onGround) {
-                if (isMovingForward) {
-                    jetActive = true;
-                    // Build momentum: 0.015 per tick
-                    momentum = Math.min(1.0D, momentum + 0.015D);
-                    
-                    Vec3 moveDir = new Vec3(currentMotion.x, 0.0D, currentMotion.z).normalize();
-                    if (moveDir.lengthSqr() < 0.01D) {
-                        Vec3 look = player.getLookAngle();
-                        moveDir = new Vec3(look.x, 0.0D, look.z).normalize();
-                    }
-                    double accel = 0.015D + (momentum * 0.03D);
+            if (isMovingForward) {
+                jetActive = true;
+                momentum = Math.min(1.0D, momentum + 0.015D);
+                
+                Vec3 moveDir = new Vec3(currentMotion.x, 0.0D, currentMotion.z).normalize();
+                if (moveDir.lengthSqr() < 0.01D) {
+                    Vec3 look = player.getLookAngle();
+                    moveDir = new Vec3(look.x, 0.0D, look.z).normalize();
+                }
+                
+                double maxSkatingSpeed = 0.3D + (momentum * (MAX_SPEED - 0.3D));
+                double accel = 0.02D + (momentum * 0.04D);
+                
+                if (horizontalSpeed < maxSkatingSpeed) {
                     player.setDeltaMovement(currentMotion.x + moveDir.x * accel, currentMotion.y, currentMotion.z + moveDir.z * accel);
-                    player.hurtMarked = true;
                 } else {
-                    // Decay momentum: 0.03 per tick
+                    player.setDeltaMovement(moveDir.x * maxSkatingSpeed, currentMotion.y, moveDir.z * maxSkatingSpeed);
+                }
+                
+                if (!onGround && currentMotion.y < 0.0D) {
+                    player.setDeltaMovement(player.getDeltaMovement().x, currentMotion.y + 0.06D, player.getDeltaMovement().z);
+                }
+                player.hurtMarked = true;
+            } else {
+                if (onGround) {
                     momentum = Math.max(0.0D, momentum - 0.03D);
-                    // High artificial friction when stopping
-                    player.setDeltaMovement(currentMotion.multiply(0.4D, 1.0D, 0.4D));
+                    double slideFriction = 0.80D + (momentum * 0.15D);
+                    player.setDeltaMovement(currentMotion.x * slideFriction, currentMotion.y, currentMotion.z * slideFriction);
+                    player.hurtMarked = true;
+                    
                     if (level instanceof ServerLevel serverLevel && level.getGameTime() % 2 == 0) {
-                        double speed = Math.sqrt(currentMotion.x * currentMotion.x + currentMotion.z * currentMotion.z);
-                        if (speed > 0.05D) {
+                        if (horizontalSpeed > 0.05D) {
                             serverLevel.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, player.getX(), player.getY() + 0.1D, player.getZ(),
                                     2, 0.2D, 0.0D, 0.2D, 0.01D);
                             serverLevel.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 0.1D, player.getZ(),
                                     3, 0.2D, 0.0D, 0.2D, 0.05D);
                         }
                     }
+                } else {
+                    momentum = Math.max(0.0D, momentum - 0.01D);
+                    double slideFriction = 0.95D;
+                    double newY = currentMotion.y;
+                    if (currentMotion.y < 0.0D) {
+                        newY += 0.06D;
+                    }
+                    player.setDeltaMovement(currentMotion.x * slideFriction, newY, currentMotion.z * slideFriction);
+                    player.hurtMarked = true;
                 }
-            } else {
-                // Air hover: Maintain horizontal momentum, reduce gravity (neutralize 0.06 of 0.08 vanilla)
-                jetActive = true;
-                player.setDeltaMovement(currentMotion.x, currentMotion.y + 0.06D, currentMotion.z);
-                player.hurtMarked = true;
             }
 
             pData.putDouble("xebMechaMomentum", momentum);

@@ -662,12 +662,8 @@ public class DoomfistHUDOverlay {
         
         int a1CD = tag.getInt("xebHolyA1Cooldown");
         int a2CD = tag.getInt("xebHolyA2Cooldown");
-        int holyRCD = tag.getInt("xebHolyRCD");
         boolean shieldActive = tag.getBoolean("xebHolyShieldActive");
         boolean annihilationActive = tag.getBoolean("xebHolyAnnihilationActive");
-        boolean blessed = tag.getBoolean("xebHolyBlessedActive");
-        int blessedTicks = tag.getInt("xebHolyBlessedTicks");
-        int comboStage = tag.getInt("xebHolyComboStage");
         int blastCharge = tag.getInt("xebHolyBlastCharge");
         
         RenderSystem.enableBlend();
@@ -680,79 +676,31 @@ public class DoomfistHUDOverlay {
         renderAbilityIconBox(g, mc, xStart, yStart, key1, "CREAT", a1CD, 320, shieldActive);
         renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "ANNIL", a2CD, 133, annihilationActive);
         
-        // Large Mewgenics-style rectangular dashboard box on the right of the screen
-        int boxW = 120;
-        int boxH = 150;
-        int boxX = width - boxW - 10;
-        int boxY = height / 2 - boxH / 2;
-        
-        int borderCol = blessed ? 0xFFFFD700 : 0xFF888888;
-        
-        // Background
-        g.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xCC111111);
-        
-        // Double border
-        g.fill(boxX, boxY, boxX + boxW, boxY + 2, borderCol);
-        g.fill(boxX, boxY + boxH - 2, boxX + boxW, boxY + boxH, borderCol);
-        g.fill(boxX, boxY, boxX + 2, boxY + boxH, borderCol);
-        g.fill(boxX + boxW - 2, boxY, boxX + boxW, boxY + boxH, borderCol);
-        
-        // Title
-        String titleStr = "HOLY CROWN";
-        g.drawString(mc.font, titleStr, boxX + (boxW - mc.font.width(titleStr)) / 2, boxY + 8, borderCol, false);
-        
-        // Combo text
-        String comboStr = "COMBO: Stage " + (comboStage + 1);
-        if (comboStage == 2) {
-            comboStr = "COMBO: X-STRIKE";
-        }
-        g.drawString(mc.font, comboStr, boxX + 8, boxY + 25, 0xFFFFD700, false);
-        
-        // Status text
-        if (blessed) {
-            String bTime = String.format("BLESSED: %.1fs", blessedTicks / 20.0F);
-            g.drawString(mc.font, bTime, boxX + 8, boxY + 40, 0xFFFFAA00, false);
-        } else if (shieldActive) {
-            g.drawString(mc.font, "SHIELD ACTIVE", boxX + 8, boxY + 40, 0xFFE5F5FF, false);
-        } else {
-            g.drawString(mc.font, "STATUS: NORMAL", boxX + 8, boxY + 40, 0xFF888888, false);
-        }
-        
-        // Cooldown lists
-        int listY = boxY + 60;
-        
-        // Activa 1
-        String cd1 = a1CD > 0 ? String.format("%.1fs", a1CD / 20.0F) : "Ready";
-        g.drawString(mc.font, "After Creation: " + cd1, boxX + 8, listY, a1CD > 0 ? 0xFF888888 : 0xFFFFFFFF, false);
-        
-        // Activa 2
-        String cd2 = a2CD > 0 ? String.format("%.1fs", a2CD / 20.0F) : "Ready";
-        g.drawString(mc.font, "Annihilation: " + cd2, boxX + 8, listY + 15, a2CD > 0 ? 0xFF888888 : 0xFFFFFFFF, false);
-        
-        // Holy Blast Cooldown
-        String rcdStr = holyRCD > 0 ? String.format("%.1fs", holyRCD / 20.0F) : "Ready";
-        g.drawString(mc.font, "Holy Blast: " + rcdStr, boxX + 8, listY + 30, holyRCD > 0 ? 0xFF888888 : 0xFFFFFFFF, false);
-        
-        // Holy Blast Charge Progress Bar
+        // Render Holy Blast Charge Bar below crosshair
         if (blastCharge > 0) {
-            int barX = boxX + 8;
-            int barY = boxY + boxH - 22;
-            int barW = boxW - 16;
-            int barH = 8;
+            int centerX = width / 2;
+            int centerY = height / 2;
+            int barX = centerX - 20;
+            int barY = centerY + 12;
+            int barW = 40;
+            int barH = 4;
             
-            float pct = Math.min(1.0F, blastCharge / 160.0F);
+            float pct = Math.min(1.0F, blastCharge / 160.0F); // Max charge is 160 ticks
             
-            g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0xFF000000);
-            g.fill(barX, barY, barX + barW, barY + barH, 0x88333333);
+            // Draw background
+            g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0x66000000);
             
+            // Draw fill (aqua blue/white)
             int fillW = (int) (barW * pct);
-            g.fill(barX, barY, barX + fillW, barY + barH, 0xFFFFD700);
+            g.fill(barX, barY, barX + fillW, barY + barH, 0xFF00FFFF);
             
-            String label = "CHARGING...";
             if (pct >= 1.0F) {
-                label = "MAX POWER";
+                // Glow border
+                g.fill(barX - 1, barY - 1, barX + barW + 1, barY, 0xFFFFFFFF);
+                g.fill(barX - 1, barY + barH, barX + barW + 1, barY + barH + 1, 0xFFFFFFFF);
+                g.fill(barX - 1, barY - 1, barX, barY + barH + 1, 0xFFFFFFFF);
+                g.fill(barX + barW, barY - 1, barX + barW + 1, barY + barH + 1, 0xFFFFFFFF);
             }
-            g.drawString(mc.font, label, barX, barY - 10, 0xFFFFD700, false);
         }
         
         RenderSystem.disableBlend();
