@@ -304,7 +304,7 @@ public class BeamStruggleManager {
         if (server == null) return false;
 
         ServerLevel level = server.overworld();
-        net.minecraft.world.entity.Entity entity = level.getEntity(getEntityIdFromUUID(level, ownerUUID));
+        net.minecraft.world.entity.Entity entity = level.getEntity(ownerUUID);
 
         if (entity == null) {
             // Entity no encontrada — podría estar en otra dimensión o desconectada
@@ -372,7 +372,7 @@ public class BeamStruggleManager {
 
     private static ConcentrationResult checkPlayerConcentration(BeamStruggle struggle, UUID ownerUUID,
                                                                   Vec3 initialLook, ServerLevel level) {
-        net.minecraft.world.entity.Entity entity = level.getEntity(getEntityIdFromUUID(level, ownerUUID));
+        net.minecraft.world.entity.Entity entity = level.getEntity(ownerUUID);
         if (!(entity instanceof LivingEntity living)) {
             return new ConcentrationResult(true, "disconnected");
         }
@@ -537,7 +537,7 @@ public class BeamStruggleManager {
     }
 
     private static Vec3 getLookDirection(ServerLevel level, UUID ownerUUID) {
-        net.minecraft.world.entity.Entity entity = level.getEntity(getEntityIdFromUUID(level, ownerUUID));
+        net.minecraft.world.entity.Entity entity = level.getEntity(ownerUUID);
         if (entity instanceof LivingEntity living) {
             return living.getLookAngle();
         }

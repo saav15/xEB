@@ -262,11 +262,6 @@ public class OpticBlastBeamRenderer {
                                 (level.random.nextFloat() - 0.5F) * 0.1D,
                                 (level.random.nextFloat() - 0.5F) * 0.1D,
                                 (level.random.nextFloat() - 0.5F) * 0.1D);
-                        if (level.random.nextFloat() < 0.3F) {
-                            level.addParticle(net.minecraft.core.particles.ParticleTypes.FLAME,
-                                    spawnPos.x, spawnPos.y, spawnPos.z,
-                                    0, 0.02D, 0);
-                        }
                     }
                 }
             }

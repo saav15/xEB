@@ -64,8 +64,8 @@ public class BrimstoneBeamRenderer {
             int imbue = beam.imbueType;
 
             // Configure colors based on imbue
-            float r = 0.9F, g = 0.0F, b = 0.0F; // Rojo default
-            float coreR = 0.3F, coreG = 0.0F, coreB = 0.0F; // Darker center
+            float r = 0.55F, g = 0.03F, b = 0.03F; // Sangre oscuro
+            float coreR = 0.75F, coreG = 0.05F, coreB = 0.05F; // Centro más brillante pero aún sangre
             if (imbue == TearsProjectileEntity.IMBUE_PURPLE) {
                 r = 0.7F; g = 0.0F; b = 1.0F;
                 coreR = 0.9F; coreG = 0.3F; coreB = 1.0F;
@@ -160,11 +160,11 @@ public class BrimstoneBeamRenderer {
         } else if (imbue == TearsProjectileEntity.IMBUE_COLD) {
             level.addParticle(net.minecraft.core.particles.ParticleTypes.INSTANT_EFFECT, pos.x, pos.y, pos.z, rx, ry, rz);
         } else {
-            // Default/Red/Purple: flame & lava drip
-            level.addParticle(net.minecraft.core.particles.ParticleTypes.FLAME, pos.x, pos.y, pos.z, rx * 0.1D, 0.01D, rz * 0.1D);
-            if (level.random.nextFloat() < 0.1F) {
-                level.addParticle(net.minecraft.core.particles.ParticleTypes.LAVA, pos.x, pos.y, pos.z, 0, 0, 0);
-            }
+            // Default/Red/Purple: usar REDSTONE particles en color sangre en vez de FLAME
+            // Sin partículas de fuego
+            net.minecraft.core.particles.DustParticleOptions bloodDust = new net.minecraft.core.particles.DustParticleOptions(
+                    new org.joml.Vector3f(0.55F, 0.03F, 0.03F), 1.0F);
+            level.addParticle(bloodDust, pos.x, pos.y, pos.z, rx * 0.1D, 0.01D, rz * 0.1D);
         }
     }
 
