@@ -34,8 +34,11 @@ public class BeamStruggleManager {
     public static final int COOLDOWN_TICKS = 30;
 
     // Concentration loss thresholds
-    public static final double LOOK_DEVIATION_THRESHOLD = 0.35D; // ~70 grados de desviación del look original
-    public static final double LOOK_DEVIATION_CRITICAL = 0.55D; // ~110 grados = pérdida instantánea
+    public static final double LOOK_DEVIATION_THRESHOLD = 0.7D; // ~110 grados sostenido
+    public static final double LOOK_DEVIATION_CRITICAL = 0.9D; // ~145 grados instantáneo
+    public static final int CONCENTRATION_GRACE_TICKS = 20; // 1s de grace al iniciar ACTIVE
+    public static final int CONCENTRATION_SUSTAINED_TICKS = 30; // 1.5s sostenido antes de perder
+    public static final float EXTERNAL_DAMAGE_THRESHOLD = 4.0F; // solo daño > 2 corazones cuenta
 
     public static class BeamStruggle {
         public final UUID struggleId;
@@ -377,34 +380,51 @@ public class BeamStruggleManager {
             return new ConcentrationResult(true, "disconnected");
         }
 
-        // Check 1: hurt by external source (hurtTime > 0 means recently hit)
-        if (living.hurtTime > 0) {
-            // Verificar que el daño no sea del beam struggle mismo (el cual no inflige daño continuo durante el struggle)
-            return new ConcentrationResult(true, "hit_by_external");
+        // FIX 1: Grace period — no checkear concentración en los primeros 20 ticks de ACTIVE
+        if (struggle.ticksElapsed < CONCENTRATION_GRACE_TICKS) {
+            return new ConcentrationResult(false, "");
         }
 
-        // Check 2: look direction deviation
+        // FIX 2: hurtTime — solo contar como pérdida si el daño fue significativo
+        // hurtTime > 0 significa que recibió daño hace menos de 10 ticks
+        // Pero solo nos importa si fue daño REAL (no knockback mini)
+        if (living.hurtTime > 0 && living.getHealth() < living.getMaxHealth() - EXTERNAL_DAMAGE_THRESHOLD) {
+            // Verificar que el daño sea reciente y significativo
+            // Usar lastHurtByMob o lastHurtByPlayer para confirmar que fue una fuente externa
+            if (living.getLastHurtByMob() != null && !isStrugglePartner(living.getLastHurtByMob(), struggle)) {
+                return new ConcentrationResult(true, "hit_by_external");
+            }
+        }
+
+        // FIX 3: Look direction dinámica — comparar con dirección HACIA el otro player, no con initialLook
+        // Esto permite que los players se muevan para mantener el beam apuntando al otro
         Vec3 currentLook = living.getLookAngle();
-        double dot = initialLook.dot(currentLook);
-        // dot = 1 = mirando igual, dot = 0 = 90 grados, dot = -1 = mirando al revés
-        double deviation = 1.0 - dot; // 0 = no deviation, 2 = 180 grados
+        Vec3 directionToOpponent = getDirectionToOpponent(living, struggle);
+
+        if (directionToOpponent == null) {
+            return new ConcentrationResult(false, ""); // no se puede calcular, skip
+        }
+
+        // El look debe estar aproximadamente apuntando al oponente
+        double dot = currentLook.dot(directionToOpponent);
+        // dot = 1 = mirando al oponente, dot = 0 = 90 grados, dot = -1 = mirando al revés
+        double deviation = 1.0 - dot; // 0 = perfecto, 2 = 180 grados
 
         if (deviation >= LOOK_DEVIATION_CRITICAL) {
+            // 145 grados de desviación = instantáneo
             return new ConcentrationResult(true, "looked_away_critical");
         }
 
-        // Warning si está cerca del threshold
         if (deviation >= LOOK_DEVIATION_THRESHOLD) {
-            // Incrementar warning counter
+            // 110 grados sostenido por 30 ticks (1.5s)
             if (living.getUUID().equals(struggle.ownerA)) {
                 struggle.lastConcentrationWarningA++;
-                // Después de 15 ticks (~0.75s) de desviación sostenida, pierde
-                if (struggle.lastConcentrationWarningA > 15) {
+                if (struggle.lastConcentrationWarningA > CONCENTRATION_SUSTAINED_TICKS) {
                     return new ConcentrationResult(true, "looked_away_sustained");
                 }
             } else {
                 struggle.lastConcentrationWarningB++;
-                if (struggle.lastConcentrationWarningB > 15) {
+                if (struggle.lastConcentrationWarningB > CONCENTRATION_SUSTAINED_TICKS) {
                     return new ConcentrationResult(true, "looked_away_sustained");
                 }
             }
@@ -418,6 +438,35 @@ public class BeamStruggleManager {
         }
 
         return new ConcentrationResult(false, "");
+    }
+
+    /**
+     * Verifica si la entidad que causó daño es el partner del struggle.
+     * Si es el partner, no cuenta como daño externo.
+     */
+    private static boolean isStrugglePartner(LivingEntity attacker, BeamStruggle struggle) {
+        UUID attackerUUID = attacker.getUUID();
+        return attackerUUID.equals(struggle.ownerA) || attackerUUID.equals(struggle.ownerB);
+    }
+
+    /**
+     * Calcula la dirección normalizada DESDE el player HACIA el oponente en el struggle.
+     * Esto permite que el player mueva su look para seguir apuntando al oponente
+     * sin que cuente como "perder concentración".
+     */
+    private static Vec3 getDirectionToOpponent(LivingEntity player, BeamStruggle struggle) {
+        UUID opponentUUID = player.getUUID().equals(struggle.ownerA) ? struggle.ownerB : struggle.ownerA;
+        net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null) return null;
+
+        ServerLevel level = server.overworld();
+        net.minecraft.world.entity.Entity opponent = level.getEntity(opponentUUID);
+        if (opponent == null) return null;
+
+        Vec3 toOpponent = opponent.position().subtract(player.position());
+        double length = toOpponent.length();
+        if (length < 0.1D) return null;
+        return toOpponent.normalize();
     }
 
     private record ConcentrationResult(boolean lost, String reason) {}
