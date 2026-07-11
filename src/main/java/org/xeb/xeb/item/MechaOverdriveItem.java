@@ -41,6 +41,13 @@ import java.util.UUID;
 public class MechaOverdriveItem extends Item implements GeoItem {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
+    // Placeholder constants
+    public static final double BASE_DAMAGE = 6.0D;
+    public static final double DRILL_BASE_DAMAGE = 8.0D;
+    public static final double SPIN_BASE_DAMAGE = 5.0D;
+    public static final double JET_BASE_DAMAGE = 7.0D;
+    public static final double MAX_SPEED = 1.6D;
+
     public MechaOverdriveItem(Properties properties) {
         super(properties);
     }
@@ -61,6 +68,9 @@ public class MechaOverdriveItem extends Item implements GeoItem {
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc1"));
         tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc2"));
+        tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc_damage"));
+        tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc4", "G"));
+        tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc5", "H"));
         tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc3"));
         super.appendHoverText(stack, level, tooltip, flag);
     }
@@ -124,8 +134,13 @@ public class MechaOverdriveItem extends Item implements GeoItem {
         boolean holdsMecha = player.getMainHandItem() == stack || player.getOffhandItem() == stack;
         if (!holdsMecha) {
             // Clean up state if not held
-            if (player.getPersistentData().getBoolean("xebMechaVulcanFiring")) {
-                player.getPersistentData().putBoolean("xebMechaVulcanFiring", false);
+            CompoundTag pData = player.getPersistentData();
+            if (pData.getBoolean("xebMechaVulcanFiring") || pData.getDouble("xebMechaMomentum") > 0.0D || pData.getBoolean("xebMechaLevitating")) {
+                pData.putBoolean("xebMechaVulcanFiring", false);
+                pData.putDouble("xebMechaMomentum", 0.0D);
+                pData.putBoolean("xebMechaLevitating", false);
+                pData.putBoolean("xebMechaOvercharged", false);
+                pData.putInt("xebMechaOverchargeTicks", 0);
                 if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
                     syncToClient(serverPlayer);
                 }
@@ -144,19 +159,30 @@ public class MechaOverdriveItem extends Item implements GeoItem {
 
         Vec3 currentMotion = player.getDeltaMovement();
         double horizontalSpeed = Math.sqrt(currentMotion.x * currentMotion.x + currentMotion.z * currentMotion.z);
-        boolean isMoving = horizontalSpeed > 0.02D;
+        boolean isMovingForward = player.zza > 0;
         boolean onGround = player.onGround();
         boolean jetActive = false;
 
         if (!level.isClientSide()) {
+            double momentum = pData.getDouble("xebMechaMomentum");
+
             if (onGround) {
-                if (isMoving) {
+                if (isMovingForward) {
                     jetActive = true;
+                    // Build momentum: 0.015 per tick
+                    momentum = Math.min(1.0D, momentum + 0.015D);
+                    
                     Vec3 moveDir = new Vec3(currentMotion.x, 0.0D, currentMotion.z).normalize();
-                    double accel = 0.08D; // TODO: balancear aceleración
+                    if (moveDir.lengthSqr() < 0.01D) {
+                        Vec3 look = player.getLookAngle();
+                        moveDir = new Vec3(look.x, 0.0D, look.z).normalize();
+                    }
+                    double accel = 0.015D + (momentum * 0.03D);
                     player.setDeltaMovement(currentMotion.x + moveDir.x * accel, currentMotion.y, currentMotion.z + moveDir.z * accel);
                     player.hurtMarked = true;
                 } else {
+                    // Decay momentum: 0.03 per tick
+                    momentum = Math.max(0.0D, momentum - 0.03D);
                     // High artificial friction when stopping
                     player.setDeltaMovement(currentMotion.multiply(0.4D, 1.0D, 0.4D));
                     if (level instanceof ServerLevel serverLevel && level.getGameTime() % 2 == 0) {
@@ -170,19 +196,30 @@ public class MechaOverdriveItem extends Item implements GeoItem {
                     }
                 }
             } else {
-                // Jet Hover in the air (reduces gravity)
+                // Air hover: Maintain horizontal momentum, reduce gravity (neutralize 0.06 of 0.08 vanilla)
                 jetActive = true;
-                // Normal gravity is 0.08 downwards. We add 0.06 to make gravity behave like 0.02
-                if (currentMotion.y < 0.0D) {
-                    player.setDeltaMovement(currentMotion.x, currentMotion.y + 0.06D, currentMotion.z);
-                    player.hurtMarked = true;
-                }
+                player.setDeltaMovement(currentMotion.x, currentMotion.y + 0.06D, currentMotion.z);
+                player.hurtMarked = true;
             }
 
+            pData.putDouble("xebMechaMomentum", momentum);
             pData.putBoolean("xebMechaJetActive", jetActive);
-
-            // Pasiva 2 — Multiplicador Cinético
             pData.putDouble("xebMechaKineticSpeed", horizontalSpeed);
+
+            // Levitating state
+            boolean levitating = momentum > 0.7D;
+            pData.putBoolean("xebMechaLevitating", levitating);
+
+            // Pasiva 3 - Overcharge Core
+            if (momentum >= 1.0D) {
+                int overchargeTicks = pData.getInt("xebMechaOverchargeTicks") + 1;
+                pData.putInt("xebMechaOverchargeTicks", overchargeTicks);
+                if (overchargeTicks >= 60) {
+                    pData.putBoolean("xebMechaOvercharged", true);
+                }
+            } else {
+                pData.putInt("xebMechaOverchargeTicks", 0);
+            }
 
             // Handle Jet Dash tick updates
             if (pData.getBoolean("xebMechaOverdriveDashing")) {
@@ -191,27 +228,48 @@ public class MechaOverdriveItem extends Item implements GeoItem {
                     pData.putInt("xebMechaDashTicks", dashTicks - 1);
                     player.invulnerableTime = 999;
 
-                    // Dash forward, ignoring block collisions but breaking blocks and hitting entities
                     Vec3 lookDir = player.getLookAngle();
-                    Vec3 forwardDir = new Vec3(lookDir.x, 0.0D, lookDir.z).normalize().scale(0.8D);
+                    Vec3 forwardDir = new Vec3(lookDir.x, 0.0D, lookDir.z).normalize();
+                    
+                    // Move forward step-by-step
+                    double stepSize = 0.5D;
+                    Vec3 nextPos = player.position().add(forwardDir.scale(stepSize));
+                    player.setPos(nextPos.x, player.getY(), nextPos.z);
                     player.setDeltaMovement(forwardDir.x * 2.0D, player.getDeltaMovement().y, forwardDir.z * 2.0D);
+                    player.hurtMarked = true;
 
                     BlockPos targetPos = player.blockPosition().relative(player.getDirection());
                     BlockState blockState = level.getBlockState(targetPos);
-                    if (!blockState.isAir() && blockState.getDestroySpeed(level, targetPos) >= 0) {
+                    if (!blockState.isAir() && blockState.getDestroySpeed(level, targetPos) >= 0 && blockState.getDestroySpeed(level, targetPos) < 50.0F) {
                         level.destroyBlock(targetPos, true);
                     }
 
                     // Entity Sweep
-                    AABB sweep = player.getBoundingBox().inflate(1.2D);
+                    AABB sweep = player.getBoundingBox().inflate(1.5D);
                     for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, sweep, e -> e != player && e.isAlive())) {
-                        double dmg = 5.0D; // TODO: balancear daño
-                        target.hurt(player.damageSources().playerAttack(player), (float) dmg);
-                        target.setDeltaMovement(target.getDeltaMovement().add(lookDir.x * 2.5D, 0.8D, lookDir.z * 2.5D));
+                        String nbtKey = "xebHitByJetDash_" + target.getUUID().toString();
+                        if (!pData.getBoolean(nbtKey)) {
+                            pData.putBoolean(nbtKey, true);
+                            double dmg = JET_BASE_DAMAGE;
+                            target.hurt(player.damageSources().playerAttack(player), (float) dmg);
+                            target.setDeltaMovement(target.getDeltaMovement().add(lookDir.x * 2.5D, 0.8D, lookDir.z * 2.5D));
+                            target.hurtMarked = true;
+                        }
                     }
                 } else {
                     pData.putBoolean("xebMechaOverdriveDashing", false);
                     player.invulnerableTime = 0;
+                    
+                    // Clean hit keys
+                    List<String> keysToRemove = new ArrayList<>();
+                    for (String key : pData.getAllKeys()) {
+                        if (key.startsWith("xebHitByJetDash_")) {
+                            keysToRemove.add(key);
+                        }
+                    }
+                    for (String key : keysToRemove) {
+                        pData.remove(key);
+                    }
                 }
             }
 
@@ -228,36 +286,54 @@ public class MechaOverdriveItem extends Item implements GeoItem {
                 if (level instanceof ServerLevel serverLevel) {
                     serverLevel.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 0.5D, player.getZ(),
                             2, 0.3D, 0.3D, 0.3D, 0.1D);
+                    serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 0.5D, player.getZ(),
+                            2, 0.3D, 0.3D, 0.3D, 0.05D);
                 }
             } else if (sdState == 3) {
                 // ATTACKING
                 int sdTicks = pData.getInt("xebMechaSpindashTicks");
+                int hitCooldown = pData.getInt("xebMechaSpindashHitCooldown");
+                if (hitCooldown > 0) {
+                    pData.putInt("xebMechaSpindashHitCooldown", hitCooldown - 1);
+                }
+
                 if (sdTicks > 0) {
                     pData.putInt("xebMechaSpindashTicks", sdTicks - 1);
 
-                    // Scan entities
-                    AABB sweep = player.getBoundingBox().inflate(1.5D);
-                    List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, sweep, e -> e != player && e.isAlive());
-                    
-                    // Maintain hit list
-                    for (LivingEntity target : targets) {
-                        String nbtKey = "xebHitBySpindash_" + target.getUUID().toString();
-                        if (!pData.getBoolean(nbtKey)) {
-                            pData.putBoolean(nbtKey, true);
-                            double baseDmg = 6.0D; // TODO: balancear daño
-                            target.hurt(player.damageSources().playerAttack(player), (float) baseDmg);
+                    if (hitCooldown <= 0) {
+                        AABB sweep = player.getBoundingBox().inflate(1.5D);
+                        List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, sweep, e -> e != player && e.isAlive());
+                        
+                        for (LivingEntity target : targets) {
+                            String nbtKey = "xebHitBySpindash_" + target.getUUID().toString();
+                            if (!pData.getBoolean(nbtKey)) {
+                                pData.putBoolean(nbtKey, true);
+                                double baseDmg = SPIN_BASE_DAMAGE;
+                                double mult = 1.0D + pData.getInt("xebMechaSpindashCharge") * 0.08D;
+                                double dmg = baseDmg * mult;
+                                target.hurt(player.damageSources().playerAttack(player), (float) dmg);
 
-                            // Combo checks
-                            int totalHits = pData.getInt("xebSpindashHitCount") + 1;
-                            pData.putInt("xebSpindashHitCount", totalHits);
+                                int totalHits = pData.getInt("xebSpindashHitCount") + 1;
+                                pData.putInt("xebSpindashHitCount", totalHits);
 
-                            if (totalHits >= 3) {
-                                // Hit 3: Pass through without knockback
-                                Vec3 look = player.getLookAngle().normalize().scale(1.5D);
-                                player.moveTo(target.getX() + look.x, target.getY(), target.getZ() + look.z);
-                            } else {
-                                // Hit 1 or 2: standard knockback
-                                target.setDeltaMovement(player.getLookAngle().normalize().scale(1.5D).add(0, 0.3D, 0));
+                                if (totalHits >= 3) {
+                                    // Hit 3: Pass through without knockback, let player keep moving
+                                    Vec3 look = player.getLookAngle().normalize().scale(1.5D);
+                                    player.moveTo(target.getX() + look.x, target.getY(), target.getZ() + look.z);
+                                } else {
+                                    // Hit 1 or 2: rebound player and standard knockback target
+                                    target.setDeltaMovement(player.getLookAngle().normalize().scale(1.2D).add(0, 0.3D, 0));
+                                    target.hurtMarked = true;
+                                    
+                                    // Bounce player backwards
+                                    Vec3 motion = player.getDeltaMovement();
+                                    player.setDeltaMovement(-motion.x * 0.8D, 0.3D, -motion.z * 0.8D);
+                                    player.hurtMarked = true;
+                                    
+                                    pData.putInt("xebMechaSpindashHitCooldown", 5);
+                                    pData.putBoolean(nbtKey, false);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -338,7 +414,11 @@ public class MechaOverdriveItem extends Item implements GeoItem {
                         pData.getBoolean("xebMechaOverdriveDashing"),
                         pData.getInt("xebMechaA1Cooldown"),
                         pData.getInt("xebMechaA2Cooldown"),
-                        pData.getDouble("xebMechaKineticSpeed")
+                        pData.getDouble("xebMechaKineticSpeed"),
+                        pData.getDouble("xebMechaMomentum"),
+                        pData.getBoolean("xebMechaOvercharged"),
+                        pData.getBoolean("xebMechaLevitating"),
+                        pData.getInt("xebMechaSpindashCharge")
                 )
         );
     }

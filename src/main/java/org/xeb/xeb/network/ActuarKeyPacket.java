@@ -560,19 +560,21 @@ public class ActuarKeyPacket {
                                 player.level().playSound(null, player, SoundEvents.BAT_TAKEOFF, SoundSource.PLAYERS, 1.0F, 1.5F);
                                 player.level().playSound(null, player, SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 0.6F, 1.6F);
                             }
-                        }
-                    } else if (holdsMecha) {
+                             } else if (holdsMecha) {
                         if (msg.button == 1) {
                             if (msg.press) {
                                 if (player.getPersistentData().getInt("xebMechaA1Cooldown") <= 0) {
-                                    double speed = player.getPersistentData().getDouble("xebMechaKineticSpeed");
-                                    if (speed > 0.4D) {
+                                    double momentum = player.getPersistentData().getDouble("xebMechaMomentum");
+                                    if (momentum > 0.4D) {
                                         // Jet Dash
                                         player.getPersistentData().putBoolean("xebMechaOverdriveDashing", true);
-                                        player.getPersistentData().putInt("xebMechaDashTicks", 12);
+                                        player.getPersistentData().putInt("xebMechaDashTicks", 15);
                                         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                                                 SoundEvents.TRIDENT_RIPTIDE_1, SoundSource.PLAYERS, 1.0F, 1.2F);
                                         player.getPersistentData().putInt("xebMechaA1Cooldown", 160); // 8s
+                                        
+                                        // Consume overcharge on action
+                                        player.getPersistentData().putBoolean("xebMechaOvercharged", false);
                                     } else {
                                         // Spindash Charge Start
                                         player.getPersistentData().putInt("xebMechaSpindashState", 1);
@@ -590,15 +592,20 @@ public class ActuarKeyPacket {
                                     player.getPersistentData().putInt("xebMechaSpindashState", 3); // ATTACKING
                                     player.getPersistentData().putInt("xebMechaSpindashTicks", duration);
                                     player.getPersistentData().putInt("xebSpindashHitCount", 0);
+                                    player.getPersistentData().putInt("xebMechaSpindashHitCooldown", 0);
 
                                     Vec3 look = player.getLookAngle().normalize();
-                                    double mult = 1.0D + charge * 0.05D;
+                                    double mult = 1.0D + charge * 0.08D;
                                     player.setDeltaMovement(look.x * mult * 1.5D, player.getDeltaMovement().y, look.z * mult * 1.5D);
                                     player.hurtMarked = true;
 
                                     player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                                             SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.2F, 1.0F);
                                     player.getPersistentData().putInt("xebMechaA1Cooldown", 160); // 8s
+                                    
+                                    // Consume overcharge on action
+                                    player.getPersistentData().putBoolean("xebMechaOvercharged", false);
+                                    
                                     org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
                                 }
                             }
@@ -619,38 +626,82 @@ public class ActuarKeyPacket {
                                     player.getPersistentData().putBoolean("xebMechaMissileSalvoFiring", true);
                                     player.getPersistentData().putInt("xebMechaMissileSalvoTicks", targets.size() * 4);
                                     player.getPersistentData().putInt("xebMechaA2Cooldown", 300); // 15s
+                                    
+                                    // Consume overcharge on action
+                                    player.getPersistentData().putBoolean("xebMechaOvercharged", false);
+                                    
                                     org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
                                 }
                             }
                         } else if (msg.button == 5 && msg.press) {
                             // Mecha Drill Punch (Left click)
-                            AABB area = player.getBoundingBox().move(player.getLookAngle().normalize().scale(1.5D)).inflate(1.5D, 1.0D, 1.5D);
+                            Vec3 lookDir = player.getLookAngle();
+                            Vec3 forwardVec = new Vec3(lookDir.x, 0.0D, lookDir.z).normalize();
+                            AABB area = player.getBoundingBox().move(forwardVec.scale(1.5D)).inflate(1.5D, 1.0D, 1.5D);
                             List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive());
-                            double speed = player.getPersistentData().getDouble("xebMechaKineticSpeed");
-                            double baseDamage = 6.0D; // TODO: balancear daño
-                            double multiplier = 1.0D + speed * 1.5D; // TODO: calcular multiplicador basado en la velocidad
-                            double finalDmg = baseDamage * multiplier;
+                            
+                            double momentum = player.getPersistentData().getDouble("xebMechaMomentum");
+                            double multiplier = 1.0D + momentum * 2.0D;
+                            boolean overcharged = player.getPersistentData().getBoolean("xebMechaOvercharged");
+                            
+                            if (overcharged) {
+                                multiplier *= 1.5D;
+                            }
+                            
+                            double finalDmg = MechaOverdriveItem.DRILL_BASE_DAMAGE * multiplier;
 
                             for (LivingEntity target : targets) {
                                 target.hurt(player.damageSources().playerAttack(player), (float) finalDmg);
-                                Vec3 knock = player.getLookAngle().normalize().add(0, 0.5D, 0).scale(1.8D);
-                                target.setDeltaMovement(knock.x, knock.y, knock.z);
-                                target.hurtMarked = true;
+                                
+                                double kbMult = 1.0D + momentum * 2.0D;
+                                if (overcharged || momentum > 0.7D) {
+                                    // Extreme knockback + screen shake on targets
+                                    Vec3 knock = lookDir.normalize().add(0, 0.6D, 0).scale(kbMult * 2.2D);
+                                    target.setDeltaMovement(knock.x, knock.y, knock.z);
+                                    target.hurtMarked = true;
+                                } else {
+                                    Vec3 knock = lookDir.normalize().add(0, 0.4D, 0).scale(kbMult * 1.5D);
+                                    target.setDeltaMovement(knock.x, knock.y, knock.z);
+                                    target.hurtMarked = true;
+                                }
+                            }
+                            
+                            if (overcharged) {
+                                // Knockback applies to all enemies in 3 blocks radius
+                                AABB radialArea = player.getBoundingBox().inflate(3.0D);
+                                for (LivingEntity radialTarget : player.level().getEntitiesOfClass(LivingEntity.class, radialArea, e -> e != player && e.isAlive() && !targets.contains(e))) {
+                                    Vec3 knockVec = radialTarget.position().subtract(player.position()).normalize().add(0, 0.5D, 0).scale(1.8D);
+                                    radialTarget.setDeltaMovement(knockVec);
+                                    radialTarget.hurtMarked = true;
+                                }
                             }
 
-                            Vec3 recoil = player.getLookAngle().normalize().scale(-0.4D);
+                            Vec3 recoil = lookDir.normalize().scale(-0.3D * momentum);
                             player.setDeltaMovement(player.getDeltaMovement().add(recoil.x, 0.0D, recoil.z));
                             player.hurtMarked = true;
 
                             player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                    SoundEvents.ANVIL_PLACE, SoundSource.PLAYERS, 0.8F, 1.5F);
+                                    SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8F, 0.8F);
+                                    
+                            // Consume momentum and overcharge
+                            player.getPersistentData().putDouble("xebMechaMomentum", 0.0D);
+                            player.getPersistentData().putBoolean("xebMechaOvercharged", false);
+                            
+                            org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
                         }
                     } else if (holdsHoly) {
                         if (msg.button == 1 && msg.press) {
                             if (player.getPersistentData().getInt("xebHolyA1Cooldown") <= 0) {
+                                player.getPersistentData().putBoolean("xebHolyBlessedActive", true);
+                                player.getPersistentData().putInt("xebHolyBlessedTicks", 160); // 8s
                                 player.getPersistentData().putBoolean("xebHolyShieldActive", true);
-                                player.getPersistentData().putInt("xebHolyBlessedCharges", 3);
-                                player.getPersistentData().putInt("xebHolyA1Cooldown", 333); // 16.66s (333 ticks)
+                                player.getPersistentData().putInt("xebHolyA1Cooldown", 320); // 16s (320 ticks)
+                                
+                                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                        SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.2F, 1.5F);
+                                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                        SoundEvents.WITHER_SPAWN, SoundSource.PLAYERS, 0.8F, 1.5F);
+                                        
                                 org.xeb.xeb.item.HolyDualityBladeItem.syncToClient((ServerPlayer) player);
                             }
                         } else if (msg.button == 2 && msg.press) {
@@ -666,16 +717,20 @@ public class ActuarKeyPacket {
                                 player.getPersistentData().putDouble("xebHolyAnnihilationY", targetVec.y);
                                 player.getPersistentData().putDouble("xebHolyAnnihilationZ", targetVec.z);
                                 player.getPersistentData().putInt("xebHolyA2Cooldown", 133); // 6.66s (133 ticks)
+                                
+                                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                        SoundEvents.CHORUS_FRUIT_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
+                                        
                                 org.xeb.xeb.item.HolyDualityBladeItem.syncToClient((ServerPlayer) player);
                             }
                         } else if (msg.button == 5 && msg.press) {
                             // Holy Left Click combo
                             net.minecraft.world.item.ItemStack stack = player.getMainHandItem().is(ModItems.HOLY_DUALITY_BLADE.get())
-                                    ? player.getMainHandItem() : player.getOffhandItem();
+                                     ? player.getMainHandItem() : player.getOffhandItem();
                             int combo = stack.getOrCreateTag().getInt("xebHolyComboStage"); // 0, 1, 2
                             
                             AABB box;
-                            double baseDmg = 4.0D; // TODO: balancear daño
+                            double baseDmg = HolyDualityBladeItem.BASE_DAMAGE;
                             
                             if (combo == 0) {
                                 // Right slash
@@ -688,29 +743,25 @@ public class ActuarKeyPacket {
                             } else {
                                 // Double slash (X)
                                 box = player.getBoundingBox().move(player.getLookAngle().normalize().scale(1.5D)).inflate(2.0D, 1.5D, 2.0D);
-                                baseDmg = 8.0D; // TODO: balancear daño
+                                baseDmg = HolyDualityBladeItem.BASE_DAMAGE * 1.5D;
                             }
 
                             // Advance combo stage
                             int nextCombo = (combo + 1) % 3;
                             stack.getOrCreateTag().putInt("xebHolyComboStage", nextCombo);
 
-                            // Check for "After Creation" blessing charges
-                            int blessedCharges = player.getPersistentData().getInt("xebHolyBlessedCharges");
-                            boolean isBlessed = blessedCharges > 0;
+                            boolean isBlessed = player.getPersistentData().getBoolean("xebHolyBlessedActive");
                             if (isBlessed) {
-                                baseDmg *= 3.0D; // 200% more damage (3x damage)
-                                player.getPersistentData().putInt("xebHolyBlessedCharges", blessedCharges - 1);
+                                baseDmg *= 3.0D;
                             }
 
-                            // 25% chance of critical hit (The Burn of God!) OR guaranteed crit if blessed
                             boolean isCrit = isBlessed || (player.getRandom().nextFloat() < 0.25F);
 
                             List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, box, e -> e != player && e.isAlive());
                             for (LivingEntity target : targets) {
                                 float finalDmg = (float) baseDmg;
                                 if (isCrit) {
-                                    finalDmg *= 1.5F; // critical damage multiplier
+                                    finalDmg *= 1.5F;
                                 }
                                 
                                 target.hurt(player.damageSources().playerAttack(player), finalDmg);
@@ -763,7 +814,7 @@ public class ActuarKeyPacket {
                             player.swing(InteractionHand.MAIN_HAND, true);
                             org.xeb.xeb.item.HolyDualityBladeItem.syncToClient((ServerPlayer) player);
                         }
-                    }
+                    }                    }
                 }
         });
         ctx.setPacketHandled(true);

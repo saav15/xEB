@@ -52,17 +52,16 @@ public class BuffDamageHandler {
         if (target == null) return;
 
         if (target instanceof net.minecraft.world.entity.player.Player player && player.getPersistentData().getBoolean("xebHolyShieldActive")) {
-            event.setCanceled(true);
-            player.getPersistentData().putBoolean("xebHolyShieldActive", false);
+            event.setAmount(event.getAmount() * 0.3F);
             Level level = player.level();
-            if (!level.isClientSide()) {
+            if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() + 1.0D, player.getZ(),
+                        15, 0.5D, 0.5D, 0.5D, 0.05D);
+                serverLevel.sendParticles(ParticleTypes.GLOW, player.getX(), player.getY() + 1.0D, player.getZ(),
+                        10, 0.5D, 0.5D, 0.5D, 0.02D);
                 level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                        SoundEvents.SHIELD_BREAK, SoundSource.PLAYERS, 1.2F, 0.8F);
-                if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                    org.xeb.xeb.item.HolyDualityBladeItem.syncToClient(serverPlayer);
-                }
+                        SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0F, 1.5F);
             }
-            return;
         }
 
         // Custom weapon generic left-click tracker (N23)

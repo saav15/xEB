@@ -35,12 +35,53 @@ import java.util.List;
 
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tiers;
+import net.minecraft.core.BlockPos;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import org.xeb.xeb.Xeb;
 
+@Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class HolyDualityBladeItem extends SwordItem implements GeoItem {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
+    // Blessed fire blocks system
+    public static final java.util.Map<net.minecraft.core.BlockPos, Integer> BLESSED_FIRE_BLOCKS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // Base damage constant
+    public static final double BASE_DAMAGE = 8.0D;
+
     public HolyDualityBladeItem(Properties properties) {
         super(Tiers.IRON, 3, -2.4F, properties);
+    }
+
+    @SubscribeEvent
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {
+            for (java.util.Map.Entry<net.minecraft.core.BlockPos, Integer> entry : BLESSED_FIRE_BLOCKS.entrySet()) {
+                net.minecraft.core.BlockPos pos = entry.getKey();
+                int ticks = entry.getValue() - 1;
+                if (ticks <= 0) {
+                    BLESSED_FIRE_BLOCKS.remove(pos);
+                } else {
+                    BLESSED_FIRE_BLOCKS.put(pos, ticks);
+                    
+                    // Damage entities walking on the block
+                    AABB box = new AABB(pos);
+                    List<LivingEntity> targets = event.level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive());
+                    for (LivingEntity target : targets) {
+                        target.hurt(event.level.damageSources().inFire(), 2.0F); // holy burn damage
+                    }
+                    
+                    // Spawn soul fire particles on the block
+                    if (event.level.getGameTime() % 10 == 0 && event.level instanceof ServerLevel sl) {
+                        sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+                                pos.getX() + 0.5D, pos.getY() + 0.2D, pos.getZ() + 0.5D,
+                                3, 0.2D, 0.0D, 0.2D, 0.02D);
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -59,6 +100,9 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc1"));
         tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc2"));
+        tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc_damage"));
+        tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc4", "G"));
+        tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc5", "H"));
         tooltip.add(Component.translatable("item.xeb.holy_duality_blade.desc3"));
         super.appendHoverText(stack, level, tooltip, flag);
     }
@@ -70,6 +114,7 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
         if (pData.getInt("xebHolyRCD") > 0) {
             return InteractionResultHolder.fail(stack);
         }
+        pData.putInt("xebHolyBlastCharge", 0);
         player.startUsingItem(hand);
         return InteractionResultHolder.consume(stack);
     }
@@ -83,13 +128,14 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
     public void onUseTick(Level level, LivingEntity entity, ItemStack stack, int count) {
         if (entity instanceof Player player) {
             int ticksUsed = this.getUseDuration(stack) - count;
-            player.getPersistentData().putInt("xebHolyBlastCharge", ticksUsed);
+            player.getPersistentData().putInt("xebHolyBlastCharge", Math.min(160, ticksUsed));
             
             if (level.isClientSide()) {
-                int maxRadius = Math.min(2, ticksUsed / 10);
-                for (int dx = -maxRadius; dx <= maxRadius; dx++) {
-                    for (int dz = -maxRadius; dz <= maxRadius; dz++) {
-                        if (dx == 0 && dz == 0) continue;
+                double radius = 1.5D + (Math.min(160, ticksUsed) / 160.0D) * 2.5D;
+                int radInt = (int) Math.ceil(radius);
+                for (int dx = -radInt; dx <= radInt; dx++) {
+                    for (int dz = -radInt; dz <= radInt; dz++) {
+                        if (Math.sqrt(dx*dx + dz*dz) > radius) continue;
                         double px = player.getX() + dx + (level.random.nextDouble() - 0.5D) * 0.2D;
                         double py = player.getY() + 0.1D;
                         double pz = player.getZ() + dz + (level.random.nextDouble() - 0.5D) * 0.2D;
@@ -110,13 +156,15 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
             int ticksUsed = this.getUseDuration(stack) - timeLeft;
             player.getPersistentData().putInt("xebHolyBlastCharge", 0);
             
-            if (player.getPersistentData().getInt("xebHolyRCD") <= 0 && ticksUsed >= 5) {
+            if (player.getPersistentData().getInt("xebHolyRCD") <= 0 && ticksUsed >= 10) {
                 if (!level.isClientSide()) {
                     triggerHolyBlast(level, player, ticksUsed);
                 } else {
-                    int radius = Math.min(2, ticksUsed / 10);
-                    for (int dx = -radius; dx <= radius; dx++) {
-                        for (int dz = -radius; dz <= radius; dz++) {
+                    double radius = 1.5D + (Math.min(160, ticksUsed) / 160.0D) * 2.5D;
+                    int radInt = (int) Math.ceil(radius);
+                    for (int dx = -radInt; dx <= radInt; dx++) {
+                        for (int dz = -radInt; dz <= radInt; dz++) {
+                            if (Math.sqrt(dx*dx + dz*dz) > radius) continue;
                             double targetX = player.getX() + dx;
                             double targetZ = player.getZ() + dz;
                             double targetY = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int)targetX, (int)targetZ);
@@ -138,17 +186,23 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
         CompoundTag pData = player.getPersistentData();
         pData.putInt("xebHolyRCD", 400); // 20s
         
-        int radius = Math.min(2, ticksUsed / 10);
+        double radius = 1.5D + (Math.min(160, ticksUsed) / 160.0D) * 2.5D;
+        int radInt = (int) Math.ceil(radius);
         int hitCount = 0;
         
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dz = -radius; dz <= radius; dz++) {
+        for (int dx = -radInt; dx <= radInt; dx++) {
+            for (int dz = -radInt; dz <= radInt; dz++) {
                 double dist = Math.sqrt(dx*dx + dz*dz);
-                double dmg = 18.0D - dist * 3.0D;
+                if (dist > radius) continue;
                 
                 double targetX = player.getX() + dx;
                 double targetZ = player.getZ() + dz;
                 double targetY = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int)targetX, (int)targetZ);
+                
+                BlockPos bpos = new BlockPos((int)targetX, (int)targetY, (int)targetZ);
+                BLESSED_FIRE_BLOCKS.put(bpos, 60);
+                
+                double dmg = BASE_DAMAGE * (1.0D - (dist / radius) * 0.5D);
                 
                 if (level instanceof ServerLevel sl) {
                     for (double h = 0; h < 15.0D; h += 0.5D) {
@@ -157,6 +211,8 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
                     }
                     sl.sendParticles(ParticleTypes.EXPLOSION, targetX, targetY, targetZ,
                             1, 0.0D, 0.0D, 0.0D, 0.0D);
+                    sl.sendParticles(ParticleTypes.LAVA, targetX, targetY, targetZ,
+                            3, 0.2D, 0.0D, 0.2D, 0.01D);
                 }
                 
                 level.playSound(null, targetX, targetY, targetZ,
@@ -165,11 +221,9 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
                 AABB damageBox = new AABB(targetX - 1.2D, targetY - 1.0D, targetZ - 1.2D,
                                           targetX + 1.2D, targetY + 3.0D, targetZ + 1.2D);
                 
-                int blessedCharges = pData.getInt("xebHolyBlessedCharges");
-                boolean isBlessed = blessedCharges > 0;
+                boolean isBlessed = pData.getBoolean("xebHolyBlessedActive");
                 if (isBlessed) {
                     dmg *= 3.0D;
-                    pData.putInt("xebHolyBlessedCharges", blessedCharges - 1);
                 }
                 
                 boolean isCrit = isBlessed || (player.getRandom().nextFloat() < 0.25F);
@@ -207,7 +261,7 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
         int finalRCD = 400;
         if (hitCount > 0) {
             int currentRCD = pData.getInt("xebHolyRCD");
-            finalRCD = Math.max(0, currentRCD - (hitCount * 13));
+            finalRCD = Math.max(100, currentRCD - (hitCount * 13)); // minimum 5s (100 ticks)
             pData.putInt("xebHolyRCD", finalRCD);
         }
         if (finalRCD > 0) {
@@ -222,8 +276,12 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
         boolean holdsBlade = player.getMainHandItem() == stack || player.getOffhandItem() == stack;
         if (!holdsBlade) {
             // Clean up state if not held
-            if (player.getPersistentData().getInt("xebHolyBlastCharge") > 0) {
-                player.getPersistentData().putInt("xebHolyBlastCharge", 0);
+            CompoundTag pData = player.getPersistentData();
+            if (pData.getInt("xebHolyBlastCharge") > 0 || pData.getBoolean("xebHolyBlessedActive")) {
+                pData.putInt("xebHolyBlastCharge", 0);
+                pData.putBoolean("xebHolyBlessedActive", false);
+                pData.putBoolean("xebHolyShieldActive", false);
+                pData.putInt("xebHolyBlessedTicks", 0);
                 if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
                     syncToClient(serverPlayer);
                 }
@@ -240,6 +298,28 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
             if (holyA2CD > 0) pData.putInt("xebHolyA2Cooldown", holyA2CD - 1);
             if (holyRCD > 0) pData.putInt("xebHolyRCD", holyRCD - 1);
 
+            // Decrement blessed ticks
+            int blessedTicks = pData.getInt("xebHolyBlessedTicks");
+            if (blessedTicks > 0) {
+                blessedTicks--;
+                pData.putInt("xebHolyBlessedTicks", blessedTicks);
+                if (blessedTicks <= 0) {
+                    pData.putBoolean("xebHolyBlessedActive", false);
+                    pData.putBoolean("xebHolyShieldActive", false);
+                }
+                
+                // Divine Aura checking: Glowing + Weakness to hostile mobs within 3 blocks
+                if (blessedTicks % 40 == 0) {
+                    AABB area = player.getBoundingBox().inflate(3.0D);
+                    List<LivingEntity> mobs = level.getEntitiesOfClass(LivingEntity.class, area,
+                            e -> e != player && e.isAlive() && !e.isAlliedTo(player));
+                    for (LivingEntity mob : mobs) {
+                        mob.addEffect(new MobEffectInstance(MobEffects.GLOWING, 60, 0));
+                        mob.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 60, 0));
+                    }
+                }
+            }
+
             // Annihilation ticking (3 hits)
             if (pData.getBoolean("xebHolyAnnihilationActive")) {
                 int annTicks = pData.getInt("xebHolyAnnihilationTicks");
@@ -252,11 +332,9 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
                         AABB box = player.getBoundingBox().inflate(1.5D, 1.0D, 1.5D); // 3x3 area
                         double baseDmg = 7.0D;
                         
-                        int blessedCharges = pData.getInt("xebHolyBlessedCharges");
-                        boolean isBlessed = blessedCharges > 0;
+                        boolean isBlessed = pData.getBoolean("xebHolyBlessedActive");
                         if (isBlessed) {
-                            baseDmg *= 3.0D; // 200% more damage (3x damage)
-                            pData.putInt("xebHolyBlessedCharges", blessedCharges - 1);
+                            baseDmg *= 3.0D;
                         }
                         
                         boolean isCrit = isBlessed || (player.getRandom().nextFloat() < 0.25F);
@@ -312,9 +390,11 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
                 new HolySyncPacket(
                         player.getId(),
                         pData.getBoolean("xebHolyShieldActive"),
-                        pData.getInt("xebHolyCrownState"),
-                        pData.getInt("xebHolyCrownTicks"),
                         pData.getBoolean("xebHolyAnnihilationActive"),
+                        pData.getBoolean("xebHolyBlessedActive"),
+                        pData.getInt("xebHolyBlessedTicks"),
+                        pData.getInt("xebHolyBlastCharge"),
+                        1.5D + (Math.min(160, pData.getInt("xebHolyBlastCharge")) / 160.0D) * 2.5D,
                         pData.getInt("xebHolyA1Cooldown"),
                         pData.getInt("xebHolyA2Cooldown"),
                         combo

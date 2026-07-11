@@ -252,6 +252,10 @@ public class ClientPacketHandler {
                 tag.putInt("xebMechaA1Cooldown", msg.getA1Cooldown());
                 tag.putInt("xebMechaA2Cooldown", msg.getA2Cooldown());
                 tag.putDouble("xebMechaKineticSpeed", msg.getKineticSpeed());
+                tag.putDouble("xebMechaMomentum", msg.getMomentum());
+                tag.putBoolean("xebMechaOvercharged", msg.isOvercharged());
+                tag.putBoolean("xebMechaLevitating", msg.isLevitating());
+                tag.putInt("xebMechaSpindashCharge", msg.getSpindashCharge());
             }
         }
     }
@@ -262,10 +266,12 @@ public class ClientPacketHandler {
             net.minecraft.world.entity.Entity entity = mc.level.getEntity(msg.getEntityId());
             if (entity instanceof net.minecraft.world.entity.player.Player player) {
                 net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
-                tag.putBoolean("xebHolyShieldActive", msg.isParrying());
-                tag.putInt("xebHolyCrownState", msg.getCrownState());
-                tag.putInt("xebHolyCrownTicks", msg.getCrownTicks());
-                tag.putBoolean("xebHolyAnnihilationActive", msg.isCrossSlashActive());
+                tag.putBoolean("xebHolyShieldActive", msg.isShieldActive());
+                tag.putBoolean("xebHolyAnnihilationActive", msg.isAnnihilationActive());
+                tag.putBoolean("xebHolyBlessedActive", msg.isBlessedActive());
+                tag.putInt("xebHolyBlessedTicks", msg.getBlessedTicks());
+                tag.putInt("xebHolyBlastCharge", msg.getBlastCharge());
+                tag.putDouble("xebHolyBlastRadius", msg.getBlastRadius());
                 tag.putInt("xebHolyA1Cooldown", msg.getA1Cooldown());
                 tag.putInt("xebHolyA2Cooldown", msg.getA2Cooldown());
                 tag.putInt("xebHolyComboStage", msg.getComboStage());

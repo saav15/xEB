@@ -42,12 +42,12 @@ public class MechaVulcanProjectileRenderer extends EntityRenderer<MechaVulcanPro
         Vec3 back = dir.scale(-halfLength);
 
         // Draw cross quads
-        drawMiniQuad(consumer, matrix, front, back, perp1, halfWidth, 1.0F, 0.5F, 0.0F, 0.9F); // Bright Orange
-        drawMiniQuad(consumer, matrix, front, back, perp2, halfWidth, 1.0F, 0.5F, 0.0F, 0.9F);
+        drawMiniQuad(consumer, matrix, front, back, perp1, halfWidth, 0.0F, 1.0F, 1.0F, 0.9F); // Cyan outer
+        drawMiniQuad(consumer, matrix, front, back, perp2, halfWidth, 0.0F, 1.0F, 1.0F, 0.9F);
 
         // Inner bright core
-        drawMiniQuad(consumer, matrix, front, back, perp1, halfWidth * 0.4F, 1.0F, 1.0F, 0.5F, 0.95F); // Yellow-white core
-        drawMiniQuad(consumer, matrix, front, back, perp2, halfWidth * 0.4F, 1.0F, 1.0F, 0.5F, 0.95F);
+        drawMiniQuad(consumer, matrix, front, back, perp1, halfWidth * 0.4F, 1.0F, 1.0F, 1.0F, 0.95F); // White core
+        drawMiniQuad(consumer, matrix, front, back, perp2, halfWidth * 0.4F, 1.0F, 1.0F, 1.0F, 0.95F);
 
         poseStack.popPose();
     }

@@ -605,7 +605,7 @@ public class DoomfistHUDOverlay {
         // Activa 2: Homing Missile
         renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "MISS", a2CD, 300, missileActive);
         
-        // Render Kinetic Speed Bar next to crosshair
+        // Render Momentum Bar next to crosshair
         int centerX = width / 2;
         int centerY = height / 2;
         int barX = centerX + 18;
@@ -613,21 +613,41 @@ public class DoomfistHUDOverlay {
         int barW = 4;
         int barH = 40;
         
-        double speed = tag.getDouble("xebMechaKineticSpeed");
-        float speedRatio = (float) Math.min(1.0D, speed / 1.5D);
+        double momentum = tag.getDouble("xebMechaMomentum");
+        float momRatio = (float) Math.min(1.0D, momentum);
+        boolean overcharged = tag.getBoolean("xebMechaOvercharged");
+        boolean levitating = tag.getBoolean("xebMechaLevitating");
         
         // Bar background
         g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0x66000000);
         
-        // Bar fill (cyan / aqua representing jet engine kinetic speed)
-        int fillH = (int) (barH * speedRatio);
-        if (fillH > 0) {
-            int fillY = barY + barH - fillH;
-            g.fill(barX, fillY, barX + barW, barY + barH, 0xFF00FFFF);
+        // Bar fill (cyan normally, gold pulsing if overcharged)
+        int fillH = (int) (barH * momRatio);
+        int fillColor = 0xFF00FFFF;
+        if (overcharged) {
+            float pulse = 0.7F + 0.3F * (float) Math.sin((mc.level.getGameTime() + event.getPartialTick()) * 0.5D);
+            int red = (int) (255 * pulse);
+            int grn = (int) (215 * pulse);
+            fillColor = (0xFF << 24) | (red << 16) | (grn << 8) | 0; // gold pulse
         }
         
-        // Text indicator: KNT
-        g.drawString(mc.font, "KNT", barX - 1, barY - 9, 0xFF00FFFF, true);
+        if (fillH > 0) {
+            int fillY = barY + barH - fillH;
+            g.fill(barX, fillY, barX + barW, barY + barH, fillColor);
+        }
+        
+        // Text indicator: MOM
+        int momColor = overcharged ? 0xFFFFD700 : 0xFF00FFFF;
+        g.drawString(mc.font, "MOM", barX - 1, barY - 9, momColor, true);
+        
+        // Status labels
+        if (overcharged) {
+            g.drawString(mc.font, "OVERCHARGE", barX + 8, barY + 12, 0xFFFFD700, true);
+        } else if (levitating) {
+            g.drawString(mc.font, "LEVITATING", barX + 8, barY + 12, 0xFF00FFFF, true);
+        }
+        
+        RenderSystem.disableBlend();
     }
 
     private static void renderHolyAbilityCooldowns(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player) {
@@ -642,8 +662,13 @@ public class DoomfistHUDOverlay {
         
         int a1CD = tag.getInt("xebHolyA1Cooldown");
         int a2CD = tag.getInt("xebHolyA2Cooldown");
+        int holyRCD = tag.getInt("xebHolyRCD");
         boolean shieldActive = tag.getBoolean("xebHolyShieldActive");
         boolean annihilationActive = tag.getBoolean("xebHolyAnnihilationActive");
+        boolean blessed = tag.getBoolean("xebHolyBlessedActive");
+        int blessedTicks = tag.getInt("xebHolyBlessedTicks");
+        int comboStage = tag.getInt("xebHolyComboStage");
+        int blastCharge = tag.getInt("xebHolyBlastCharge");
         
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -651,48 +676,85 @@ public class DoomfistHUDOverlay {
         String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         
-        // Activa 1: After Creation
-        renderAbilityIconBox(g, mc, xStart, yStart, key1, "CREAT", a1CD, 333, shieldActive);
-        
-        // Activa 2: Annihilation
+        // Action boxes bottom left
+        renderAbilityIconBox(g, mc, xStart, yStart, key1, "CREAT", a1CD, 320, shieldActive);
         renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "ANNIL", a2CD, 133, annihilationActive);
         
-        // Render Holy Blast Charge Bar below crosshair
-        int centerX = width / 2;
-        int centerY = height / 2;
+        // Large Mewgenics-style rectangular dashboard box on the right of the screen
+        int boxW = 120;
+        int boxH = 150;
+        int boxX = width - boxW - 10;
+        int boxY = height / 2 - boxH / 2;
         
-        int charge = tag.getInt("xebHolyBlastCharge");
-        if (charge > 0) {
-            int barX = centerX - 20;
-            int barY = centerY + 12;
-            int barW = 40;
-            int barH = 4;
-            
-            float pct = Math.min(1.0F, charge / 40.0F);
-            
-            // Draw background
-            g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0x66000000);
-            
-            // Draw fill (aqua blue)
-            int fillW = (int) (barW * pct);
-            g.fill(barX, barY, barX + fillW, barY + barH, 0xFF00FFFF);
-            
-            if (pct >= 1.0F) {
-                // Glow border
-                g.fill(barX - 1, barY - 1, barX + barW + 1, barY, 0xFFFFFFFF);
-                g.fill(barX - 1, barY + barH, barX + barW + 1, barY + barH + 1, 0xFFFFFFFF);
-                g.fill(barX - 1, barY - 1, barX, barY + barH + 1, 0xFFFFFFFF);
-                g.fill(barX + barW, barY - 1, barX + barW + 1, barY + barH + 1, 0xFFFFFFFF);
-                
-                // Spawn client particles
-                if (mc.level.random.nextFloat() < 0.3F) {
-                    mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.SOUL_FIRE_FLAME,
-                            player.getX() + (mc.level.random.nextDouble() - 0.5D) * 0.5D,
-                            player.getY() + 1.0D,
-                            player.getZ() + (mc.level.random.nextDouble() - 0.5D) * 0.5D,
-                            0.0D, 0.02D, 0.0D);
-                }
-            }
+        int borderCol = blessed ? 0xFFFFD700 : 0xFF888888;
+        
+        // Background
+        g.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xCC111111);
+        
+        // Double border
+        g.fill(boxX, boxY, boxX + boxW, boxY + 2, borderCol);
+        g.fill(boxX, boxY + boxH - 2, boxX + boxW, boxY + boxH, borderCol);
+        g.fill(boxX, boxY, boxX + 2, boxY + boxH, borderCol);
+        g.fill(boxX + boxW - 2, boxY, boxX + boxW, boxY + boxH, borderCol);
+        
+        // Title
+        String titleStr = "HOLY CROWN";
+        g.drawString(mc.font, titleStr, boxX + (boxW - mc.font.width(titleStr)) / 2, boxY + 8, borderCol, false);
+        
+        // Combo text
+        String comboStr = "COMBO: Stage " + (comboStage + 1);
+        if (comboStage == 2) {
+            comboStr = "COMBO: X-STRIKE";
         }
+        g.drawString(mc.font, comboStr, boxX + 8, boxY + 25, 0xFFFFD700, false);
+        
+        // Status text
+        if (blessed) {
+            String bTime = String.format("BLESSED: %.1fs", blessedTicks / 20.0F);
+            g.drawString(mc.font, bTime, boxX + 8, boxY + 40, 0xFFFFAA00, false);
+        } else if (shieldActive) {
+            g.drawString(mc.font, "SHIELD ACTIVE", boxX + 8, boxY + 40, 0xFFE5F5FF, false);
+        } else {
+            g.drawString(mc.font, "STATUS: NORMAL", boxX + 8, boxY + 40, 0xFF888888, false);
+        }
+        
+        // Cooldown lists
+        int listY = boxY + 60;
+        
+        // Activa 1
+        String cd1 = a1CD > 0 ? String.format("%.1fs", a1CD / 20.0F) : "Ready";
+        g.drawString(mc.font, "After Creation: " + cd1, boxX + 8, listY, a1CD > 0 ? 0xFF888888 : 0xFFFFFFFF, false);
+        
+        // Activa 2
+        String cd2 = a2CD > 0 ? String.format("%.1fs", a2CD / 20.0F) : "Ready";
+        g.drawString(mc.font, "Annihilation: " + cd2, boxX + 8, listY + 15, a2CD > 0 ? 0xFF888888 : 0xFFFFFFFF, false);
+        
+        // Holy Blast Cooldown
+        String rcdStr = holyRCD > 0 ? String.format("%.1fs", holyRCD / 20.0F) : "Ready";
+        g.drawString(mc.font, "Holy Blast: " + rcdStr, boxX + 8, listY + 30, holyRCD > 0 ? 0xFF888888 : 0xFFFFFFFF, false);
+        
+        // Holy Blast Charge Progress Bar
+        if (blastCharge > 0) {
+            int barX = boxX + 8;
+            int barY = boxY + boxH - 22;
+            int barW = boxW - 16;
+            int barH = 8;
+            
+            float pct = Math.min(1.0F, blastCharge / 160.0F);
+            
+            g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0xFF000000);
+            g.fill(barX, barY, barX + barW, barY + barH, 0x88333333);
+            
+            int fillW = (int) (barW * pct);
+            g.fill(barX, barY, barX + fillW, barY + barH, 0xFFFFD700);
+            
+            String label = "CHARGING...";
+            if (pct >= 1.0F) {
+                label = "MAX POWER";
+            }
+            g.drawString(mc.font, label, barX, barY - 10, 0xFFFFD700, false);
+        }
+        
+        RenderSystem.disableBlend();
     }
 }
