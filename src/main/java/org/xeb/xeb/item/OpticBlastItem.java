@@ -169,16 +169,17 @@ public class OpticBlastItem extends Item implements GeoItem {
     public void onUseTick(Level level, LivingEntity entity, ItemStack stack, int remainingUseDuration) {
         if (!(entity instanceof ServerPlayer player)) return;
 
-        // Drain energy
-        float energy = getEnergy(player);
-        energy -= ENERGY_DRAIN_PER_TICK;
-        setEnergy(player, energy);
+        // BUG 4 fix: no drenar energía durante un Beam Struggle activo
+        if (!org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(player.getUUID())) {
+            float energy = getEnergy(player);
+            energy -= ENERGY_DRAIN_PER_TICK;
+            setEnergy(player, energy);
 
-        // If energy depleted, force stop and enter overheat cooldown
-        if (energy <= 0.0F) {
-            setEnergy(player, 0.0F);
-            player.releaseUsingItem();
-            return;
+            if (energy <= 0.0F) {
+                setEnergy(player, 0.0F);
+                player.releaseUsingItem();
+                return;
+            }
         }
 
         // The actual beam logic (raycast, damage, etc.) is handled by OpticBlastTickHandler

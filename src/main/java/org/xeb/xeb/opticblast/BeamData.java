@@ -16,7 +16,13 @@ public class BeamData {
     private final long tickCreated;
     private long tickExpires;
 
+    private final String beamSource; // "optic_blast", "brimstone", "external"
+
     public BeamData(UUID ownerUUID, int ownerEntityId, Vec3 start, Vec3 end, int color, long tickCreated, long tickExpires) {
+        this(ownerUUID, ownerEntityId, start, end, color, tickCreated, tickExpires, "optic_blast");
+    }
+
+    public BeamData(UUID ownerUUID, int ownerEntityId, Vec3 start, Vec3 end, int color, long tickCreated, long tickExpires, String beamSource) {
         this.ownerUUID = ownerUUID;
         this.ownerEntityId = ownerEntityId;
         this.start = start;
@@ -24,7 +30,10 @@ public class BeamData {
         this.color = color;
         this.tickCreated = tickCreated;
         this.tickExpires = tickExpires;
+        this.beamSource = beamSource;
     }
+
+    public String getBeamSource() { return beamSource; }
 
     public UUID getOwnerUUID() { return ownerUUID; }
     public int getOwnerEntityId() { return ownerEntityId; }

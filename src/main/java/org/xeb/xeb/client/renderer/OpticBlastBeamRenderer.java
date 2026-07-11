@@ -115,6 +115,11 @@ public class OpticBlastBeamRenderer {
                 continue;
             }
 
+            // BUG 2 fix: skip rendering original beam if this owner is currently in a struggle
+            if (org.xeb.xeb.client.renderer.BeamStruggleRenderer.isOwnerInStruggle(entry.getKey())) {
+                continue;
+            }
+
             Vec3 renderStart = beam.start;
             Vec3 renderEnd = beam.end;
 

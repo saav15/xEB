@@ -191,5 +191,7 @@
   "curios.identifier.ultimate": "Ultimate",
   "key.xeb.flourish": "Flourish",
   "hud.xeb.beam_struggle.title": "DUELO DE RAYOS",
-  "hud.xeb.beam_struggle.mash": "¡PULSA %s!"
+  "hud.xeb.beam_struggle.mash": "¡PULSA %s!",
+  "hud.xeb.beam_struggle.prep": "¡PREPÁRATE!",
+  "hud.xeb.beam_struggle.prep_sub": "El duelo comienza..."
 }

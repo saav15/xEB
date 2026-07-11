@@ -213,7 +213,9 @@ public class TheTearsItem extends Item {
             // --- 7. Tick del láser Brimstone activo ---
             int firingTicks = pData.getInt("xebBrimstoneFiringTicks");
             if (firingTicks > 0) {
-                pData.putInt("xebBrimstoneFiringTicks", firingTicks - 1);
+                if (!org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(player.getUUID())) {
+                    pData.putInt("xebBrimstoneFiringTicks", firingTicks - 1);
+                }
                 if (!level.isClientSide()) {
                     tickBrimstoneLaser(player, level, currentTick);
                 }
@@ -416,24 +418,28 @@ public class TheTearsItem extends Item {
 
         // --- 2. Check Beam vs Beam Collision in ActiveBeamManager ---
         UUID playerUUID = player.getUUID();
-        // Register unique key for the player's Brimstone beam
-        UUID brimstoneUUID = new UUID(playerUUID.getMostSignificantBits(), playerUUID.getLeastSignificantBits() ^ 9999);
-        
         Vec3 renderEnd = points.get(points.size() - 1);
-        Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, renderEnd);
 
-        if (beamCollision != null) {
-            double collisionDist = mouthPos.distanceToSqr(beamCollision);
-            double currentEndDist = mouthPos.distanceToSqr(renderEnd);
-            if (collisionDist < currentEndDist) {
-                // Truncate rendering
-                points.set(points.size() - 1, beamCollision);
-                
-                if (level instanceof ServerLevel serverLevel) {
-                    serverLevel.sendParticles(ParticleTypes.FLASH, beamCollision.x, beamCollision.y, beamCollision.z,
-                            1, 0.0D, 0.0D, 0.0D, 0.0D);
-                    serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, beamCollision.x, beamCollision.y, beamCollision.z,
-                            8, 0.3D, 0.3D, 0.3D, 0.05D);
+        // BUG 2 fix: override endpoint if in active struggle
+        Vec3 struggleCollision = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(playerUUID);
+        if (struggleCollision != null) {
+            renderEnd = struggleCollision;
+            points.set(points.size() - 1, renderEnd);
+        } else {
+            Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, renderEnd);
+            if (beamCollision != null) {
+                double collisionDist = mouthPos.distanceToSqr(beamCollision);
+                double currentEndDist = mouthPos.distanceToSqr(renderEnd);
+                if (collisionDist < currentEndDist) {
+                    renderEnd = beamCollision;
+                    points.set(points.size() - 1, renderEnd);
+
+                    if (level instanceof ServerLevel serverLevel) {
+                        serverLevel.sendParticles(ParticleTypes.FLASH, beamCollision.x, beamCollision.y, beamCollision.z,
+                                1, 0.0D, 0.0D, 0.0D, 0.0D);
+                        serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, beamCollision.x, beamCollision.y, beamCollision.z,
+                                8, 0.3D, 0.3D, 0.3D, 0.05D);
+                    }
                 }
             }
         }
@@ -449,12 +455,13 @@ public class TheTearsItem extends Item {
                 playerUUID,
                 player.getId(),
                 mouthPos,
-                points.get(points.size() - 1),
+                renderEnd,
                 color,
                 currentTick,
-                currentTick + 1
+                currentTick + 1,
+                "brimstone"
         );
-        ActiveBeamManager.get().putBeam(brimstoneUUID, beamData);
+        ActiveBeamManager.get().putBeam(playerUUID, beamData);
 
         // --- 4. Send network sync packet to client ---
         XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),

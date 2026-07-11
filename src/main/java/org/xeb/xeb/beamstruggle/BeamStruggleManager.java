@@ -4,128 +4,186 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
-import org.xeb.xeb.opticblast.ActiveBeamManager;
-import org.xeb.xeb.opticblast.BeamData;
+import org.xeb.xeb.network.BeamStruggleEndPacket;
+import org.xeb.xeb.network.BeamStrugglePacket;
+import org.xeb.xeb.network.XEBNetwork;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Server-authoritative Beam Struggle manager.
- *
- * <p>A Beam Struggle triggers when two beams from different owners collide.
- * Each side presses Flourish (B) to accumulate mash points; the side with more
- * points per tick pushes the collision point toward the loser. When the collision
- * point reaches one owner's beam start, that owner loses and takes a Blast Impact
- * (huge damage + knockback + explosion particles).
- *
- * <p>Struggles auto-expire after 8 seconds (160 ticks) if unresolved.
  */
 public class BeamStruggleManager {
+
+    public enum StrugglePhase {
+        PREP,       // 2 seconds prep phase, golden HUD, no movement
+        ACTIVE,     // Active mashing and moving collision point
+        RESOLVED    // Finished, waiting for cleanup
+    }
 
     private static final Map<UUID, BeamStruggle> ACTIVE_STRUGGLES = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> OWNER_TO_STRUGGLE = new ConcurrentHashMap<>();
 
-    /** Maximum duration of a struggle before it auto-resolves as a draw. */
     public static final int MAX_STRUGGLE_TICKS = 160;
-
-    /** Mash points per Flourish click. */
     public static final double MASH_POINT_PER_CLICK = 1.0;
-
-    /** Natural decay per tick (so idling loses to active mashing). */
     public static final double MASH_DECAY_PER_TICK = 0.05;
-
-    /** Distance the collision point moves per point of advantage per tick. */
     public static final double COLLISION_MOVE_PER_POINT = 0.15;
 
-    /** Maximum distance from midpoint before the struggle ends. */
-    public static final double WIN_DISTANCE = 6.0;
+    public static final int PREP_DURATION_TICKS = 40; // 2 seconds
+    public static final double POINT_BLANK_DISTANCE = 4.0;
+    public static final double FAR_DISTANCE = 30.0;
+    public static final double WIN_DISTANCE_NORMAL = 6.0;
+    public static final double WIN_DISTANCE_POINT_BLANK = 2.0;
 
     public static class BeamStruggle {
         public final UUID struggleId;
         public final UUID ownerA;
         public final UUID ownerB;
-        public final Vec3 startPosA; // beam start of owner A
-        public final Vec3 startPosB; // beam start of owner B
-        public final Vec3 midpoint; // initial collision point
-        public Vec3 currentCollision; // moves toward loser
+        public final int ownerAEntityId;
+        public final int ownerBEntityId;
+        public final Vec3 startPosA;
+        public final Vec3 startPosB;
+        public final Vec3 midpoint;
+        public Vec3 currentCollision;
         public double pointsA;
         public double pointsB;
         public int ticksElapsed;
         public final long startTick;
+        public StrugglePhase phase;
+        public final double initialDistance;
+        public final double winDistance;
+        public final double mashMultiplier;
 
-        public BeamStruggle(UUID id, UUID a, UUID b, Vec3 startA, Vec3 startB, Vec3 collision, long tick) {
+        public BeamStruggle(UUID id, UUID a, UUID b, int idA, int idB, Vec3 startA, Vec3 startB,
+                            Vec3 collision, long tick, StrugglePhase phase, double initialDistance,
+                            double winDistance, double mashMultiplier) {
             this.struggleId = id;
-            this.ownerA = a; this.ownerB = b;
-            this.startPosA = startA; this.startPosB = startB;
+            this.ownerA = a;
+            this.ownerB = b;
+            this.ownerAEntityId = idA;
+            this.ownerBEntityId = idB;
+            this.startPosA = startA;
+            this.startPosB = startB;
             this.midpoint = collision;
             this.currentCollision = new Vec3(collision.x, collision.y, collision.z);
             this.startTick = tick;
+            this.phase = phase;
+            this.initialDistance = initialDistance;
+            this.winDistance = winDistance;
+            this.mashMultiplier = mashMultiplier;
+            this.ticksElapsed = 0;
         }
     }
 
-    /**
-     * Called from OpticBlastTickHandler every tick when a beam-vs-beam collision is detected.
-     * Returns true if the beam endpoint should be overridden to the struggle's collision point.
-     */
     public static boolean onBeamCollision(UUID ownerA, UUID ownerB, Vec3 startA, Vec3 startB,
                                           Vec3 collisionPoint, long currentTick, ServerLevel level) {
-        // Check if either owner is already in a struggle
         BeamStruggle struggle = findActiveStruggle(ownerA, ownerB);
 
         if (struggle == null) {
-            // Create a new struggle
             UUID id = UUID.randomUUID();
-            struggle = new BeamStruggle(id, ownerA, ownerB, startA, startB, collisionPoint, currentTick);
+            double distance = startA.distanceTo(startB);
+            double winDist = distance < POINT_BLANK_DISTANCE ? WIN_DISTANCE_POINT_BLANK : WIN_DISTANCE_NORMAL;
+            double mashMult = 1.0 + (distance / 40.0);
+            if (distance < POINT_BLANK_DISTANCE) {
+                mashMult = 0.5; // point blank needs less mash = resolves extremely fast
+            }
+
+            StrugglePhase initialPhase = (distance < POINT_BLANK_DISTANCE) ? StrugglePhase.ACTIVE : StrugglePhase.PREP;
+            int initialTicks = (distance < POINT_BLANK_DISTANCE) ? PREP_DURATION_TICKS : 0;
+
+            int idA = getEntityIdFromUUID(level, ownerA);
+            int idB = getEntityIdFromUUID(level, ownerB);
+
+            struggle = new BeamStruggle(id, ownerA, ownerB, idA, idB, startA, startB, collisionPoint,
+                    currentTick, initialPhase, distance, winDist, mashMult);
+            struggle.ticksElapsed = initialTicks;
             ACTIVE_STRUGGLES.put(id, struggle);
             OWNER_TO_STRUGGLE.put(ownerA, id);
             OWNER_TO_STRUGGLE.put(ownerB, id);
 
-            // Broadcast struggle start packet
             broadcastStruggleStart(struggle, level);
+
+            // Start sound
+            level.playSound(null, collisionPoint.x, collisionPoint.y, collisionPoint.z,
+                    net.minecraft.sounds.SoundEvents.WITHER_SPAWN,
+                    net.minecraft.sounds.SoundSource.PLAYERS, 1.5F, 1.5F);
         }
 
-        // Update struggle position based on mash points
         struggle.ticksElapsed++;
-        double advantage = struggle.pointsA - struggle.pointsB; // positive = A wins
 
-        Vec3 dirAtoB = struggle.startPosB.subtract(struggle.startPosA).normalize();
-        // If A is winning (advantage > 0), collision moves toward B (loser)
-        Vec3 moveVector = dirAtoB.scale(advantage * COLLISION_MOVE_PER_POINT);
-        struggle.currentCollision = struggle.currentCollision.add(moveVector);
-
-        // Decay mash points
-        struggle.pointsA = Math.max(0, struggle.pointsA - MASH_DECAY_PER_TICK);
-        struggle.pointsB = Math.max(0, struggle.pointsB - MASH_DECAY_PER_TICK);
-
-        // Check win condition
-        double distFromMid = struggle.currentCollision.distanceTo(struggle.midpoint);
-        if (distFromMid >= WIN_DISTANCE || struggle.ticksElapsed >= MAX_STRUGGLE_TICKS) {
-            resolveStruggle(struggle, level, currentTick);
-            return false; // struggle ended, beam resumes normal collision
+        if (struggle.phase == StrugglePhase.PREP) {
+            if (struggle.ticksElapsed >= PREP_DURATION_TICKS) {
+                struggle.phase = StrugglePhase.ACTIVE;
+                struggle.ticksElapsed = 0;
+                broadcastStruggleUpdate(struggle, level);
+            }
+            return true;
         }
 
-        // Broadcast update packet
-        broadcastStruggleUpdate(struggle, level);
+        if (struggle.phase == StrugglePhase.ACTIVE) {
+            double advantage = struggle.pointsA - struggle.pointsB;
+            Vec3 dirAtoB = struggle.startPosB.subtract(struggle.startPosA).normalize();
+            Vec3 moveVector = dirAtoB.scale(advantage * COLLISION_MOVE_PER_POINT);
+            struggle.currentCollision = struggle.currentCollision.add(moveVector);
 
-        return true; // beam endpoint should be overridden
+            double decay = MASH_DECAY_PER_TICK * struggle.mashMultiplier;
+            struggle.pointsA = Math.max(0, struggle.pointsA - decay);
+            struggle.pointsB = Math.max(0, struggle.pointsB - decay);
+
+            double distFromMid = struggle.currentCollision.distanceTo(struggle.midpoint);
+            if (distFromMid >= struggle.winDistance || struggle.ticksElapsed >= MAX_STRUGGLE_TICKS) {
+                resolveStruggle(struggle, level, currentTick);
+                return false;
+            }
+
+            if (struggle.ticksElapsed % 20 == 0) {
+                level.playSound(null, struggle.currentCollision.x, struggle.currentCollision.y, struggle.currentCollision.z,
+                        net.minecraft.sounds.SoundEvents.BEACON_AMBIENT,
+                        net.minecraft.sounds.SoundSource.PLAYERS, 0.8F, 2.0F);
+            }
+
+            broadcastStruggleUpdate(struggle, level);
+            return true;
+        }
+
+        return false;
     }
 
-    /**
-     * Handles a Flourish key press from a player.
-     */
     public static void handleFlourishPress(ServerPlayer player) {
         UUID struggleId = OWNER_TO_STRUGGLE.get(player.getUUID());
         if (struggleId == null) return;
 
         BeamStruggle struggle = ACTIVE_STRUGGLES.get(struggleId);
         if (struggle == null) return;
+        if (struggle.phase != StrugglePhase.ACTIVE) return;
 
+        double points = MASH_POINT_PER_CLICK * struggle.mashMultiplier;
         if (player.getUUID().equals(struggle.ownerA)) {
-            struggle.pointsA += MASH_POINT_PER_CLICK;
+            struggle.pointsA += points;
         } else if (player.getUUID().equals(struggle.ownerB)) {
-            struggle.pointsB += MASH_POINT_PER_CLICK;
+            struggle.pointsB += points;
         }
+    }
+
+    public static boolean isInActiveStruggle(UUID playerUUID) {
+        UUID struggleId = OWNER_TO_STRUGGLE.get(playerUUID);
+        if (struggleId == null) return false;
+        BeamStruggle s = ACTIVE_STRUGGLES.get(struggleId);
+        return s != null && s.phase == StrugglePhase.ACTIVE;
+    }
+
+    public static boolean isInAnyStruggle(UUID playerUUID) {
+        return OWNER_TO_STRUGGLE.containsKey(playerUUID);
+    }
+
+    public static Vec3 getCollisionPointFor(UUID owner) {
+        UUID struggleId = OWNER_TO_STRUGGLE.get(owner);
+        if (struggleId != null) {
+            BeamStruggle s = ACTIVE_STRUGGLES.get(struggleId);
+            if (s != null) return s.currentCollision;
+        }
+        return null;
     }
 
     private static BeamStruggle findActiveStruggle(UUID a, UUID b) {
@@ -154,44 +212,61 @@ public class BeamStruggleManager {
             winner = struggle.ownerB; loser = struggle.ownerA;
             loserStart = struggle.startPosA;
         } else {
-            // Draw — both take damage
-            applyBlastImpact(level, struggle.ownerA, struggle.currentCollision, 1.0F);
-            applyBlastImpact(level, struggle.ownerB, struggle.currentCollision, 1.0F);
+            // Draw
+            applyBlastImpact(level, struggle.ownerA, struggle.currentCollision, 1.0F, false);
+            applyBlastImpact(level, struggle.ownerB, struggle.currentCollision, 1.0F, false);
             cleanupStruggle(struggle);
             return;
         }
 
-        applyBlastImpact(level, loser, struggle.currentCollision, 2.0F);
+        applyBlastImpact(level, loser, struggle.currentCollision, 2.0F, true);
+        applyBlastImpact(level, winner, struggle.currentCollision, 0.0F, false); // Play victory sound on winner
 
-        // Cleanup
         cleanupStruggle(struggle);
 
-        // Broadcast struggle end packet
         broadcastStruggleEnd(struggle, level, winner, loser);
     }
 
-    private static void applyBlastImpact(ServerLevel level, UUID targetId, Vec3 explosionPos, float multiplier) {
+    private static void applyBlastImpact(ServerLevel level, UUID targetId, Vec3 explosionPos, float multiplier, boolean loser) {
         net.minecraft.world.entity.Entity target = level.getEntity(targetId);
         if (target instanceof LivingEntity living) {
-            living.hurt(level.damageSources().explosion(null, null), 30.0F * multiplier);
-            Vec3 knockback = living.position().subtract(explosionPos).normalize().scale(1.5 * multiplier);
-            living.setDeltaMovement(knockback.x, knockback.y + 0.5, knockback.z);
-            living.hurtMarked = true;
+            if (multiplier > 0) {
+                living.hurt(level.damageSources().explosion(null, null), 30.0F * multiplier);
+                Vec3 knockback = living.position().subtract(explosionPos).normalize().scale(1.5 * multiplier);
+                living.setDeltaMovement(knockback.x, knockback.y + 0.5, knockback.z);
+                living.hurtMarked = true;
+            }
         }
-        level.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION,
-                explosionPos.x, explosionPos.y, explosionPos.z, 3, 0.5, 0.5, 0.5, 0.0);
-        level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
-                explosionPos.x, explosionPos.y, explosionPos.z, 30, 1.0, 1.0, 1.0, 0.2);
-        level.playSound(null, explosionPos.x, explosionPos.y, explosionPos.z,
-                net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE,
-                net.minecraft.sounds.SoundSource.PLAYERS, 2.0F, 0.8F);
+
+        if (multiplier > 0) {
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION,
+                    explosionPos.x, explosionPos.y, explosionPos.z, 3, 0.5, 0.5, 0.5, 0.0);
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                    explosionPos.x, explosionPos.y, explosionPos.z, 30, 1.0, 1.0, 1.0, 0.2);
+
+            if (loser) {
+                level.playSound(null, explosionPos.x, explosionPos.y, explosionPos.z,
+                        net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE,
+                        net.minecraft.sounds.SoundSource.PLAYERS, 2.0F, 0.8F);
+                level.playSound(null, explosionPos.x, explosionPos.y, explosionPos.z,
+                        net.minecraft.sounds.SoundEvents.WITHER_HURT,
+                        net.minecraft.sounds.SoundSource.PLAYERS, 1.5F, 0.8F);
+            }
+        } else {
+            // Victory sounds
+            level.playSound(null, explosionPos.x, explosionPos.y, explosionPos.z,
+                    net.minecraft.sounds.SoundEvents.PLAYER_ATTACK_CRIT,
+                    net.minecraft.sounds.SoundSource.PLAYERS, 2.0F, 1.0F);
+            level.playSound(null, explosionPos.x, explosionPos.y, explosionPos.z,
+                    net.minecraft.sounds.SoundEvents.WITHER_DEATH,
+                    net.minecraft.sounds.SoundSource.PLAYERS, 1.5F, 2.0F);
+        }
     }
 
     public static void onServerTick(ServerLevel level, long currentTick) {
-        // Cleanup expired struggles
         List<UUID> toRemove = new ArrayList<>();
         for (BeamStruggle s : ACTIVE_STRUGGLES.values()) {
-            if (s.ticksElapsed >= MAX_STRUGGLE_TICKS) {
+            if (s.phase == StrugglePhase.ACTIVE && s.ticksElapsed >= MAX_STRUGGLE_TICKS) {
                 toRemove.add(s.struggleId);
             }
         }
@@ -201,43 +276,30 @@ public class BeamStruggleManager {
         }
     }
 
-    // ── Packet broadcasting ──
     private static void broadcastStruggleStart(BeamStruggle s, ServerLevel level) {
-        // Find owner entity IDs
-        int idA = -1;
-        int idB = -1;
-        net.minecraft.world.entity.Entity entA = level.getEntity(s.ownerA);
-        if (entA != null) idA = entA.getId();
-        net.minecraft.world.entity.Entity entB = level.getEntity(s.ownerB);
-        if (entB != null) idB = entB.getId();
-
-        org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
+        byte phaseByte = (byte) s.phase.ordinal();
+        XEBNetwork.CHANNEL.send(
                 net.minecraftforge.network.PacketDistributor.ALL.noArg(),
-                new org.xeb.xeb.network.BeamStrugglePacket(
+                new BeamStrugglePacket(
                         true, s.struggleId,
-                        idA, idB,
+                        s.ownerAEntityId, s.ownerBEntityId,
                         s.startPosA, s.startPosB, s.currentCollision,
-                        (float) s.pointsA, (float) s.pointsB, 0
+                        (float) s.pointsA, (float) s.pointsB, s.ticksElapsed,
+                        phaseByte, s.initialDistance
                 )
         );
     }
 
     private static void broadcastStruggleUpdate(BeamStruggle s, ServerLevel level) {
-        // Find owner entity IDs
-        int idA = -1;
-        int idB = -1;
-        net.minecraft.world.entity.Entity entA = level.getEntity(s.ownerA);
-        if (entA != null) idA = entA.getId();
-        net.minecraft.world.entity.Entity entB = level.getEntity(s.ownerB);
-        if (entB != null) idB = entB.getId();
-
-        org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
+        byte phaseByte = (byte) s.phase.ordinal();
+        XEBNetwork.CHANNEL.send(
                 net.minecraftforge.network.PacketDistributor.ALL.noArg(),
-                new org.xeb.xeb.network.BeamStrugglePacket(
+                new BeamStrugglePacket(
                         false, s.struggleId,
-                        idA, idB,
+                        s.ownerAEntityId, s.ownerBEntityId,
                         s.startPosA, s.startPosB, s.currentCollision,
-                        (float) s.pointsA, (float) s.pointsB, s.ticksElapsed
+                        (float) s.pointsA, (float) s.pointsB, s.ticksElapsed,
+                        phaseByte, s.initialDistance
                 )
         );
     }
@@ -250,9 +312,9 @@ public class BeamStruggleManager {
         net.minecraft.world.entity.Entity entLoser = level.getEntity(loser);
         if (entLoser != null) idLoser = entLoser.getId();
 
-        org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
+        XEBNetwork.CHANNEL.send(
                 net.minecraftforge.network.PacketDistributor.ALL.noArg(),
-                new org.xeb.xeb.network.BeamStruggleEndPacket(idWinner, idLoser)
+                new BeamStruggleEndPacket(idWinner, idLoser)
         );
     }
 
@@ -262,12 +324,16 @@ public class BeamStruggleManager {
         OWNER_TO_STRUGGLE.remove(struggle.ownerB);
     }
 
-    public static Vec3 getCollisionPointFor(UUID owner) {
-        UUID struggleId = OWNER_TO_STRUGGLE.get(owner);
-        if (struggleId != null) {
-            BeamStruggle s = ACTIVE_STRUGGLES.get(struggleId);
-            if (s != null) return s.currentCollision;
+    private static int getEntityIdFromUUID(ServerLevel level, UUID uuid) {
+        net.minecraft.world.entity.Entity e = level.getEntity(uuid.hashCode());
+        if (e == null) {
+            for (ServerPlayer p : level.getServer().getPlayerList().getPlayers()) {
+                if (p.getUUID().equals(uuid)) return p.getId();
+            }
+            for (net.minecraft.world.entity.Entity ent : level.getAllEntities()) {
+                if (ent.getUUID().equals(uuid)) return ent.getId();
+            }
         }
-        return null;
+        return e != null ? e.getId() : -1;
     }
 }

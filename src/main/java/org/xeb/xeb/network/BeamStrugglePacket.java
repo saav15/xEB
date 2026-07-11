@@ -23,10 +23,13 @@ public class BeamStrugglePacket {
     private final float pointsA;
     private final float pointsB;
     private final int ticksElapsed;
+    private final byte phase; // 0=PREP, 1=ACTIVE, 2=RESOLVED
+    private final double initialDistance;
 
     public BeamStrugglePacket(boolean isStart, UUID struggleId, int a, int b,
                               Vec3 startA, Vec3 startB, Vec3 collision,
-                              float pointsA, float pointsB, int ticks) {
+                              float pointsA, float pointsB, int ticks,
+                              byte phase, double initialDistance) {
         this.isStart = isStart;
         this.struggleId = struggleId;
         this.ownerAEntityId = a;
@@ -37,6 +40,8 @@ public class BeamStrugglePacket {
         this.pointsA = pointsA;
         this.pointsB = pointsB;
         this.ticksElapsed = ticks;
+        this.phase = phase;
+        this.initialDistance = initialDistance;
     }
 
     public static void encode(BeamStrugglePacket m, FriendlyByteBuf buf) {
@@ -50,6 +55,8 @@ public class BeamStrugglePacket {
         buf.writeFloat(m.pointsA);
         buf.writeFloat(m.pointsB);
         buf.writeInt(m.ticksElapsed);
+        buf.writeByte(m.phase);
+        buf.writeDouble(m.initialDistance);
     }
 
     public static BeamStrugglePacket decode(FriendlyByteBuf buf) {
@@ -58,7 +65,8 @@ public class BeamStrugglePacket {
                 new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()),
                 new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()),
                 new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()),
-                buf.readFloat(), buf.readFloat(), buf.readInt()
+                buf.readFloat(), buf.readFloat(), buf.readInt(),
+                buf.readByte(), buf.readDouble()
         );
     }
 
@@ -79,4 +87,6 @@ public class BeamStrugglePacket {
     public float getPointsA() { return pointsA; }
     public float getPointsB() { return pointsB; }
     public int getTicksElapsed() { return ticksElapsed; }
+    public byte getPhase() { return phase; }
+    public double getInitialDistance() { return initialDistance; }
 }

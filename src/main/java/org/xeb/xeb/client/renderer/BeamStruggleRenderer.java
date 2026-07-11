@@ -43,6 +43,8 @@ public class BeamStruggleRenderer {
         public int ticksElapsed;
         public final long creationTime;
         public long lastUpdateTime;
+        public byte phase; // 0=PREP, 1=ACTIVE, 2=RESOLVED
+        public double initialDistance;
 
         public ClientStruggleData(BeamStrugglePacket msg) {
             this.struggleId = msg.getStruggleId();
@@ -56,6 +58,8 @@ public class BeamStruggleRenderer {
             this.ticksElapsed = msg.getTicksElapsed();
             this.creationTime = System.currentTimeMillis();
             this.lastUpdateTime = System.currentTimeMillis();
+            this.phase = msg.getPhase();
+            this.initialDistance = msg.getInitialDistance();
         }
 
         public void update(BeamStrugglePacket msg) {
@@ -66,6 +70,8 @@ public class BeamStruggleRenderer {
             this.pointsB = msg.getPointsB();
             this.ticksElapsed = msg.getTicksElapsed();
             this.lastUpdateTime = System.currentTimeMillis();
+            this.phase = msg.getPhase();
+            this.initialDistance = msg.getInitialDistance();
         }
     }
 
@@ -83,7 +89,6 @@ public class BeamStruggleRenderer {
     }
 
     public static void handleStruggleEnd(BeamStruggleEndPacket msg) {
-        // Find the struggle with corresponding owner IDs and remove it
         UUID toRemove = null;
         for (Map.Entry<UUID, ClientStruggleData> entry : ACTIVE_STRUGGLES.entrySet()) {
             ClientStruggleData s = entry.getValue();
@@ -122,84 +127,196 @@ public class BeamStruggleRenderer {
         return null;
     }
 
+    public static boolean isOwnerInStruggle(int entityId) {
+        for (ClientStruggleData s : ACTIVE_STRUGGLES.values()) {
+            if (s.ownerAEntityId == entityId || s.ownerBEntityId == entityId) return true;
+        }
+        return false;
+    }
+
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+        if (ACTIVE_STRUGGLES.isEmpty()) return;
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || ACTIVE_STRUGGLES.isEmpty()) return;
+        if (mc.level == null) return;
 
         Camera camera = event.getCamera();
         Vec3 camPos = camera.getPosition();
-
         PoseStack poseStack = event.getPoseStack();
         MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
         VertexConsumer consumer = bufferSource.getBuffer(RenderType.lightning());
 
         long now = System.currentTimeMillis();
-
         poseStack.pushPose();
         poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
         Matrix4f matrix = poseStack.last().pose();
 
         for (Map.Entry<UUID, ClientStruggleData> entry : ACTIVE_STRUGGLES.entrySet()) {
             ClientStruggleData struggle = entry.getValue();
-
-            // Auto-clean struggles with no updates for 1 second
             if (now - struggle.lastUpdateTime > 1000) {
                 ACTIVE_STRUGGLES.remove(entry.getKey());
                 continue;
             }
 
-            Vec3 pos = struggle.collisionPoint;
+            Vec3 collision = struggle.collisionPoint;
+            boolean isPrep = struggle.phase == 0; // 0 = PREP
 
-            // 1. Swirling Plasma Ball (white inner sphere + swirling red/green/yellow quads)
-            float innerPulse = 0.4F + 0.1F * (float) Math.sin(now * 0.015D);
-            drawCrossQuad(consumer, matrix, pos, innerPulse, 1.0F, 1.0F, 1.0F, 0.9F);
+            // Determine beam colors
+            float[] colorA = getOwnerColor(struggle.ownerAEntityId, mc);
+            float[] colorB = getOwnerColor(struggle.ownerBEntityId, mc);
 
-            // Swirling aura layers
-            float speedMultiplier = 0.005F;
-            float rot1 = now * speedMultiplier;
-            float rot2 = now * -0.007F;
+            // 1. Draw Beam A from startA -> collision
+            renderFusionBeam(consumer, matrix, struggle.startA, collision, colorA, now, isPrep);
 
-            // Draw swirling plasma shells
-            drawSwirlingQuad(consumer, matrix, pos, innerPulse * 1.5F, rot1, 1.0F, 0.2F, 0.2F, 0.7F);
-            drawSwirlingQuad(consumer, matrix, pos, innerPulse * 1.8F, rot2, 0.9F, 0.9F, 0.1F, 0.5F);
+            // 2. Draw Beam B from startB -> collision
+            renderFusionBeam(consumer, matrix, struggle.startB, collision, colorB, now, isPrep);
 
-            // 2. Connector Lightning Arcs
-            Random rand = new Random(struggle.struggleId.getMostSignificantBits() ^ (now / 50));
-            for (int i = 0; i < 4; i++) {
-                Vec3 target = pos.add(
-                        (rand.nextDouble() - 0.5) * 3.5D,
-                        (rand.nextDouble() - 0.5) * 3.5D,
-                        (rand.nextDouble() - 0.5) * 3.5D
-                );
-                renderLightningArc(consumer, matrix, pos, target, now, 0xFFFFA0);
-            }
+            // 3. Fusion Sphere at collision point
+            float totalMash = struggle.pointsA + struggle.pointsB;
+            float sphereSize = 0.6F + Math.min(1.5F, totalMash * 0.05F);
+            if (isPrep) sphereSize = 0.8F;
+            renderFusionSphere(consumer, matrix, collision, colorA, colorB, sphereSize, now, isPrep);
 
-            // 3. Expanding Shockwave Ring
-            float cycle = (now % 800) / 800.0F; // expansions repeat every 800ms
-            renderShockwaveRing(consumer, matrix, pos, cycle);
+            // 4. Swirling Dual Color Rings
+            renderDualColorRings(consumer, matrix, collision, colorA, colorB, now);
+
+            // 5. Lightning Spark connectors
+            renderSparks(consumer, matrix, collision, struggle.startA, struggle.startB, now);
+
+            // 6. Expanding Shockwave Rings
+            renderEnergyRings(consumer, matrix, collision, now, struggle.ticksElapsed);
         }
 
+        bufferSource.endBatch(RenderType.lightning());
         poseStack.popPose();
+    }
+
+    private static float[] getOwnerColor(int entityId, Minecraft mc) {
+        if (mc.level != null && mc.level.getEntity(entityId) != null) {
+            net.minecraft.world.entity.Entity ent = mc.level.getEntity(entityId);
+            String typeName = net.minecraft.world.entity.EntityType.getKey(ent.getType()).toString();
+            if (typeName.contains("tremorzilla")) return new float[]{0.25F, 1.0F, 0.5F}; // Green
+            if (typeName.contains("harbinger") || typeName.contains("leviathan")) return new float[]{0.5F, 0.2F, 1.0F}; // Purple
+            
+            // Check active item / Stand type color
+            if (ent instanceof net.minecraft.world.entity.player.Player player) {
+                // If holding Broken Diamond (Crazy Diamond), Stand colors or similar.
+                // But Optic Blast default is Red.
+                // Brimstone checks:
+                net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
+                if (stack.is(org.xeb.xeb.item.ModItems.THE_TEARS.get())) {
+                    int imbue = stack.getOrCreateTag().getInt("xebTearsImbueType");
+                    if (imbue == 1) return new float[]{0.7F, 0.0F, 1.0F}; // purple
+                    else if (imbue == 2) return new float[]{1.0F, 1.0F, 1.0F}; // white
+                    else if (imbue == 3) return new float[]{0.15F, 0.15F, 0.15F}; // dark
+                    else if (imbue == 4) return new float[]{0.56F, 0.88F, 1.0F}; // cold (cyan)
+                }
+            }
+        }
+        return new float[]{1.0F, 0.1F, 0.1F}; // Default Red
+    }
+
+    private static void renderFusionBeam(VertexConsumer consumer, Matrix4f matrix,
+                                          Vec3 start, Vec3 end, float[] color, long timeMs, boolean isPrep) {
+        Vec3 dir = end.subtract(start);
+        double length = dir.length();
+        if (length < 0.1D) return;
+        Vec3 dirN = dir.normalize();
+        Vec3 perp1 = dirN.cross(new Vec3(0, 1, 0));
+        if (perp1.lengthSqr() < 0.001D) perp1 = dirN.cross(new Vec3(1, 0, 0));
+        perp1 = perp1.normalize();
+        Vec3 perp2 = dirN.cross(perp1).normalize();
+
+        float pulse = 0.9F + 0.1F * (float) Math.sin(timeMs * 0.015D);
+        if (isPrep) pulse = 0.7F + 0.3F * (float) Math.sin(timeMs * 0.02D);
+
+        float r = color[0], g = color[1], b = color[2];
+        drawBeamLayer(consumer, matrix, start, end, perp1, perp2, 0.45F * pulse, r * 0.5F, g * 0.5F, b * 0.5F, 0.15F);
+        drawBeamLayer(consumer, matrix, start, end, perp1, perp2, 0.25F * pulse, r * 0.8F, g * 0.8F, b * 0.8F, 0.5F);
+        drawBeamLayer(consumer, matrix, start, end, perp1, perp2, 0.12F * pulse, r, g, b, 0.95F);
+        drawBeamLayer(consumer, matrix, start, end, perp1, perp2, 0.04F * pulse, 1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    private static void drawBeamLayer(VertexConsumer consumer, Matrix4f matrix, Vec3 start, Vec3 end,
+                                       Vec3 perp1, Vec3 perp2, float halfWidth,
+                                       float r, float g, float b, float a) {
+        Vec3 p1 = start.add(perp1.scale(halfWidth)).add(perp2.scale(halfWidth));
+        Vec3 p2 = start.add(perp1.scale(-halfWidth)).add(perp2.scale(halfWidth));
+        Vec3 p3 = end.add(perp1.scale(-halfWidth)).add(perp2.scale(-halfWidth));
+        Vec3 p4 = end.add(perp1.scale(halfWidth)).add(perp2.scale(-halfWidth));
+
+        consumer.vertex(matrix, (float) p1.x, (float) p1.y, (float) p1.z).color(r, g, b, a).endVertex();
+        consumer.vertex(matrix, (float) p2.x, (float) p2.y, (float) p2.z).color(r, g, b, a).endVertex();
+        consumer.vertex(matrix, (float) p3.x, (float) p3.y, (float) p3.z).color(r, g, b, a).endVertex();
+        consumer.vertex(matrix, (float) p4.x, (float) p4.y, (float) p4.z).color(r, g, b, a).endVertex();
+
+        Vec3 p5 = start.add(perp1.scale(halfWidth)).add(perp2.scale(-halfWidth));
+        Vec3 p6 = start.add(perp1.scale(-halfWidth)).add(perp2.scale(-halfWidth));
+        Vec3 p7 = end.add(perp1.scale(-halfWidth)).add(perp2.scale(halfWidth));
+        Vec3 p8 = end.add(perp1.scale(halfWidth)).add(perp2.scale(halfWidth));
+
+        consumer.vertex(matrix, (float) p5.x, (float) p5.y, (float) p5.z).color(r, g, b, a).endVertex();
+        consumer.vertex(matrix, (float) p6.x, (float) p6.y, (float) p6.z).color(r, g, b, a).endVertex();
+        consumer.vertex(matrix, (float) p7.x, (float) p7.y, (float) p7.z).color(r, g, b, a).endVertex();
+        consumer.vertex(matrix, (float) p8.x, (float) p8.y, (float) p8.z).color(r, g, b, a).endVertex();
+    }
+
+    private static void renderFusionSphere(VertexConsumer consumer, Matrix4f matrix, Vec3 center,
+                                            float[] colorA, float[] colorB, float size, long timeMs, boolean isPrep) {
+        float pulse = 0.85F + 0.15F * (float) Math.sin(timeMs * 0.02D);
+        float s = size * pulse;
+
+        // Additive color mixing
+        float mixR = Math.min(1.0F, colorA[0] + colorB[0]);
+        float mixG = Math.min(1.0F, colorA[1] + colorB[1]);
+        float mixB = Math.min(1.0F, colorA[2] + colorB[2]);
+
+        drawCrossQuad(consumer, matrix, center, s * 1.8F, mixR, mixG, mixB, 0.2F * pulse);
+        drawCrossQuad(consumer, matrix, center, s * 1.3F, mixR * 0.9F, mixG * 0.9F, mixB * 0.9F, 0.5F * pulse);
+        drawCrossQuad(consumer, matrix, center, s * 0.8F, 1.0F, 1.0F, 1.0F, 0.9F * pulse);
+        drawCrossQuad(consumer, matrix, center, s * 0.4F, 1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    private static void renderDualColorRings(VertexConsumer consumer, Matrix4f matrix, Vec3 center,
+                                              float[] colorA, float[] colorB, long timeMs) {
+        float rot1 = timeMs * 0.004F;
+        float rot2 = timeMs * -0.005F;
+
+        drawSwirlingQuad(consumer, matrix, center, 1.1F, rot1, colorA[0], colorA[1], colorA[2], 0.7F);
+        drawSwirlingQuad(consumer, matrix, center, 1.4F, rot2, colorB[0], colorB[1], colorB[2], 0.7F);
+    }
+
+    private static void renderSparks(VertexConsumer consumer, Matrix4f matrix, Vec3 center, Vec3 startA, Vec3 startB, long timeMs) {
+        Random rand = new Random(center.hashCode() ^ (timeMs / 50));
+        for (int i = 0; i < 4; i++) {
+            Vec3 target = center.add(
+                    (rand.nextDouble() - 0.5) * 3.5D,
+                    (rand.nextDouble() - 0.5) * 3.5D,
+                    (rand.nextDouble() - 0.5) * 3.5D
+            );
+            renderLightningArc(consumer, matrix, center, target, timeMs, 0xFFFFA0);
+        }
+    }
+
+    private static void renderEnergyRings(VertexConsumer consumer, Matrix4f matrix, Vec3 center, long timeMs, int ticksElapsed) {
+        float cycle = (timeMs % 800) / 800.0F;
+        renderShockwaveRing(consumer, matrix, center, cycle);
     }
 
     private static void drawCrossQuad(VertexConsumer consumer, Matrix4f matrix, Vec3 center, float halfWidth,
                                        float r, float g, float b, float a) {
-        // Horizontal plane (XZ)
         consumer.vertex(matrix, (float) center.x - halfWidth, (float) center.y, (float) center.z - halfWidth).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) center.x - halfWidth, (float) center.y, (float) center.z + halfWidth).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) center.x + halfWidth, (float) center.y, (float) center.z + halfWidth).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) center.x + halfWidth, (float) center.y, (float) center.z - halfWidth).color(r, g, b, a).endVertex();
 
-        // Vertical plane (XY)
         consumer.vertex(matrix, (float) center.x - halfWidth, (float) center.y - halfWidth, (float) center.z).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) center.x - halfWidth, (float) center.y + halfWidth, (float) center.z).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) center.x + halfWidth, (float) center.y + halfWidth, (float) center.z).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) center.x + halfWidth, (float) center.y - halfWidth, (float) center.z).color(r, g, b, a).endVertex();
 
-        // Vertical plane (YZ)
         consumer.vertex(matrix, (float) center.x, (float) center.y - halfWidth, (float) center.z - halfWidth).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) center.x, (float) center.y + halfWidth, (float) center.z - halfWidth).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) center.x, (float) center.y + halfWidth, (float) center.z + halfWidth).color(r, g, b, a).endVertex();
@@ -211,7 +328,6 @@ public class BeamStruggleRenderer {
         float cos = (float) Math.cos(angle);
         float sin = (float) Math.sin(angle);
 
-        // Rotated plane coordinates on XZ rotated around Y
         float dx1 = -halfWidth * cos - -halfWidth * sin;
         float dz1 = -halfWidth * sin + -halfWidth * cos;
 

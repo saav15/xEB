@@ -199,5 +199,8 @@ public class ModCompatManager {
         if (ModList.get().isLoaded("bettercombat")) {
             new BetterCombatHook().registerTypes();
         }
+
+        // Initialize external beam registry
+        org.xeb.xeb.beamstruggle.ExternalBeamRegistry.init();
     }
 }

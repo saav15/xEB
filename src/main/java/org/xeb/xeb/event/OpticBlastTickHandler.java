@@ -66,10 +66,11 @@ public class OpticBlastTickHandler {
         // Clean up expired beams
         ActiveBeamManager.get().tickBeams(currentTick);
 
-        // Collect external beams and tick struggle decay/timers
-        net.minecraft.server.level.ServerLevel mainLevel = server.overworld();
-        org.xeb.xeb.beamstruggle.ExternalBeamRegistry.collectBeams(mainLevel);
-        org.xeb.xeb.beamstruggle.BeamStruggleManager.onServerTick(mainLevel, currentTick);
+        // Collect external beams and tick struggle decay/timers across all levels (dimensions)
+        for (ServerLevel serverLevel : server.getAllLevels()) {
+            org.xeb.xeb.beamstruggle.ExternalBeamRegistry.collectBeams(serverLevel);
+            org.xeb.xeb.beamstruggle.BeamStruggleManager.onServerTick(serverLevel, serverLevel.getGameTime());
+        }
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (!player.isAlive()) continue;
@@ -243,7 +244,8 @@ public class OpticBlastTickHandler {
                 ownerUUID, player.getId(),
                 eyePos, effectiveEnd,
                 0xFF0000, // Pure red
-                currentTick, currentTick + 3
+                currentTick, currentTick + 3,
+                "optic_blast"
         );
         ActiveBeamManager.get().putBeam(ownerUUID, beamData);
 

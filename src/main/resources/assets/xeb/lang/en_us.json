@@ -194,5 +194,7 @@
   "curios.identifier.ultimate": "Ultimate",
   "key.xeb.flourish": "Flourish",
   "hud.xeb.beam_struggle.title": "BEAM STRUGGLE",
-  "hud.xeb.beam_struggle.mash": "MASH %s!"
+  "hud.xeb.beam_struggle.mash": "MASH %s!",
+  "hud.xeb.beam_struggle.prep": "GET READY!",
+  "hud.xeb.beam_struggle.prep_sub": "The duel begins..."
 }
