@@ -257,9 +257,9 @@ public class BeamStruggleManager {
                 continue;
             }
 
-            // Check 2: beam death — si alguno de los dos beams ya no existe, ese player pierde
-            boolean beamAAlive = isBeamStillActive(s.ownerA);
-            boolean beamBAlive = isBeamStillActive(s.ownerB);
+            // Check 2: beam death — verificar directamente si el player sigue disparando
+            boolean beamAAlive = isBeamStillActive(s.ownerA, s);
+            boolean beamBAlive = isBeamStillActive(s.ownerB, s);
 
             if (!beamAAlive && !beamBAlive) {
                 // Ambos perdieron el beam — draw
@@ -288,20 +288,62 @@ public class BeamStruggleManager {
 
     /**
      * Verifica si el beam de un owner sigue activo.
-     * Un beam está activo si:
-     * - Está en ActiveBeamManager con tickExpires > currentTick, O
-     * - El player sigue disparando (Optic Blast: isUsingItem, Brimstone: firingTicks > 0)
+     * 
+     * FIX CRÍTICO: NO usar ActiveBeamManager porque el orden de ejecución causa
+     * que los beams se detecten como muertos antes de re-registrarse.
+     * 
+     * En su lugar, verificar directamente si el player sigue disparando:
+     * - Optic Blast: player.isUsingItem() con Optic Blast item
+     * - Brimstone: firingTicks > 0 en persistent data
+     * - External beams: verificar via ExternalBeamRegistry
+     * 
+     * Con grace period de 5 ticks para manejar timing issues.
      */
-    private static boolean isBeamStillActive(UUID ownerUUID) {
-        // Check ActiveBeamManager — si el beam existe y no expiró, está activo
+    private static boolean isBeamStillActive(UUID ownerUUID, BeamStruggle struggle) {
+        net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null) return false;
+
+        ServerLevel level = server.overworld();
+        net.minecraft.world.entity.Entity entity = level.getEntity(getEntityIdFromUUID(level, ownerUUID));
+
+        if (entity == null) {
+            // Entity no encontrada — podría estar en otra dimensión o desconectada
+            // Usar grace period: si la struggle tiene menos de 5 ticks desde la última actualización, considerar activa
+            return (struggle.ticksElapsed < 5);
+        }
+
+        if (!(entity instanceof LivingEntity living)) {
+            return false;
+        }
+
+        // Check 1: Si es un player, verificar si está disparando Optic Blast
+        if (living instanceof ServerPlayer player) {
+            // Optic Blast: right-click hold
+            boolean firingOptic = player.isUsingItem() 
+                    && player.getUseItem().is(org.xeb.xeb.item.ModItems.OPTIC_BLAST.get());
+            if (firingOptic) return true;
+
+            // Brimstone: firingTicks > 0
+            int firingTicks = player.getPersistentData().getInt("xebBrimstoneFiringTicks");
+            if (firingTicks > 0) return true;
+
+            // Cyclone Push o Gene Splice (también son beams)
+            if (player.getPersistentData().getBoolean("xebCyclonePushFiring")) return true;
+            if (player.getPersistentData().getBoolean("xebGeneSpliceFiring")) return true;
+        }
+
+        // Check 2: External beams (Tremorzilla, Harbinger, Leviathan)
+        for (ExternalBeamRegistry.ExternalBeamData ext : ExternalBeamRegistry.getCurrentTickBeams()) {
+            if (ext.ownerUUID().equals(ownerUUID)) return true;
+        }
+
+        // Check 3: Beam en ActiveBeamManager como último recurso (con verificación de expiración)
         BeamData beam = ActiveBeamManager.get().getBeam(ownerUUID);
         if (beam != null) {
-            long currentTick = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer().overworld().getGameTime();
-            if (beam.getTickExpires() > currentTick) {
-                return true;
-            }
+            long currentTick = server.overworld().getGameTime();
+            if (beam.getTickExpires() > currentTick) return true;
         }
-        // Si no hay beam en el manager, el beam está muerto
+
         return false;
     }
 
