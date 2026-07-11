@@ -22,10 +22,10 @@ public class HotPokerGeoRenderer extends GeoEntityRenderer<HotPokerEntity> {
             @Nullable
             @Override
             protected ItemStack getStackForBone(GeoBone bone, HotPokerEntity animatable) {
-                if (bone.getName().equals("HANDleft")) {
+                if (bone.getName().equals("HANDright")) {
                     return animatable.getMainHandItem();
                 }
-                if (bone.getName().equals("HANDright")) {
+                if (bone.getName().equals("HANDleft")) {
                     return animatable.getOffhandItem();
                 }
                 return null;
@@ -33,11 +33,11 @@ public class HotPokerGeoRenderer extends GeoEntityRenderer<HotPokerEntity> {
 
             @Override
             protected ItemDisplayContext getTransformTypeForStack(GeoBone bone, ItemStack stack, HotPokerEntity animatable) {
-                if (bone.getName().equals("HANDleft")) {
-                    return ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
-                }
                 if (bone.getName().equals("HANDright")) {
                     return ItemDisplayContext.THIRD_PERSON_RIGHT_HAND;
+                }
+                if (bone.getName().equals("HANDleft")) {
+                    return ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
                 }
                 return ItemDisplayContext.NONE;
             }
@@ -46,8 +46,8 @@ public class HotPokerGeoRenderer extends GeoEntityRenderer<HotPokerEntity> {
             protected void renderStackForBone(PoseStack poseStack, GeoBone bone, ItemStack stack, HotPokerEntity animatable, MultiBufferSource bufferSource, float partialTick, int packedLight, int packedOverlay) {
                 poseStack.pushPose();
                 // Standard rotation & translation offset for weapons to render correctly aligned in Geckolib hands
-                poseStack.translate(0.0D, bone.getName().equals("HANDleft") ? -0.25D : -0.05D, 0.0D);
-                poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
+                poseStack.translate(0.0D, bone.getName().equals("HANDright") ? -0.25D : -0.05D, 0.0D);
+                poseStack.mulPose(Axis.XP.rotationDegrees(0.0F));
                 poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
                 
                 // Scale weapons down by 50%

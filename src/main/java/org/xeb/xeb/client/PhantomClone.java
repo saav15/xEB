@@ -6,6 +6,7 @@ public class PhantomClone {
     public int index;
     public int totalClones;
     public int targetEntityId;
+    public int casterId;
     public Vec3 targetPos;
     public float orbitAngle;
     public float orbitRadius = 2.5F;

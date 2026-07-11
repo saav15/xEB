@@ -75,16 +75,8 @@ public class OpticBlastTickHandler {
 
             if (!holdsOpticBlast) continue;
 
-            // ── Energy regeneration (passive, when NOT firing primary beam) ─────
             boolean isFiringPrimary = player.isUsingItem()
                     && player.getUseItem().is(ModItems.OPTIC_BLAST.get());
-
-            if (!isFiringPrimary && !player.getCooldowns().isOnCooldown(ModItems.OPTIC_BLAST.get())) {
-                float energy = OpticBlastItem.getEnergy(player);
-                if (energy < OpticBlastItem.MAX_ENERGY) {
-                    OpticBlastItem.setEnergy(player, energy + OpticBlastItem.ENERGY_REGEN_PER_TICK);
-                }
-            }
 
             // ── Tick ability cooldowns (decrement client-sync counters) ──────────
             tickAbilityCooldowns(player, currentTick);
@@ -198,6 +190,9 @@ public class OpticBlastTickHandler {
 
         // --- 5. Deal damage to hit entity ---
         if (hitEntity != null) {
+            hitEntity.getPersistentData().putString("xebLastAttackWeapon", "optic_blast");
+            hitEntity.getPersistentData().putString("xebLastAttackType", "right_click");
+            hitEntity.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
             hitEntity.hurt(player.damageSources().playerAttack(player), OpticBlastItem.BEAM_DAMAGE_PER_TICK);
         }
 
@@ -299,6 +294,9 @@ public class OpticBlastTickHandler {
 
         // Deal half damage
         if (hitEntity != null) {
+            hitEntity.getPersistentData().putString("xebLastAttackWeapon", "optic_blast");
+            hitEntity.getPersistentData().putString("xebLastAttackType", "active1");
+            hitEntity.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
             hitEntity.hurt(player.damageSources().playerAttack(player),
                     OpticBlastItem.BEAM_DAMAGE_PER_TICK * 0.5F);
         }
@@ -420,6 +418,9 @@ public class OpticBlastTickHandler {
                     chainPoints.add(new double[]{ targetCenter.x, targetCenter.y, targetCenter.z });
 
                     // Deal damage
+                    currentTarget.getPersistentData().putString("xebLastAttackWeapon", "optic_blast");
+                    currentTarget.getPersistentData().putString("xebLastAttackType", "active2");
+                    currentTarget.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
                     currentTarget.hurt(player.damageSources().playerAttack(player), chainDamage);
                     // Particles on hit: Burst of red sparks (ELECTRIC_SPARK), critical hit indicator (CRIT)
                     level.sendParticles(ParticleTypes.ELECTRIC_SPARK, targetCenter.x, targetCenter.y, targetCenter.z,

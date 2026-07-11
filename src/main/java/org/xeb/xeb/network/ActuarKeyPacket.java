@@ -172,7 +172,7 @@ public class ActuarKeyPacket {
                                 }
 
                                 XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
-                                        new GoldenFlowerDanceStartPacket(targetIds, 5));
+                                        new GoldenFlowerDanceStartPacket(player.getId(), targetIds, 5));
 
                                 // Custom Flower Dance Sound Selection (flowerdancefake has 5% chance, others share 95%)
                                 net.minecraft.sounds.SoundEvent danceSound;
@@ -500,7 +500,7 @@ public class ActuarKeyPacket {
                         if (player.getPersistentData().getInt("xebCDA2CooldownTicks") > 0) return;
                         
                         player.getPersistentData().putInt("xebCDA2CooldownTicks", 300); // 15s cooldown (300 ticks)
-                        XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                        XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
                                 new org.xeb.xeb.network.CrazyDiamondSyncPacket(
                                     player.getPersistentData().getInt("xebCDA1CooldownTicks"),
                                     300,

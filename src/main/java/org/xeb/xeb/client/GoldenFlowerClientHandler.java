@@ -29,11 +29,12 @@ import org.xeb.xeb.item.ModItems;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.UUID;
 
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class GoldenFlowerClientHandler {
     private static final ResourceLocation WHITE_TEX = new ResourceLocation(Xeb.MODID, "textures/entity/white.png");
-    private static final Deque<TrailSnapshot> afterimages = new ArrayDeque<>();
+    private static final java.util.Map<UUID, Deque<TrailSnapshot>> afterimagesMap = new java.util.concurrent.ConcurrentHashMap<>();
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -42,31 +43,34 @@ public class GoldenFlowerClientHandler {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.isPaused()) return;
 
-        LocalPlayer player = mc.player;
-        boolean holdsFlower = player.getItemInHand(InteractionHand.MAIN_HAND).is(ModItems.GOLDEN_FLOWER.get())
-                || player.getItemInHand(InteractionHand.OFF_HAND).is(ModItems.GOLDEN_FLOWER.get());
-
-        if (holdsFlower) {
-            boolean isMoving = player.walkAnimation.speed() > 0.02F || player.getDeltaMovement().horizontalDistanceSqr() > 0.001D;
-            if (isMoving) {
-                afterimages.addLast(new TrailSnapshot(
-                        player.position(),
-                        player.getYRot(),
-                        player.getXRot(),
-                        player.yBodyRot,
-                        player.walkAnimation.position()
-                ));
-                if (afterimages.size() > 15) {
-                    afterimages.removeFirst();
-                }
-            } else {
-                if (!afterimages.isEmpty()) {
-                    afterimages.removeFirst();
+        java.util.Set<UUID> activeUuids = new java.util.HashSet<>();
+        for (Player p : mc.level.players()) {
+            boolean holdsFlower = p.getItemInHand(InteractionHand.MAIN_HAND).is(ModItems.GOLDEN_FLOWER.get())
+                    || p.getItemInHand(InteractionHand.OFF_HAND).is(ModItems.GOLDEN_FLOWER.get());
+            if (holdsFlower) {
+                UUID uuid = p.getUUID();
+                activeUuids.add(uuid);
+                boolean isMoving = p.walkAnimation.speed() > 0.02F || p.getDeltaMovement().horizontalDistanceSqr() > 0.001D;
+                Deque<TrailSnapshot> trail = afterimagesMap.computeIfAbsent(uuid, k -> new ArrayDeque<>());
+                if (isMoving) {
+                    trail.addLast(new TrailSnapshot(
+                            p.position(),
+                            p.getYRot(),
+                            p.getXRot(),
+                            p.yBodyRot,
+                            p.walkAnimation.position()
+                    ));
+                    if (trail.size() > 15) {
+                        trail.removeFirst();
+                    }
+                } else {
+                    if (!trail.isEmpty()) {
+                        trail.removeFirst();
+                    }
                 }
             }
-        } else {
-            afterimages.clear();
         }
+        afterimagesMap.keySet().retainAll(activeUuids);
 
         // Tick actives
         PhantomAttackManager.tick();
@@ -87,71 +91,85 @@ public class GoldenFlowerClientHandler {
         MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
         float partialTicks = event.getPartialTick();
 
-        // 1. RENDER WALK AFTERIMAGES (Right-side up & correct player skin texture)
-        if (!afterimages.isEmpty() && !mc.options.getCameraType().isFirstPerson()) {
-            EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
-            if (dispatcher.getRenderer(player) instanceof PlayerRenderer renderer) {
-                PlayerModel<?> model = renderer.getModel();
-
-                // Store current model configurations to restore later
-                float prevRightLegX = model.rightLeg.xRot;
-                float prevLeftLegX = model.leftLeg.xRot;
-                float prevRightArmX = model.rightArm.xRot;
-                float prevLeftArmX = model.leftArm.xRot;
-                float prevBodyX = model.body.xRot;
-
-                int index = 0;
-                int total = afterimages.size();
-                int light = dispatcher.getRenderer(player).getPackedLightCoords(player, partialTicks);
-                ResourceLocation skin = player.getSkinTextureLocation();
-                RenderType renderType = RenderType.entityTranslucentCull(skin);
-
-                for (TrailSnapshot snapshot : afterimages) {
-                    poseStack.pushPose();
-
-                    // Position relative to camera in world coordinates
-                    poseStack.translate(snapshot.pos.x - camPos.x, snapshot.pos.y - camPos.y, snapshot.pos.z - camPos.z);
-
-                    // Yaw rotation
-                    poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F - snapshot.bodyYaw));
-
-                    // Standard scale/translate to render model right-side up
-                    poseStack.scale(-1.0F, -1.0F, 1.0F);
-                    poseStack.translate(0.0F, -1.501F, 0.0F);
-
-                    // Force walk animation posture on the model
-                    ((PlayerModel) model).setupAnim(player, snapshot.walkAnimPosition, 0.8F, 0.0F, 0.0F, 0.0F);
-
-                    // Color: Blue trail if Jarona is active, otherwise rainbow HSB
-                    float r, g, b;
-                    boolean isJarona = JaronaAttack.getKick(player) != null;
-                    if (isJarona) {
-                        r = 0.1F; g = 0.4F; b = 1.0F; // blue
-                    } else {
-                        float progress = (float) index / total;
-                        int colorRGB = java.awt.Color.HSBtoRGB(progress, 1.0F, 1.0F);
-                        r = ((colorRGB >> 16) & 0xFF) / 255.0F;
-                        g = ((colorRGB >> 8) & 0xFF) / 255.0F;
-                        b = (colorRGB & 0xFF) / 255.0F;
-                    }
-
-                    // Fading alpha
-                    float alpha = Math.max(0.05F, 1.0F - ((float) index / total)) * 0.35F;
-
-                    // Bind player skin texture to avoid deformed checkerboards
-                    VertexConsumer consumer = bufferSource.getBuffer(renderType);
-                    model.renderToBuffer(poseStack, consumer, light, OverlayTexture.NO_OVERLAY, r, g, b, alpha);
-
-                    poseStack.popPose();
-                    index++;
+        // 1. RENDER WALK AFTERIMAGES (Right-side up & correct player skin texture) (N20)
+        for (Player p : mc.level.players()) {
+            UUID uuid = p.getUUID();
+            Deque<TrailSnapshot> trail = afterimagesMap.get(uuid);
+            if (trail != null && !trail.isEmpty()) {
+                boolean isLocal = uuid.equals(player.getUUID());
+                if (isLocal && mc.options.getCameraType().isFirstPerson()) {
+                    continue;
                 }
 
-                // Restore model configuration
-                model.rightLeg.xRot = prevRightLegX;
-                model.leftLeg.xRot = prevLeftLegX;
-                model.rightArm.xRot = prevRightArmX;
-                model.leftArm.xRot = prevLeftArmX;
-                model.body.xRot = prevBodyX;
+                EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
+                net.minecraft.client.renderer.entity.EntityRenderer<?> untypedRenderer = dispatcher.getRenderer(p);
+                if (untypedRenderer instanceof PlayerRenderer renderer) {
+                    PlayerModel<?> model = renderer.getModel();
+
+                    // Store current model configurations to restore later
+                    float prevRightLegX = model.rightLeg.xRot;
+                    float prevLeftLegX = model.leftLeg.xRot;
+                    float prevRightArmX = model.rightArm.xRot;
+                    float prevLeftArmX = model.leftArm.xRot;
+                    float prevBodyX = model.body.xRot;
+                    boolean prevYoung = model.young;
+
+                    int index = 0;
+                    int total = trail.size();
+                    int light = dispatcher.getRenderer(p).getPackedLightCoords(p, partialTicks);
+                    ResourceLocation skin = (p instanceof net.minecraft.client.player.AbstractClientPlayer cp) ? cp.getSkinTextureLocation() : WHITE_TEX;
+                    RenderType renderType = RenderType.entityTranslucentCull(skin);
+
+                    model.young = false; // Always false, no baby shape
+
+                    for (TrailSnapshot snapshot : trail) {
+                        poseStack.pushPose();
+
+                        // Position relative to camera in world coordinates
+                        poseStack.translate(snapshot.pos.x - camPos.x, snapshot.pos.y - camPos.y, snapshot.pos.z - camPos.z);
+
+                        // Yaw rotation
+                        poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F - snapshot.bodyYaw));
+
+                        // Standard scale/translate to render model right-side up
+                        poseStack.scale(-1.0F, -1.0F, 1.0F);
+                        poseStack.translate(0.0F, -1.501F, 0.0F);
+
+                        // Force walk animation posture on the model
+                        ((PlayerModel) model).setupAnim(p, snapshot.walkAnimPosition, 0.8F, 0.0F, 0.0F, 0.0F);
+
+                        // Color: Blue trail if Jarona is active, otherwise rainbow HSB
+                        float r, g, b;
+                        boolean isJarona = JaronaAttack.getKick(p) != null;
+                        if (isJarona) {
+                            r = 0.1F; g = 0.4F; b = 1.0F; // blue
+                        } else {
+                            float progress = (float) index / total;
+                            int colorRGB = java.awt.Color.HSBtoRGB(progress, 1.0F, 1.0F);
+                            r = ((colorRGB >> 16) & 0xFF) / 255.0F;
+                            g = ((colorRGB >> 8) & 0xFF) / 255.0F;
+                            b = (colorRGB & 0xFF) / 255.0F;
+                        }
+
+                        // Fading alpha
+                        float alpha = Math.max(0.05F, 1.0F - ((float) index / total)) * 0.35F;
+
+                        // Bind player skin texture to avoid deformed checkerboards
+                        VertexConsumer consumer = bufferSource.getBuffer(renderType);
+                        model.renderToBuffer(poseStack, consumer, light, OverlayTexture.NO_OVERLAY, r, g, b, alpha);
+
+                        poseStack.popPose();
+                        index++;
+                    }
+
+                    // Restore model configuration
+                    model.young = prevYoung;
+                    model.rightLeg.xRot = prevRightLegX;
+                    model.leftLeg.xRot = prevLeftLegX;
+                    model.rightArm.xRot = prevRightArmX;
+                    model.leftArm.xRot = prevLeftArmX;
+                    model.body.xRot = prevBodyX;
+                }
             }
         }
 
@@ -249,7 +267,19 @@ public class GoldenFlowerClientHandler {
         // 2. RENDER FLOWER DANCE PHANTOM CLONES (Right-side up & correct player skin texture)
         if (!PhantomAttackManager.activeClones.isEmpty()) {
             EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
-            if (dispatcher.getRenderer(player) instanceof PlayerRenderer renderer) {
+            
+            // Retrieve caster player (N20)
+            PhantomClone firstClone = PhantomAttackManager.activeClones.get(0);
+            Player caster = player; // default fallback
+            if (mc.level != null) {
+                net.minecraft.world.entity.Entity casterEnt = mc.level.getEntity(firstClone.casterId);
+                if (casterEnt instanceof Player p) {
+                    caster = p;
+                }
+            }
+
+            net.minecraft.client.renderer.entity.EntityRenderer<?> untypedRenderer = dispatcher.getRenderer(caster);
+            if (untypedRenderer instanceof PlayerRenderer renderer) {
                 PlayerModel<?> model = renderer.getModel();
 
                 // Store angles
@@ -259,10 +289,13 @@ public class GoldenFlowerClientHandler {
                 float prevLeftArmX = model.leftArm.xRot;
                 float prevRightArmZ = model.rightArm.zRot;
                 float prevBodyX = model.body.xRot;
+                boolean prevYoung = model.young;
 
-                int light = dispatcher.getRenderer(player).getPackedLightCoords(player, partialTicks);
-                ResourceLocation skin = player.getSkinTextureLocation();
+                int light = dispatcher.getRenderer(caster).getPackedLightCoords(caster, partialTicks);
+                ResourceLocation skin = (caster instanceof net.minecraft.client.player.AbstractClientPlayer cp) ? cp.getSkinTextureLocation() : WHITE_TEX;
                 RenderType renderType = RenderType.entityTranslucentCull(skin);
+
+                model.young = false; // Always false, no baby shape
 
                 for (PhantomClone clone : PhantomAttackManager.activeClones) {
                     if (clone.state == PhantomClone.CloneState.RETURNED) continue;
@@ -282,13 +315,13 @@ public class GoldenFlowerClientHandler {
                         float progress = Math.min(1.0F, (float) clone.returnTimer / 12.0F);
                         // Interpolated linear target
                         Vec3 lerpedPos = new Vec3(
-                                Mth.lerp(progress, clone.targetPos.x, player.getX()),
-                                Mth.lerp(progress, clone.targetPos.y, player.getY()),
-                                Mth.lerp(progress, clone.targetPos.z, player.getZ())
+                                Mth.lerp(progress, clone.targetPos.x, caster.getX()),
+                                Mth.lerp(progress, clone.targetPos.y, caster.getY()),
+                                Mth.lerp(progress, clone.targetPos.z, caster.getZ())
                         );
 
                         // Curve dispersion path outwards based on index if the clone hit the target
-                        Vec3 dirToPlayer = player.position().subtract(clone.targetPos);
+                        Vec3 dirToPlayer = caster.position().subtract(clone.targetPos);
                         Vec3 rightVec = new Vec3(-dirToPlayer.z, 0.0D, dirToPlayer.x);
                         if (rightVec.lengthSqr() > 0.001D) {
                             rightVec = rightVec.normalize();
@@ -309,7 +342,7 @@ public class GoldenFlowerClientHandler {
                     // Face target or player (Add 180 degrees so they face inwards!)
                     float yawToTarget;
                     if (clone.state == PhantomClone.CloneState.RETURNING) {
-                        yawToTarget = (float) Math.toDegrees(Math.atan2(player.getX() - renderPos.x, player.getZ() - renderPos.z)) + 180.0F;
+                        yawToTarget = (float) Math.toDegrees(Math.atan2(caster.getX() - renderPos.x, caster.getZ() - renderPos.z)) + 180.0F;
                     } else {
                         yawToTarget = (float) Math.toDegrees(Math.atan2(clone.targetPos.x - renderPos.x, clone.targetPos.z - renderPos.z)) + 180.0F;
                     }
@@ -322,7 +355,7 @@ public class GoldenFlowerClientHandler {
                     // Pose manipulation
                     if (clone.state == PhantomClone.CloneState.RETURNING) {
                         float walkPos = (PhantomAttackManager.ticksLived + partialTicks) * 0.4F;
-                        ((PlayerModel) model).setupAnim(player, walkPos, 0.8F, 0.0F, 0.0F, 0.0F);
+                        ((PlayerModel) model).setupAnim(caster, walkPos, 0.8F, 0.0F, 0.0F, 0.0F);
                     } else if (isStriking && clone.attackTimer >= 4 && clone.attackTimer <= 11) {
                         int strikeIndex = clone.index % 5;
                         
@@ -403,6 +436,7 @@ public class GoldenFlowerClientHandler {
                 }
 
                 // Restore
+                model.young = prevYoung;
                 model.rightLeg.xRot = prevRightLegX;
                 model.leftLeg.xRot = prevLeftLegX;
                 model.rightArm.xRot = prevRightArmX;
@@ -416,7 +450,8 @@ public class GoldenFlowerClientHandler {
         JaronaAttack.ActiveKick kick = JaronaAttack.getKick(player);
         if (kick != null && !mc.options.getCameraType().isFirstPerson()) {
             EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
-            if (dispatcher.getRenderer(player) instanceof PlayerRenderer renderer) {
+            net.minecraft.client.renderer.entity.EntityRenderer<?> untypedRenderer = dispatcher.getRenderer(player);
+            if (untypedRenderer instanceof PlayerRenderer renderer) {
                 PlayerModel<?> model = renderer.getModel();
 
                 // Store angles
@@ -429,7 +464,7 @@ public class GoldenFlowerClientHandler {
                 Vec3 currentPos = player.position();
                 Vec3 movement = player.getDeltaMovement();
                 int light = dispatcher.getRenderer(player).getPackedLightCoords(player, partialTicks);
-                ResourceLocation skin = player.getSkinTextureLocation();
+                ResourceLocation skin = ((net.minecraft.client.player.AbstractClientPlayer) player).getSkinTextureLocation();
                 RenderType renderType = RenderType.entityTranslucentCull(skin);
 
                 // 3 shades of blue afterimage trails

@@ -79,12 +79,17 @@ public class DemonCoreEntity extends ItemEntity implements GeoEntity {
                 net.minecraft.sounds.SoundEvents.WITHER_SPAWN,
                 net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 1.0F);
 
-        // Apply doomed to all entities in a 3x3x3 block area centered around the entity.
-        // A 3x3x3 area is achieved by inflating the bounding box by 1.5.
-        AABB area = this.getBoundingBox().inflate(1.5D);
+        boolean isRed = this.getItem().getOrCreateTag().getBoolean("RedCore");
+        double inflateRange = isRed ? 10.0D : 1.5D;
+
+        // Apply doomed to all entities in range.
+        AABB area = this.getBoundingBox().inflate(inflateRange);
         List<LivingEntity> targets = this.level().getEntitiesOfClass(LivingEntity.class, area);
 
         for (LivingEntity target : targets) {
+            // Do not apply to creative players
+            if (target instanceof net.minecraft.world.entity.player.Player player && player.getAbilities().instabuild) continue;
+
             // Do not apply to pets
             if (target instanceof OwnableEntity ownable && ownable.getOwnerUUID() != null) continue;
             if (target instanceof TamableAnimal tamable && tamable.isTame()) continue;
@@ -102,8 +107,15 @@ public class DemonCoreEntity extends ItemEntity implements GeoEntity {
             }
             if (hasGoldMedallion) continue;
 
-            // Apply Doomed for 200 ticks (10 seconds)
-            target.addEffect(new MobEffectInstance(ModEffects.DOOMED.get(), 200, 0));
+            if (isRed) {
+                // Apply Doomed for 200 ticks (10 seconds)
+                target.addEffect(new MobEffectInstance(ModEffects.DOOMED.get(), 200, 0));
+                // Instantly kill
+                target.hurt(target.damageSources().magic(), Float.MAX_VALUE);
+            } else {
+                // Apply Doomed for 200 ticks (10 seconds)
+                target.addEffect(new MobEffectInstance(ModEffects.DOOMED.get(), 200, 0));
+            }
         }
 
         this.discard();

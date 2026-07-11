@@ -256,6 +256,26 @@ public class OpticBlastItem extends Item implements GeoItem {
     }
 
     @Override
+    public void inventoryTick(ItemStack stack, Level level, net.minecraft.world.entity.Entity entity, int slotId, boolean isSelected) {
+        if (!level.isClientSide() && entity instanceof ServerPlayer player) {
+            long currentTick = level.getGameTime();
+            long lastRegenTick = player.getPersistentData().getLong("xebOpticLastRegenTick");
+            if (lastRegenTick != currentTick) {
+                player.getPersistentData().putLong("xebOpticLastRegenTick", currentTick);
+                
+                boolean isFiringPrimary = player.isUsingItem() && player.getUseItem().is(this);
+                if (!isFiringPrimary && !player.getCooldowns().isOnCooldown(this)) {
+                    float energy = getEnergy(player);
+                    if (energy < MAX_ENERGY) {
+                        setEnergy(player, energy + ENERGY_REGEN_PER_TICK);
+                    }
+                }
+            }
+        }
+        super.inventoryTick(stack, level, entity, slotId, isSelected);
+    }
+
+    @Override
     public Component getName(ItemStack stack) {
         return Component.translatable(this.getDescriptionId(stack)).withStyle(net.minecraft.ChatFormatting.RED);
     }

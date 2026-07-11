@@ -61,7 +61,7 @@ public class CrazyDiamondAttackPacket {
                         
                         // Set full cooldown (15s = 300 ticks)
                         tag.putInt("xebCDA1CooldownTicks", 300);
-                        XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                        XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
                                 new org.xeb.xeb.network.CrazyDiamondSyncPacket(
                                     300,
                                     tag.getInt("xebCDA2CooldownTicks"),
@@ -107,6 +107,9 @@ public class CrazyDiamondAttackPacket {
                         float baseDamage = (float) player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
                         float punchDmg = 12.0F + (baseDamage * 0.5F); // Stand 12 + 50% player damage
                         
+                        living.getPersistentData().putString("xebLastAttackWeapon", "crazy_diamond");
+                        living.getPersistentData().putString("xebLastAttackType", "active1");
+                        living.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
                         living.hurt(player.damageSources().playerAttack(player), punchDmg);
                         
                         level.sendParticles(ParticleTypes.CRIT, living.getX(), living.getY(0.5D), living.getZ(), 5, 0.2D, 0.2D, 0.2D, 0.1D);

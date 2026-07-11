@@ -27,6 +27,12 @@ public class BuffDeathHandler {
         LivingEntity target = event.getEntity();
         if (target == null) return;
 
+        // Remove boss bar on death (N19)
+        net.minecraft.server.level.ServerBossEvent bossEvent = BuffTickHandler.ACTIVE_BOSS_BARS.remove(target.getUUID());
+        if (bossEvent != null) {
+            bossEvent.removeAllPlayers();
+        }
+
         // ── Bounty: give killer All Stats Up II on target's death ──
         if (target.hasEffect(org.xeb.xeb.effect.ModEffects.BOUNTY.get())) {
             Entity killer = event.getSource().getEntity();

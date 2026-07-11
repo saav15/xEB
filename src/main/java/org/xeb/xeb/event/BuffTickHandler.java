@@ -28,6 +28,7 @@ import java.util.UUID;
 
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class BuffTickHandler {
+    public static final java.util.Map<UUID, net.minecraft.server.level.ServerBossEvent> ACTIVE_BOSS_BARS = new java.util.concurrent.ConcurrentHashMap<>();
 
     @SubscribeEvent
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {
@@ -35,12 +36,93 @@ public class BuffTickHandler {
         LivingEntity entity = event.getEntity();
         if (entity.level().isClientSide()) return;
 
+        // ── Madness / Mega Boss Bar (N19) ──
+        boolean qualifies = false;
+        boolean hasMadness = false;
+        int madStacks = 0;
+        boolean hasMultipleMega = false;
+
+        if (entity.isAlive() && !entity.isRemoved()) {
+            hasMadness = MedallionManager.hasBuff(entity, "mad");
+            madStacks = entity.getPersistentData().getInt("xebMadStacks");
+            boolean escalatedMadness = hasMadness && madStacks > 0;
+
+            int megaCount = 0;
+            for (MedallionData m : MedallionManager.getMedallions(entity)) {
+                if (m.getBuff().getId().equals("mega")) {
+                    megaCount++;
+                }
+            }
+            hasMultipleMega = megaCount >= 2;
+
+            qualifies = escalatedMadness || hasMultipleMega;
+        }
+
+        if (qualifies) {
+            boolean finalHasMultipleMega = hasMultipleMega;
+            int finalMadStacks = madStacks;
+            net.minecraft.server.level.ServerBossEvent bossEvent = ACTIVE_BOSS_BARS.computeIfAbsent(entity.getUUID(), uuid -> {
+                net.minecraft.world.BossEvent.BossBarColor color = finalHasMultipleMega ? net.minecraft.world.BossEvent.BossBarColor.PURPLE : net.minecraft.world.BossEvent.BossBarColor.RED;
+                net.minecraft.server.level.ServerBossEvent bar = new net.minecraft.server.level.ServerBossEvent(
+                        entity.getDisplayName(),
+                        color,
+                        net.minecraft.world.BossEvent.BossBarOverlay.PROGRESS
+                );
+                bar.setVisible(true);
+                return bar;
+            });
+
+            bossEvent.setProgress(entity.getHealth() / entity.getMaxHealth());
+            if (hasMadness) {
+                bossEvent.setName(net.minecraft.network.chat.Component.literal(entity.getDisplayName().getString() + " (Madness x" + finalMadStacks + ")"));
+            } else {
+                bossEvent.setName(entity.getDisplayName());
+            }
+
+            if (entity.level() instanceof ServerLevel serverLevel) {
+                java.util.Set<ServerPlayer> currentPlayers = new java.util.HashSet<>();
+                for (ServerPlayer player : serverLevel.players()) {
+                    if (player.distanceToSqr(entity) <= 32.0D * 32.0D) {
+                        currentPlayers.add(player);
+                    }
+                }
+                java.util.Set<ServerPlayer> trackingPlayers = new java.util.HashSet<>(bossEvent.getPlayers());
+                for (ServerPlayer player : currentPlayers) {
+                    if (!trackingPlayers.contains(player)) {
+                        bossEvent.addPlayer(player);
+                    }
+                }
+                for (ServerPlayer player : trackingPlayers) {
+                    if (!currentPlayers.contains(player)) {
+                        bossEvent.removePlayer(player);
+                    }
+                }
+            }
+        } else {
+            net.minecraft.server.level.ServerBossEvent bossEvent = ACTIVE_BOSS_BARS.remove(entity.getUUID());
+            if (bossEvent != null) {
+                bossEvent.removeAllPlayers();
+            }
+        }
+
+
         // ── Golden Flower Weapon Server Ticks ──
         if (entity instanceof net.minecraft.world.entity.player.Player player) {
+            net.minecraft.nbt.CompoundTag pData = player.getPersistentData();
+
+            // Elite Mastery Sync (N24)
+            if (player instanceof ServerPlayer serverPlayer) {
+                int baseLvl = MedallionManager.getEliteMeterLevel(serverPlayer, false);
+                int lastSyncedLvl = pData.getInt("xebLastSyncedEliteLvl");
+                if (baseLvl != lastSyncedLvl || serverPlayer.tickCount % 40 == 0) {
+                    pData.putInt("xebLastSyncedEliteLvl", baseLvl);
+                    XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
+                            new XEBNetwork.EliteMasterySyncPacket(baseLvl));
+                }
+            }
+
             boolean holdsFlower = player.getMainHandItem().is(org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get())
                     || player.getOffhandItem().is(org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get());
-
-            net.minecraft.nbt.CompoundTag pData = player.getPersistentData();
             
             // Handle Seismic Slam absorption decay
             if (pData.contains("xebSeismicAbsorptionTimer")) {
@@ -782,6 +864,9 @@ public class BuffTickHandler {
                                 float damageAmt = 4.5F; // Flat 4.5 damage
                                 for (LivingEntity enemy : enemies) {
                                     Vec3 enemyMotion = enemy.getDeltaMovement();
+                                    enemy.getPersistentData().putString("xebLastAttackWeapon", "doomfist");
+                                    enemy.getPersistentData().putString("xebLastAttackType", "ultimate");
+                                    enemy.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
                                     enemy.hurt(player.damageSources().playerAttack(player), damageAmt);
                                     enemy.setDeltaMovement(enemyMotion);
                                     enemy.hurtMarked = true;
@@ -846,6 +931,9 @@ public class BuffTickHandler {
                             player.hurtMarked = true;
                             
                             // Deal 8.0 damage
+                            target.getPersistentData().putString("xebLastAttackWeapon", "crazy_diamond");
+                            target.getPersistentData().putString("xebLastAttackType", "active1");
+                            target.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
                             target.hurt(player.damageSources().playerAttack(player), 8.0F);
                             
                             // Pull target to player
@@ -871,7 +959,7 @@ public class BuffTickHandler {
                             tag.remove("xebCDA1Timer");
                             tag.remove("xebCDLevitateTicks");
                             tag.putInt("xebCDA1CooldownTicks", 80);
-                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                            XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayer) player),
                                     new CrazyDiamondSyncPacket(80, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
                         }
                     } else if (state == 2) { // Phase 2: Approach target within 5 blocks
@@ -880,6 +968,9 @@ public class BuffTickHandler {
                         if (targetEntity instanceof LivingEntity target && target.isAlive()) {
                             if (player.distanceTo(target) <= 5.0D) {
                                 // Hit 9.0 damage
+                                target.getPersistentData().putString("xebLastAttackWeapon", "crazy_diamond");
+                                target.getPersistentData().putString("xebLastAttackType", "active2");
+                                target.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
                                 target.hurt(player.damageSources().playerAttack(player), 9.0F);
                                 
                                 // Petrify target (3s normally, 1s if Boss or Golden Medallion)
@@ -918,7 +1009,7 @@ public class BuffTickHandler {
                                 tag.remove("xebCDA1TargetId");
                                 tag.remove("xebCDLevitateTicks");
                                 tag.putInt("xebCDA1CooldownTicks", 180);
-                                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayer) player),
                                         new CrazyDiamondSyncPacket(180, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
                             }
                         } else { // Target died or is missing: 9s cooldown
@@ -927,7 +1018,7 @@ public class BuffTickHandler {
                             tag.remove("xebCDA1TargetId");
                             tag.remove("xebCDLevitateTicks");
                             tag.putInt("xebCDA1CooldownTicks", 180);
-                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                            XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayer) player),
                                     new CrazyDiamondSyncPacket(180, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
                         }
                     } else if (state == 3) { // Phase 3: Waiting for second DORA! key press
@@ -937,7 +1028,7 @@ public class BuffTickHandler {
                             tag.remove("xebCDA1TargetId");
                             tag.remove("xebCDLevitateTicks");
                             tag.putInt("xebCDA1CooldownTicks", 240);
-                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                            XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayer) player),
                                     new CrazyDiamondSyncPacket(240, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
                         }
                     } else if (state == 4) { // Phase 4: Waiting for enhanced basic left click kick
@@ -947,7 +1038,7 @@ public class BuffTickHandler {
                             tag.remove("xebCDA1TargetId");
                             tag.remove("xebCDLevitateTicks");
                             tag.putInt("xebCDA1CooldownTicks", 240);
-                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                            XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayer) player),
                                     new CrazyDiamondSyncPacket(240, tag.getInt("xebCDA2CooldownTicks"), tag.getInt("xebCDPunches"), tag.getInt("xebCDChargeTimer")));
                         }
                     }
@@ -1068,6 +1159,9 @@ public class BuffTickHandler {
                         }
                     }
 
+                    entity.getPersistentData().putString("xebLastAttackWeapon", "doomfist");
+                    entity.getPersistentData().putString("xebLastAttackType", "right_click");
+                    entity.getPersistentData().putLong("xebLastAttackTime", entity.level().getGameTime());
                     entity.hurt(slamSource, initialDamage);
 
                     // Impact sounds
@@ -1161,6 +1255,9 @@ public class BuffTickHandler {
                 
                 // Cone check: 60-degree angle (cos(30) ~ 0.866)
                 if (dot >= 0.866D) {
+                    target.getPersistentData().putString("xebLastAttackWeapon", "doomfist");
+                    target.getPersistentData().putString("xebLastAttackType", "active2");
+                    target.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
                     target.hurt(player.damageSources().playerAttack(player), damage);
                     
                     // Pull target slightly towards player and pop them up

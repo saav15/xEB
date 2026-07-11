@@ -67,7 +67,7 @@ public class BrokenDiamondItem extends Item {
                 level.playSound(null, player, net.minecraft.sounds.SoundEvents.IRON_GOLEM_ATTACK, net.minecraft.sounds.SoundSource.PLAYERS, 1.2F, 1.2F);
                 
                 // Sync immediately to client
-                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (net.minecraft.server.level.ServerPlayer) player),
                         new CrazyDiamondSyncPacket(
                             player.getPersistentData().getInt("xebCDA1CooldownTicks"),
                             player.getPersistentData().getInt("xebCDA2CooldownTicks"),
@@ -176,7 +176,7 @@ public class BrokenDiamondItem extends Item {
                                 level.playSound(null, player.getX(), player.getY(), player.getZ(),
                                         net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, net.minecraft.sounds.SoundSource.PLAYERS,
                                         0.3F, 1.6F);
-                                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (net.minecraft.server.level.ServerPlayer) player),
                                         new CrazyDiamondSyncPacket(
                                             tag.getInt("xebCDA1CooldownTicks"),
                                             tag.getInt("xebCDA2CooldownTicks"),
@@ -186,7 +186,7 @@ public class BrokenDiamondItem extends Item {
                             } else {
                                 tag.putInt("xebCDChargeTimer", chargeTimer);
                                 if (chargeTimer % 5 == 0) { // periodically sync to keep HUD smooth
-                                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                    XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (net.minecraft.server.level.ServerPlayer) player),
                                             new CrazyDiamondSyncPacket(
                                                 tag.getInt("xebCDA1CooldownTicks"),
                                                 tag.getInt("xebCDA2CooldownTicks"),
@@ -208,7 +208,7 @@ public class BrokenDiamondItem extends Item {
                     if (player.getPersistentData().contains("xebCDPunches") || player.getPersistentData().contains("xebCDChargeTimer")) {
                         player.getPersistentData().remove("xebCDPunches");
                         player.getPersistentData().remove("xebCDChargeTimer");
-                        XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                        XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (net.minecraft.server.level.ServerPlayer) player),
                                 new CrazyDiamondSyncPacket(
                                     player.getPersistentData().getInt("xebCDA1CooldownTicks"),
                                     player.getPersistentData().getInt("xebCDA2CooldownTicks"),

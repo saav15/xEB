@@ -392,6 +392,9 @@ public class TheTearsItem extends Item {
                 playBackstabSound(player, target, currentTick);
             }
 
+            target.getPersistentData().putString("xebLastAttackWeapon", "the_tears");
+            target.getPersistentData().putString("xebLastAttackType", "right_click");
+            target.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
             target.hurt(player.damageSources().playerAttack(player), baseDmg);
 
             // White imbuement: tick lightning strike

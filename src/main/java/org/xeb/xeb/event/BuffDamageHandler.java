@@ -43,6 +43,41 @@ public class BuffDamageHandler {
         LivingEntity target = event.getEntity();
         if (target == null) return;
 
+        // Custom weapon generic left-click tracker (N23)
+        if (!target.level().isClientSide()) {
+            if (event.getSource().getEntity() instanceof net.minecraft.world.entity.player.Player attackerPlayer) {
+                net.minecraft.world.item.ItemStack held = attackerPlayer.getMainHandItem();
+                String weaponName = null;
+                if (held.is(org.xeb.xeb.item.ModItems.OPTIC_BLAST.get())) {
+                    weaponName = "optic_blast";
+                } else if (held.is(org.xeb.xeb.item.ModItems.DOOMFIST.get()) || held.is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get())) {
+                    weaponName = "doomfist";
+                } else if (held.is(org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get())) {
+                    weaponName = "crazy_diamond";
+                } else if (held.is(org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get())) {
+                    weaponName = "golden_flower";
+                } else if (held.is(org.xeb.xeb.item.ModItems.THE_TEARS.get())) {
+                    weaponName = "the_tears";
+                }
+
+                if (weaponName != null) {
+                    long currentTick = target.level().getGameTime();
+                    boolean alreadySet = target.getPersistentData().contains("xebLastAttackTime") &&
+                                         target.getPersistentData().getLong("xebLastAttackTime") == currentTick;
+                    if (!alreadySet) {
+                        target.getPersistentData().putString("xebLastAttackWeapon", weaponName);
+                        target.getPersistentData().putString("xebLastAttackType", "left_click");
+                        target.getPersistentData().putLong("xebLastAttackTime", currentTick);
+                    }
+                }
+            } else if (event.getSource().getEntity() instanceof org.xeb.xeb.entity.HotPokerEntity) {
+                long currentTick = target.level().getGameTime();
+                target.getPersistentData().putString("xebLastAttackWeapon", "hot_poker");
+                target.getPersistentData().putString("xebLastAttackType", "left_click");
+                target.getPersistentData().putLong("xebLastAttackTime", currentTick);
+            }
+        }
+
         // --- Ultra Charged left-click attack damage adjustment ---
         // Sets the weapon effective base to 14: scales current damage proportionally
         // so BetterCombat swing multipliers and combos still apply on top.

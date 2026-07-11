@@ -177,8 +177,14 @@ public class MedallionManager {
         }
 
         // Add +2 levels if Permanight is active in this level and modifiers are enabled
-        if (includeModifiers && player.level() instanceof ServerLevel serverLevel) {
-            if (org.xeb.xeb.world.PermanightSavedData.get(serverLevel).isActive()) {
+        if (includeModifiers) {
+            boolean isPermanight = false;
+            if (player.level().isClientSide()) {
+                isPermanight = org.xeb.xeb.client.PermanightClientRenderer.isPermanightActive;
+            } else if (player.level() instanceof ServerLevel serverLevel) {
+                isPermanight = org.xeb.xeb.world.PermanightSavedData.get(serverLevel).isActive();
+            }
+            if (isPermanight) {
                 baseLevel += 2;
             }
         }

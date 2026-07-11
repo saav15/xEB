@@ -110,6 +110,9 @@ public class TearsProjectileEntity extends ThrowableProjectile {
                     damage *= 1.2F; // +20% damage for backstab
                 }
 
+                target.getPersistentData().putString("xebLastAttackWeapon", "the_tears");
+                target.getPersistentData().putString("xebLastAttackType", "right_click");
+                target.getPersistentData().putLong("xebLastAttackTime", this.level().getGameTime());
                 target.hurt(this.damageSources().thrown(this, this.getOwner()), damage);
 
                 // Apply element status effects

@@ -33,6 +33,20 @@ public class DemonCoreItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         
+        if (player.isShiftKeyDown()) {
+            if (!level.isClientSide()) {
+                net.minecraft.nbt.CompoundTag tag = stack.getOrCreateTag();
+                boolean isRed = tag.getBoolean("RedCore");
+                tag.putBoolean("RedCore", !isRed);
+                player.displayClientMessage(Component.literal(
+                        !isRed ? "§cDemon Core set to Red Core (Supercritical)!" : "§aDemon Core set to Normal Core!"
+                ), true);
+                level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                        net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.get(), net.minecraft.sounds.SoundSource.PLAYERS, 0.8F, 1.2F);
+            }
+            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+        }
+
         if (!level.isClientSide()) {
             // Spawn the Demon Core entity slightly in front of the player
             ItemStack singleDrop = stack.copy();
@@ -56,9 +70,15 @@ public class DemonCoreItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("item.xeb.demon_core.desc1"));
-        tooltip.add(Component.translatable("item.xeb.demon_core.desc2"));
-        tooltip.add(Component.translatable("item.xeb.demon_core.desc3"));
+        net.minecraft.nbt.CompoundTag tag = stack.getTag();
+        if (tag != null && tag.getBoolean("RedCore")) {
+            tooltip.add(Component.literal("§c[Variant: Red Core (Supercritical)]"));
+            tooltip.add(Component.literal("§7Instantly doom everything in a 20x20 area on drop."));
+        } else {
+            tooltip.add(Component.translatable("item.xeb.demon_core.desc1"));
+            tooltip.add(Component.translatable("item.xeb.demon_core.desc2"));
+            tooltip.add(Component.translatable("item.xeb.demon_core.desc3"));
+        }
         super.appendHoverText(stack, level, tooltip, flag);
     }
 }

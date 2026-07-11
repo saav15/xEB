@@ -21,6 +21,52 @@ public class DeathMessageHelper {
             return Component.translatable("death.attack.xeb.delayed_pain", original);
         }
 
+        // Custom weapon-specific death messages (N23)
+        long currentTick = victim.level().getGameTime();
+        if (victim.getPersistentData().contains("xebLastAttackWeapon") && victim.getPersistentData().contains("xebLastAttackTime")) {
+            long lastTime = victim.getPersistentData().getLong("xebLastAttackTime");
+            if (currentTick - lastTime <= 100) {
+                String weapon = victim.getPersistentData().getString("xebLastAttackWeapon");
+                String type = victim.getPersistentData().getString("xebLastAttackType");
+                String translationKey = "death.attack.xeb." + weapon + "." + type;
+                
+                LivingEntity killer = victim.getKillCredit();
+                Component killerName = killer != null ? killer.getDisplayName() : Component.literal("unknown");
+                MutableComponent customMsg = Component.translatable(translationKey, victim.getDisplayName(), killerName);
+                
+                victim.getPersistentData().remove("xebLastAttackWeapon");
+                victim.getPersistentData().remove("xebLastAttackType");
+                victim.getPersistentData().remove("xebLastAttackTime");
+                
+                if (killer != null) {
+                    List<MedallionData> medallions = MedallionManager.getMedallions(killer);
+                    if (!medallions.isEmpty()) {
+                        MutableComponent hoverText = Component.literal("§6§l" + killer.getDisplayName().getString() + "'s Medallions:§r\n");
+                        for (MedallionData m : medallions) {
+                            String tierColor = switch (m.getTier()) {
+                                case COMMON -> "§c";
+                                case RARE -> "§7";
+                                case LEGENDARY -> "§6";
+                            };
+                            hoverText.append(Component.literal(tierColor + "● §r"))
+                                     .append(m.getBuff().getDisplayName())
+                                     .append(Component.literal(" (" + tierColor))
+                                     .append(m.getTier().getDisplayName())
+                                     .append(Component.literal("§r)\n"));
+                            String desc = getVagueDescription(m.getBuff().getId());
+                            hoverText.append("  §8§o" + desc + "§r\n");
+                        }
+                        
+                        MutableComponent mutableArg = killerName.copy();
+                        mutableArg.withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverText)));
+                        customMsg = Component.translatable(translationKey, victim.getDisplayName(), mutableArg);
+                    }
+                }
+                
+                return customMsg;
+            }
+        }
+
         LivingEntity killer = victim.getKillCredit();
         if (killer == null) return original;
 

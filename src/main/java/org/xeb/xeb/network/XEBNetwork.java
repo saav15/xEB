@@ -38,5 +38,35 @@ public class XEBNetwork {
         CHANNEL.registerMessage(id++, BrimstoneBeamPacket.class, BrimstoneBeamPacket::encode, BrimstoneBeamPacket::decode, BrimstoneBeamPacket::handle);
         CHANNEL.registerMessage(id++, TearsLeftClickPacket.class, TearsLeftClickPacket::encode, TearsLeftClickPacket::decode, TearsLeftClickPacket::handle);
         CHANNEL.registerMessage(id++, TearsSyncPacket.class, TearsSyncPacket::encode, TearsSyncPacket::decode, TearsSyncPacket::handle);
+        CHANNEL.registerMessage(id++, EliteMasterySyncPacket.class, EliteMasterySyncPacket::encode, EliteMasterySyncPacket::decode, EliteMasterySyncPacket::handle);
+    }
+
+    public static class EliteMasterySyncPacket {
+        private final int baseLevel;
+
+        public EliteMasterySyncPacket(int baseLevel) {
+            this.baseLevel = baseLevel;
+        }
+
+        public static void encode(EliteMasterySyncPacket msg, net.minecraft.network.FriendlyByteBuf buf) {
+            buf.writeInt(msg.baseLevel);
+        }
+
+        public static EliteMasterySyncPacket decode(net.minecraft.network.FriendlyByteBuf buf) {
+            return new EliteMasterySyncPacket(buf.readInt());
+        }
+
+        public static void handle(EliteMasterySyncPacket msg, java.util.function.Supplier<net.minecraftforge.network.NetworkEvent.Context> ctxSupplier) {
+            net.minecraftforge.network.NetworkEvent.Context ctx = ctxSupplier.get();
+            ctx.enqueueWork(() -> {
+                net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT, () -> () -> {
+                    net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                    if (mc.player != null) {
+                        mc.player.getPersistentData().putInt("xebEliteMeterLevel", msg.baseLevel);
+                    }
+                });
+            });
+            ctx.setPacketHandled(true);
+        }
     }
 }

@@ -38,6 +38,9 @@ public class GoldenFlowerDanceStrikePacket {
                     if (player.distanceToSqr(livingTarget) <= 400.0D) {
                         // Apply damage!
                         DamageSource source = player.damageSources().mobAttack(player);
+                        livingTarget.getPersistentData().putString("xebLastAttackWeapon", "golden_flower");
+                        livingTarget.getPersistentData().putString("xebLastAttackType", "right_click");
+                        livingTarget.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
                         livingTarget.hurt(source, msg.damageAmount);
                     }
                 }

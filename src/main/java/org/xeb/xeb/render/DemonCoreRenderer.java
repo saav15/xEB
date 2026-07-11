@@ -18,4 +18,12 @@ public class DemonCoreRenderer extends GeoEntityRenderer<DemonCoreEntity> {
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
         poseStack.popPose();
     }
+
+    @Override
+    public software.bernie.geckolib.core.object.Color getRenderColor(DemonCoreEntity animatable, float partialTick, int packedLight) {
+        if (animatable.getItem().getOrCreateTag().getBoolean("RedCore")) {
+            return software.bernie.geckolib.core.object.Color.ofRGBA(1.0F, 0.3F, 0.3F, 1.0F);
+        }
+        return super.getRenderColor(animatable, partialTick, packedLight);
+    }
 }

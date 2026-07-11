@@ -15,7 +15,7 @@ public class PhantomAttackManager {
     public static int currentAttackerIndex = 0;
     public static float ticksLived = 0;
 
-    public static void startAttack(int[] targetEntityIds, int cloneCount) {
+    public static void startAttack(int casterId, int[] targetEntityIds, int cloneCount) {
         activeClones.clear();
         globalAttackTimer = 0;
         currentAttackerIndex = 0;
@@ -32,6 +32,7 @@ public class PhantomAttackManager {
                 clone.index = i;
                 clone.totalClones = cloneCount;
                 clone.targetEntityId = tId;
+                clone.casterId = casterId;
                 clone.targetPos = target.position();
                 clone.orbitAngle = (float) ((2 * Math.PI / cloneCount) * i);
                 clone.hue = (float) i / cloneCount;
