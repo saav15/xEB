@@ -61,7 +61,7 @@ public class ActiveBeamManager {
      * Default collision check for Optic Blast.
      */
     public Vec3 checkBeamVsBeamCollision(UUID ownerUUID, Vec3 beamStart, Vec3 beamEnd) {
-        return checkBeamVsBeamCollision(ownerUUID, beamStart, beamEnd, 0.4D);
+        return checkBeamVsBeamCollision(ownerUUID, beamStart, beamEnd, 0.8D);
     }
 
     /**
@@ -115,11 +115,11 @@ public class ActiveBeamManager {
     }
 
     private double getBeamHalfWidth(String beamSource) {
-        if (beamSource == null) return 0.5D;
+        if (beamSource == null) return 0.8D;
         return switch (beamSource) {
-            case "brimstone" -> 0.75D; // Brimstone is thicker
-            case "optic_blast" -> 0.4D;
-            default -> 0.5D;
+            case "brimstone" -> 1.2D; // Brimstone is thicker
+            case "optic_blast" -> 0.8D;
+            default -> 0.8D;
         };
     }
 

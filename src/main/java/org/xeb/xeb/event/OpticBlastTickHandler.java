@@ -168,7 +168,7 @@ public class OpticBlastTickHandler {
             }
             if (otherStart != null) {
                 Vec3 lookEnd = eyePos.add(lookDir.scale(MAX_BEAM_DISTANCE));
-                Vec3 closestCol = ActiveBeamManager.get().checkBeamVsBeamCollision(ownerUUID, eyePos, lookEnd, 0.4D);
+                Vec3 closestCol = ActiveBeamManager.get().checkBeamVsBeamCollision(ownerUUID, eyePos, lookEnd, 0.8D);
                 if (closestCol != null) {
                     org.xeb.xeb.beamstruggle.BeamStruggleManager.updateCollisionPoint(ownerUUID, closestCol);
                     Vec3 updatedCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(ownerUUID);
@@ -215,7 +215,7 @@ public class OpticBlastTickHandler {
             }
 
             // --- 4. Check beam-vs-beam collision ---
-            Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(ownerUUID, eyePos, effectiveEnd, 0.4D);
+            Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(ownerUUID, eyePos, effectiveEnd, 0.8D);
             if (beamCollision != null) {
                 double collisionDist = eyePos.distanceToSqr(beamCollision);
                 double currentEndDist = eyePos.distanceToSqr(effectiveEnd);
@@ -251,7 +251,7 @@ public class OpticBlastTickHandler {
                         Vec3 otherDir = otherEnd.subtract(otherStart).normalize();
                         double dotProduct = myDir.dot(otherDir);
 
-                        if (dotProduct < -0.5D) {
+                        if (dotProduct < -0.2D) {
                             // Frontal — iniciar struggle
                             effectiveEnd = beamCollision;
                             hitEntity = null;

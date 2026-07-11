@@ -300,7 +300,7 @@ public class TheTearsItem extends Item {
             if (otherStart != null) {
                 double reach = 40.0D;
                 Vec3 lookEnd = mouthPos.add(lookDir.scale(reach));
-                Vec3 closestCol = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, lookEnd, 0.75D);
+                Vec3 closestCol = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, lookEnd, 1.2D);
                 if (closestCol != null) {
                     org.xeb.xeb.beamstruggle.BeamStruggleManager.updateCollisionPoint(playerUUID, closestCol);
                     Vec3 updatedCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(playerUUID);
@@ -461,7 +461,7 @@ public class TheTearsItem extends Item {
             points.set(points.size() - 1, renderEnd);
         } else {
             // No hay struggle activo — calcular colisión fresh este tick
-            Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, renderEnd, 0.75D);
+            Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, renderEnd, 1.2D);
             if (beamCollision != null) {
                 double collisionDist = mouthPos.distanceToSqr(beamCollision);
                 double currentEndDist = mouthPos.distanceToSqr(renderEnd);
@@ -486,7 +486,7 @@ public class TheTearsItem extends Item {
                         Vec3 otherDir = otherEnd.subtract(otherStart).normalize();
                         double dotProduct = myDir.dot(otherDir);
 
-                        if (dotProduct < -0.5D) {
+                        if (dotProduct < -0.2D) {
                             // Frontal — iniciar struggle
                             renderEnd = beamCollision;
                             points.set(points.size() - 1, renderEnd);

@@ -124,50 +124,13 @@ public class BeamStruggleManager {
             level.playSound(null, collisionPoint.x, collisionPoint.y, collisionPoint.z,
                     net.minecraft.sounds.SoundEvents.WITHER_SPAWN,
                     net.minecraft.sounds.SoundSource.PLAYERS, 1.5F, 1.5F);
+            return true;
         }
 
-        // Actualizar midpoint y currentCollision a la posición REAL de este tick
+        // Actualizar midpoint a la posición REAL de este tick
         struggle.midpoint = collisionPoint;
 
-        struggle.ticksElapsed++;
-
-        if (struggle.phase == StrugglePhase.PREP) {
-            if (struggle.ticksElapsed >= PREP_DURATION_TICKS) {
-                struggle.phase = StrugglePhase.ACTIVE;
-                struggle.ticksElapsed = 0;
-                broadcastStruggleUpdate(struggle, level);
-            }
-            return true;
-        }
-
-        if (struggle.phase == StrugglePhase.ACTIVE) {
-            double advantage = struggle.pointsA - struggle.pointsB;
-            Vec3 dirAtoB = struggle.startPosB.subtract(struggle.startPosA).normalize();
-            Vec3 moveVector = dirAtoB.scale(advantage * COLLISION_MOVE_PER_POINT);
-            struggle.currentCollision = struggle.midpoint.add(moveVector);
-
-            double decay = MASH_DECAY_PER_TICK * struggle.mashMultiplier;
-            struggle.pointsA = Math.max(0, struggle.pointsA - decay);
-            struggle.pointsB = Math.max(0, struggle.pointsB - decay);
-
-            double distFromMid = struggle.currentCollision.distanceTo(struggle.midpoint);
-            double effectiveWinDistance = struggle.winDistance * (1.0 + (double) struggle.ticksElapsed / 120.0);
-            if (distFromMid >= effectiveWinDistance || struggle.ticksElapsed >= MAX_STRUGGLE_TICKS) {
-                resolveStruggle(struggle, level, currentTick);
-                return false;
-            }
-
-            if (struggle.ticksElapsed % 20 == 0) {
-                level.playSound(null, struggle.currentCollision.x, struggle.currentCollision.y, struggle.currentCollision.z,
-                        net.minecraft.sounds.SoundEvents.BEACON_AMBIENT,
-                        net.minecraft.sounds.SoundSource.PLAYERS, 0.8F, 2.0F);
-            }
-
-            broadcastStruggleUpdate(struggle, level);
-            return true;
-        }
-
-        return false;
+        return true;
     }
 
     public static void handleFlourishPress(ServerPlayer player) {
@@ -254,11 +217,7 @@ public class BeamStruggleManager {
         for (BeamStruggle s : ACTIVE_STRUGGLES.values()) {
             if (s.phase == StrugglePhase.RESOLVED) continue;
 
-            // Check 1: max ticks
-            if (s.phase == StrugglePhase.ACTIVE && s.ticksElapsed >= MAX_STRUGGLE_TICKS) {
-                toResolve.add(s.struggleId);
-                continue;
-            }
+            s.ticksElapsed++;
 
             // Check 2: beam death — verificar directamente si el player sigue disparando
             boolean beamAAlive = isBeamStillActive(s.ownerA, s);
@@ -267,6 +226,7 @@ public class BeamStruggleManager {
             if (!beamAAlive && !beamBAlive) {
                 // Ambos perdieron el beam — draw
                 toResolve.add(s.struggleId);
+                continue;
             } else if (!beamAAlive) {
                 // A perdió el beam — B gana por abandono
                 resolveByForfeit(s, level, s.ownerB, s.ownerA, "beam_lost");
@@ -277,8 +237,51 @@ public class BeamStruggleManager {
                 continue;
             }
 
-            // Check 3: concentration loss (solo en phase ACTIVE)
+            // Handle PREP to ACTIVE transition
+            if (s.phase == StrugglePhase.PREP) {
+                if (s.ticksElapsed >= PREP_DURATION_TICKS) {
+                    s.phase = StrugglePhase.ACTIVE;
+                    s.ticksElapsed = 0;
+                    broadcastStruggleUpdate(s, level);
+                }
+                continue; // Skip active struggle physics during PREP
+            }
+
             if (s.phase == StrugglePhase.ACTIVE) {
+                // Check 1: max ticks
+                if (s.ticksElapsed >= MAX_STRUGGLE_TICKS) {
+                    toResolve.add(s.struggleId);
+                    continue;
+                }
+
+                // Update struggle physics: advantage movement
+                double advantage = s.pointsA - s.pointsB;
+                Vec3 dirAtoB = s.startPosB.subtract(s.startPosA).normalize();
+                Vec3 moveVector = dirAtoB.scale(advantage * COLLISION_MOVE_PER_POINT);
+                s.currentCollision = s.midpoint.add(moveVector);
+
+                // Mash decay
+                double decay = MASH_DECAY_PER_TICK * s.mashMultiplier;
+                s.pointsA = Math.max(0, s.pointsA - decay);
+                s.pointsB = Math.max(0, s.pointsB - decay);
+
+                // Win check
+                double distFromMid = s.currentCollision.distanceTo(s.midpoint);
+                double effectiveWinDistance = s.winDistance * (1.0 + (double) s.ticksElapsed / 120.0);
+                if (distFromMid >= effectiveWinDistance) {
+                    toResolve.add(s.struggleId);
+                    continue;
+                }
+
+                if (s.ticksElapsed % 20 == 0) {
+                    level.playSound(null, s.currentCollision.x, s.currentCollision.y, s.currentCollision.z,
+                            net.minecraft.sounds.SoundEvents.BEACON_AMBIENT,
+                            net.minecraft.sounds.SoundSource.PLAYERS, 0.8F, 2.0F);
+                }
+
+                broadcastStruggleUpdate(s, level);
+
+                // Check 3: concentration loss
                 checkConcentrationLoss(s, level, currentTick);
             }
         }
