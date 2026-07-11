@@ -710,18 +710,23 @@ public class ActuarKeyPacket {
                                 double maxDist = 10.0D;
                                 net.minecraft.world.phys.HitResult hit = player.pick(maxDist, 1.0F, false);
                                 Vec3 targetVec = hit.getLocation();
-                                
+
+                                // Teleport al target
                                 player.teleportTo(targetVec.x, targetVec.y, targetVec.z);
+
+                                // NUEVO: Spin de 3 vueltas, 7 daño cada una, 3x3 AoE por vuelta
                                 player.getPersistentData().putBoolean("xebHolyAnnihilationActive", true);
-                                player.getPersistentData().putInt("xebHolyAnnihilationTicks", 6); // lasts 6 ticks
+                                player.getPersistentData().putInt("xebHolyAnnihilationTicks", 30); // 30 ticks = 3 vueltas de 10 ticks
+                                player.getPersistentData().putInt("xebHolyAnnihilationHits", 0); // contador de vueltas
                                 player.getPersistentData().putDouble("xebHolyAnnihilationX", targetVec.x);
                                 player.getPersistentData().putDouble("xebHolyAnnihilationY", targetVec.y);
                                 player.getPersistentData().putDouble("xebHolyAnnihilationZ", targetVec.z);
-                                player.getPersistentData().putInt("xebHolyA2Cooldown", 133); // 6.66s (133 ticks)
-                                
+                                player.getPersistentData().putInt("xebHolyA2Cooldown", 133); // 6.66s
+
+                                // Sonido de teleport
                                 player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                        SoundEvents.CHORUS_FRUIT_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
-                                        
+                                        SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.2F);
+
                                 org.xeb.xeb.item.HolyDualityBladeItem.syncToClient((ServerPlayer) player);
                             }
                         } else if (msg.button == 5 && msg.press) {

@@ -307,68 +307,103 @@ public class MechaOverdriveClientHandler {
     @SubscribeEvent
     public static void onRenderPlayerPre(RenderPlayerEvent.Pre event) {
         Player player = event.getEntity();
-        CompoundTag tag = player.getPersistentData();
-        int sdState = tag.getInt("xebMechaSpindashState");
-        boolean dashing = tag.getBoolean("xebMechaOverdriveDashing");
-        boolean levitating = tag.getBoolean("xebMechaLevitating");
-        boolean vulcan = tag.getBoolean("xebMechaVulcanFiring");
+        CompoundTag data = player.getPersistentData();
+
+        boolean holdsMecha = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem
+                || player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem;
+        if (!holdsMecha) return;
 
         PlayerModel<AbstractClientPlayer> model = event.getRenderer().getModel();
+        PoseStack poseStack = event.getPoseStack();
 
-        boolean needsPop = sdState == 3 || dashing || levitating;
-        if (needsPop) {
-            PoseStack poseStack = event.getPoseStack();
+        double momentum = data.getDouble("xebMechaMomentum");
+        boolean levitating = data.getBoolean("xebMechaLevitating");
+        boolean dashing = data.getBoolean("xebMechaOverdriveDashing");
+        int sdState = data.getInt("xebMechaSpindashState");
+        boolean vulcanFiring = data.getBoolean("xebMechaVulcanFiring");
+
+        // POSE: Levitando (momentum alto, en el aire o deslizando)
+        if (levitating && !dashing && sdState == 0) {
+            // Levitar ligeramente
             poseStack.pushPose();
+            poseStack.translate(0.0F, 0.12F, 0.0F);
 
-            if (sdState == 3) { // Spindash ATTACKING (Spinball)
-                model.leftArm.visible = false;
-                model.rightArm.visible = false;
-                model.leftLeg.visible = false;
-                model.rightLeg.visible = false;
-                model.head.visible = false;
-                model.hat.visible = false;
+            // Body inclinado hacia adelante como mecha sonic corriendo
+            model.body.xRot = 0.15F;
+            // Brazos traseros como propulsores
+            model.rightArm.xRot = -1.2F;
+            model.rightArm.zRot = 0.3F;
+            model.leftArm.xRot = -1.2F;
+            model.leftArm.zRot = -0.3F;
+            // Piernas dobladas como patinando
+            model.rightLeg.xRot = -0.3F;
+            model.leftLeg.xRot = -0.3F;
+            model.rightLeg.zRot = 0.1F;
+            model.leftLeg.zRot = -0.1F;
 
-                // Flattened ball body scaling
-                poseStack.scale(1.6F, 0.8F, 1.6F);
-                float rot = (player.level().getGameTime() + event.getPartialTick()) * 30.0F;
-                poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(rot));
-            } else if (dashing) { // Jet Dash
-                poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(80.0F));
-                poseStack.translate(0, -0.5F, -0.3F);
-                
-                model.rightArm.xRot = 1.5F;
-                model.leftArm.xRot = 1.5F;
-            } else if (levitating) { // Hover levitating
-                poseStack.translate(0, 0.15F, 0);
-                model.rightArm.xRot = 0.3F;
-                model.leftArm.xRot = 0.3F;
-            }
+            data.putBoolean("xebMechaPushedPose", true);
         }
-
-        // Apply visual rotations/inclinations directly to model segments (no poseStack pop required)
-        if (sdState == 1) { // Spindash charging
-            model.body.xRot = 0.5F;
-            model.rightArm.xRot = -0.8F;
-            model.rightArm.yRot = -0.5F;
-            model.leftArm.xRot = -0.8F;
-            model.leftArm.yRot = 0.5F;
-        } else if (vulcan) { // Vulcan firing
+        // POSE: Vulcan (Click Derecho ametralladora)
+        else if (vulcanFiring) {
+            poseStack.pushPose();
+            // Body inclinado hacia adelante
+            model.body.xRot = 0.2F;
+            // Ambos brazos hacia adelante agarrando el cañón
             model.rightArm.xRot = -1.5F;
+            model.rightArm.yRot = -0.1F;
             model.leftArm.xRot = -1.5F;
-            model.body.xRot = 0.17F; // inclined 10 deg
+            model.leftArm.yRot = 0.1F;
+            // Piernas firmes
+            model.rightLeg.xRot = 0.0F;
+            model.leftLeg.xRot = 0.0F;
+
+            data.putBoolean("xebMechaPushedPose", true);
+        }
+        // POSE: Jet Dash (horizontal como misil)
+        else if (dashing) {
+            poseStack.pushPose();
+            // Body casi horizontal
+            model.body.xRot = 1.4F;
+            // Brazos pegados al cuerpo como aerodinámico
+            model.rightArm.xRot = 0.0F;
+            model.rightArm.zRot = 0.4F;
+            model.leftArm.xRot = 0.0F;
+            model.leftArm.zRot = -0.4F;
+            // Piernas atrás como vuelo
+            model.rightLeg.xRot = -0.8F;
+            model.leftLeg.xRot = -0.8F;
+
+            data.putBoolean("xebMechaPushedPose", true);
+        }
+        // POSE: Spindash (bola metálica)
+        else if (sdState > 0) {
+            poseStack.pushPose();
+            // Esconder todo
+            model.leftArm.visible = false;
+            model.rightArm.visible = false;
+            model.leftLeg.visible = false;
+            model.rightLeg.visible = false;
+            model.head.visible = false;
+            model.hat.visible = false;
+            // Escalar body a bola
+            poseStack.scale(1.6F, 0.85F, 1.6F);
+
+            data.putBoolean("xebMechaPushedPose", true);
+            data.putBoolean("xebMechaSpinball", true);
         }
     }
 
     @SubscribeEvent
     public static void onRenderPlayerPost(RenderPlayerEvent.Post event) {
         Player player = event.getEntity();
-        CompoundTag tag = player.getPersistentData();
-        int sdState = tag.getInt("xebMechaSpindashState");
-        boolean dashing = tag.getBoolean("xebMechaOverdriveDashing");
-        boolean levitating = tag.getBoolean("xebMechaLevitating");
+        CompoundTag data = player.getPersistentData();
 
-        boolean needsPop = sdState == 3 || dashing || levitating;
-        if (needsPop) {
+        if (data.getBoolean("xebMechaPushedPose")) {
+            data.remove("xebMechaPushedPose");
+            event.getPoseStack().popPose();
+        }
+        if (data.getBoolean("xebMechaSpinball")) {
+            data.remove("xebMechaSpinball");
             PlayerModel<AbstractClientPlayer> model = event.getRenderer().getModel();
             model.leftArm.visible = true;
             model.rightArm.visible = true;
@@ -376,13 +411,18 @@ public class MechaOverdriveClientHandler {
             model.rightLeg.visible = true;
             model.head.visible = true;
             model.hat.visible = true;
-
-            event.getPoseStack().popPose();
         }
-        
-        // Reset model rotations
+        // Reset rotations
         PlayerModel<AbstractClientPlayer> model = event.getRenderer().getModel();
         model.body.xRot = 0.0F;
+        model.rightArm.xRot = 0.0F;
+        model.leftArm.xRot = 0.0F;
+        model.rightArm.zRot = 0.0F;
+        model.leftArm.zRot = 0.0F;
+        model.rightLeg.xRot = 0.0F;
+        model.leftLeg.xRot = 0.0F;
+        model.rightLeg.zRot = 0.0F;
+        model.leftLeg.zRot = 0.0F;
         model.rightArm.yRot = 0.0F;
         model.leftArm.yRot = 0.0F;
     }

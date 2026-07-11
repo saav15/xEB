@@ -136,16 +136,13 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
             player.getPersistentData().putInt("xebHolyBlastCharge", Math.min(160, ticksUsed));
             
             if (level.isClientSide()) {
-                double radius = 1.5D + (Math.min(160, ticksUsed) / 160.0D) * 2.5D;
-                int radInt = (int) Math.ceil(radius);
-                for (int dx = -radInt; dx <= radInt; dx++) {
-                    for (int dz = -radInt; dz <= radInt; dz++) {
-                        if (Math.sqrt(dx*dx + dz*dz) > radius) continue;
-                        double px = player.getX() + dx + (level.random.nextDouble() - 0.5D) * 0.2D;
-                        double py = player.getY() + 0.1D;
-                        double pz = player.getZ() + dz + (level.random.nextDouble() - 0.5D) * 0.2D;
-                        level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, px, py, pz, 0.0D, 0.02D, 0.0D);
-                    }
+                // SUTIL: iluminar el suelo con quads dorados semitransparentes, NO partículas
+                // La iluminación visual se maneja en el client handler via NBT sync
+                // Solo spawn-ear 1 partícula sutil cada 10 ticks en el centro
+                if (level.getGameTime() % 10 == 0) {
+                    level.addParticle(ParticleTypes.END_ROD,
+                            player.getX(), player.getY() + 0.1D, player.getZ(),
+                            0.0D, 0.03D, 0.0D);
                 }
             } else {
                 if (level.getGameTime() % 2 == 0) {
@@ -190,87 +187,68 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
     private void triggerHolyBlast(Level level, Player player, int ticksUsed) {
         CompoundTag pData = player.getPersistentData();
         pData.putInt("xebHolyRCD", 400); // 20s
-        
-        double radius = 1.5D + (Math.min(160, ticksUsed) / 160.0D) * 2.5D;
-        int radInt = (int) Math.ceil(radius);
+
+        int radius = Math.min(4, ticksUsed / 20); // 0 a 4 bloques de radio (3x3 a 9x9)
+        if (radius < 1) radius = 1;
         int hitCount = 0;
-        
-        for (int dx = -radInt; dx <= radInt; dx++) {
-            for (int dz = -radInt; dz <= radInt; dz++) {
+
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
                 double dist = Math.sqrt(dx*dx + dz*dz);
-                if (dist > radius) continue;
-                
+                if (dist > radius) continue; // circular
+
+                double dmg = 18.0D - dist * 3.0D;
                 double targetX = player.getX() + dx;
                 double targetZ = player.getZ() + dz;
                 double targetY = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int)targetX, (int)targetZ);
-                
-                BlockPos bpos = new BlockPos((int)targetX, (int)targetY, (int)targetZ);
-                BLESSED_FIRE_BLOCKS.put(bpos, 60);
-                
-                double dmg = BASE_DAMAGE * (1.0D - (dist / radius) * 0.5D);
-                
+
+                // NUEVO: beams de luz dorada descendentes (solo visuales, manejados por client handler)
+                // NO spawnear partículas de fuego ni explosión
+
+                // Daño sutil en el centro, decae hacia los bordes
                 if (level instanceof ServerLevel sl) {
-                    for (double h = 0; h < 15.0D; h += 0.5D) {
-                        sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, targetX, targetY + h, targetZ,
-                                2, 0.05D, 0.0D, 0.05D, 0.0D);
-                    }
-                    sl.sendParticles(ParticleTypes.EXPLOSION, targetX, targetY, targetZ,
+                    // SOLO 1 partícula de END_ROD sutil por bloque
+                    sl.sendParticles(ParticleTypes.END_ROD, targetX, targetY + 0.5D, targetZ,
                             1, 0.0D, 0.0D, 0.0D, 0.0D);
-                    sl.sendParticles(ParticleTypes.LAVA, targetX, targetY, targetZ,
-                            3, 0.2D, 0.0D, 0.2D, 0.01D);
                 }
-                
-                level.playSound(null, targetX, targetY, targetZ,
-                        SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.4F, 1.5F);
-                
-                AABB damageBox = new AABB(targetX - 1.2D, targetY - 1.0D, targetZ - 1.2D,
-                                          targetX + 1.2D, targetY + 3.0D, targetZ + 1.2D);
-                
-                boolean isBlessed = pData.getBoolean("xebHolyBlessedActive");
+
+                // Sonido sutil, NO trueno
+                if (dx == 0 && dz == 0) {
+                    level.playSound(null, targetX, targetY, targetZ,
+                            SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.5F, 1.8F);
+                }
+
+                AABB damageBox = new AABB(targetX - 0.8D, targetY - 1.0D, targetZ - 0.8D,
+                                          targetX + 0.8D, targetY + 3.0D, targetZ + 0.8D);
+
+                int blessedCharges = pData.getInt("xebHolyBlessedCharges");
+                boolean isBlessed = blessedCharges > 0;
                 if (isBlessed) {
                     dmg *= 3.0D;
+                    pData.putInt("xebHolyBlessedCharges", blessedCharges - 1);
                 }
-                
                 boolean isCrit = isBlessed || (player.getRandom().nextFloat() < 0.25F);
-                
+
                 List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, damageBox, e -> e != player && e.isAlive());
                 for (LivingEntity target : targets) {
                     float finalDmg = (float) dmg;
-                    if (isCrit) {
-                        finalDmg *= 1.5F;
-                    }
+                    if (isCrit) finalDmg *= 1.5F;
                     target.hurt(level.damageSources().magic(), finalDmg);
                     hitCount++;
-                    
-                    if (isCrit) {
-                        if (level instanceof ServerLevel sl) {
-                            sl.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0D, target.getZ(),
-                                    5, 0.2D, 0.2D, 0.2D, 0.1D);
-                        }
-                        
-                        CompoundTag targetNBT = target.getPersistentData();
-                        int currentTicks = targetNBT.getInt("xebCharredBurnTicks");
-                        int currentStack = targetNBT.getInt("xebCharredBurnStack");
-                        if (currentTicks > 0) {
-                            targetNBT.putInt("xebCharredBurnStack", currentStack + 1);
-                        } else {
-                            targetNBT.putInt("xebCharredBurnStack", 1);
-                        }
-                        targetNBT.putInt("xebCharredBurnTicks", 60);
-                        targetNBT.putUUID("xebCharredBurnAttacker", player.getUUID());
-                    }
                 }
             }
         }
-        
-        int finalRCD = 400;
+
+        // Cooldown reduction
         if (hitCount > 0) {
             int currentRCD = pData.getInt("xebHolyRCD");
-            finalRCD = Math.max(100, currentRCD - (hitCount * 13)); // minimum 5s (100 ticks)
+            int finalRCD = Math.max(0, currentRCD - (hitCount * 13));
             pData.putInt("xebHolyRCD", finalRCD);
-        }
-        if (finalRCD > 0) {
-            player.getCooldowns().addCooldown(this, finalRCD);
+            if (finalRCD > 0) {
+                player.getCooldowns().addCooldown(this, finalRCD);
+            }
+        } else {
+            player.getCooldowns().addCooldown(this, 400);
         }
     }
 
@@ -325,57 +303,53 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
                 }
             }
 
-            // Annihilation ticking (3 hits)
+            // Annihilation ticking — 3 vueltas con 7 daño cada una en 3x3
             if (pData.getBoolean("xebHolyAnnihilationActive")) {
                 int annTicks = pData.getInt("xebHolyAnnihilationTicks");
                 if (annTicks > 0) {
-                    if (annTicks == 6 || annTicks == 4 || annTicks == 2) {
-                        player.swing(InteractionHand.MAIN_HAND, true);
+                    int hits = pData.getInt("xebHolyAnnihilationHits");
+
+                    // Cada 10 ticks = 1 vuelta completa (3 vueltas total en 30 ticks)
+                    if (annTicks % 10 == 0 && hits < 3) {
+                        hits++;
+                        pData.putInt("xebHolyAnnihilationHits", hits);
+
+                        // Sonido de corte
                         level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                                SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 1.3F);
-                        
-                        AABB box = player.getBoundingBox().inflate(1.5D, 1.0D, 1.5D); // 3x3 area
-                        double baseDmg = 7.0D;
-                        
-                        boolean isBlessed = pData.getBoolean("xebHolyBlessedActive");
+                                SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 1.5F);
+
+                        // 3x3 AoE centrado en el player
+                        AABB box = player.getBoundingBox().inflate(1.5D, 1.0D, 1.5D);
+                        double baseDmg = 7.0D; // 7 daño por vuelta
+
+                        int blessedCharges = pData.getInt("xebHolyBlessedCharges");
+                        boolean isBlessed = blessedCharges > 0;
                         if (isBlessed) {
                             baseDmg *= 3.0D;
+                            pData.putInt("xebHolyBlessedCharges", blessedCharges - 1);
                         }
-                        
-                        boolean isCrit = isBlessed || (player.getRandom().nextFloat() < 0.25F);
-                        
+
                         List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, box, e -> e != player && e.isAlive());
                         for (LivingEntity target : targets) {
-                            float finalDmg = (float) baseDmg;
-                            if (isCrit) {
-                                finalDmg *= 1.5F;
-                            }
-                            target.hurt(player.damageSources().playerAttack(player), finalDmg);
-                            
-                            if (isCrit) {
-                                if (level instanceof ServerLevel sl) {
-                                    sl.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0D, target.getZ(),
-                                            6, 0.2D, 0.2D, 0.2D, 0.1D);
-                                    sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + 1.0D, target.getZ(),
-                                            4, 0.2D, 0.2D, 0.2D, 0.05D);
-                                }
-                                
-                                CompoundTag targetNBT = target.getPersistentData();
-                                int currentTicks = targetNBT.getInt("xebCharredBurnTicks");
-                                int currentStack = targetNBT.getInt("xebCharredBurnStack");
-                                if (currentTicks > 0) {
-                                    targetNBT.putInt("xebCharredBurnStack", currentStack + 1);
-                                } else {
-                                    targetNBT.putInt("xebCharredBurnStack", 1);
-                                }
-                                targetNBT.putInt("xebCharredBurnTicks", 60);
-                                targetNBT.putUUID("xebCharredBurnAttacker", player.getUUID());
+                            target.hurt(player.damageSources().playerAttack(player), (float) baseDmg);
+
+                            // Knockback hacia afuera del player
+                            Vec3 knockDir = target.position().subtract(player.position()).normalize();
+                            target.setDeltaMovement(knockDir.x * 0.8D, 0.3D, knockDir.z * 0.8D);
+                            target.hurtMarked = true;
+
+                            // Partículas sutiles
+                            if (level instanceof ServerLevel sl) {
+                                sl.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0D, target.getZ(),
+                                        3, 0.2D, 0.2D, 0.2D, 0.05D);
                             }
                         }
                     }
+
                     pData.putInt("xebHolyAnnihilationTicks", annTicks - 1);
                 } else {
                     pData.putBoolean("xebHolyAnnihilationActive", false);
+                    pData.remove("xebHolyAnnihilationHits");
                 }
             }
 

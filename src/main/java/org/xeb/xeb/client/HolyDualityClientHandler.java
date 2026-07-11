@@ -239,132 +239,155 @@ public class HolyDualityClientHandler {
         Player player = event.getEntity();
         boolean holdsHoly = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.HolyDualityBladeItem
                 || player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.HolyDualityBladeItem;
+        if (!holdsHoly) return;
 
-        if (holdsHoly) {
-            PlayerModel<AbstractClientPlayer> model = event.getRenderer().getModel();
-            
-            ItemStack stack = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.HolyDualityBladeItem
-                    ? player.getMainHandItem() : player.getOffhandItem();
-            int combo = player.getPersistentData().getInt("xebHolyComboStage");
-            float swingProgress = player.getAttackAnim(event.getPartialTick());
+        PlayerModel<AbstractClientPlayer> model = event.getRenderer().getModel();
+        PoseStack poseStack = event.getPoseStack();
 
-            // 1. Holy Crown (TBOI style) attached to head bone
-            PoseStack poseStack = event.getPoseStack();
-            poseStack.pushPose();
-            model.head.translateAndRotate(poseStack);
-            
-            double oscY = Math.sin((player.level().getGameTime() + event.getPartialTick()) * 0.1D) * 0.02D;
-            poseStack.translate(0.0D, -0.25D + oscY, 0.0D);
+        ItemStack stack = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.HolyDualityBladeItem
+                ? player.getMainHandItem() : player.getOffhandItem();
+        int combo = player.getPersistentData().getInt("xebHolyComboStage");
+        float swingProgress = player.getAttackAnim(event.getPartialTick());
+        boolean isAttacking = player.swingTime > 0;
+        boolean annihilation = player.getPersistentData().getBoolean("xebHolyAnnihilationActive");
+        boolean blessed = player.getPersistentData().getBoolean("xebHolyBlessedActive");
 
-            Matrix4f matrix = poseStack.last().pose();
-            VertexConsumer crownConsumer = event.getMultiBufferSource().getBuffer(RenderType.lightning());
-            
-            float radius = 0.35F;
-            
-            boolean blessed = player.getPersistentData().getBoolean("xebHolyBlessedActive");
-            boolean annihilation = player.getPersistentData().getBoolean("xebHolyAnnihilationActive");
-            
-            float r = 1.0F;
-            float g = blessed ? 1.0F : (annihilation ? 0.25F : 0.84F);
-            float b = blessed ? 0.93F : (annihilation ? 0.0F : 0.0F);
-            float a = 0.9F;
+        // === 1. HOLY CROWN — 3 picos (2 pequeños laterales, 1 grande en medio) ===
+        poseStack.pushPose();
+        model.head.translateAndRotate(poseStack);
+        // Pegada al hueso de la cabeza, ligeramente arriba
+        poseStack.translate(0.0D, -0.18D, 0.0D);
 
-            int segments = 12;
-            for (int j = 0; j < segments; j++) {
-                double angle1 = (j * 2.0D * Math.PI) / segments;
-                double angle2 = ((j + 1) * 2.0D * Math.PI) / segments;
+        Matrix4f matrix = poseStack.last().pose();
+        VertexConsumer crownConsumer = event.getMultiBufferSource().getBuffer(RenderType.lightning());
 
-                float x1 = (float) (Math.cos(angle1) * radius);
-                float z1 = (float) (Math.sin(angle1) * radius);
-                float x2 = (float) (Math.cos(angle2) * radius);
-                float z2 = (float) (Math.sin(angle2) * radius);
+        // Colores según estado
+        float r = 1.0F, g = 0.84F, b = 0.0F; // dorado normal
+        if (blessed) { r = 1.0F; g = 1.0F; b = 0.93F; } // blanco brillante
+        if (annihilation) { r = 1.0F; g = 0.25F; b = 0.0F; } // rojo sagrado
+        float a = 0.95F;
 
-                // Top rim
-                crownConsumer.vertex(matrix, x1, 0.08F, z1).color(r, g, b, a).endVertex();
-                crownConsumer.vertex(matrix, x2, 0.08F, z2).color(r, g, b, a).endVertex();
-                crownConsumer.vertex(matrix, x2, -0.02F, z2).color(r, g, b, a).endVertex();
-                crownConsumer.vertex(matrix, x1, -0.02F, z1).color(r, g, b, a).endVertex();
+        // Base de la corona (anillo)
+        float baseRadius = 0.28F;
+        float baseHeight = 0.06F;
+        int baseSegs = 10;
+        for (int j = 0; j < baseSegs; j++) {
+            double angle1 = (j * 2.0D * Math.PI) / baseSegs;
+            double angle2 = ((j + 1) * 2.0D * Math.PI) / baseSegs;
+            float x1 = (float) (Math.cos(angle1) * baseRadius);
+            float z1 = (float) (Math.sin(angle1) * baseRadius);
+            float x2 = (float) (Math.cos(angle2) * baseRadius);
+            float z2 = (float) (Math.sin(angle2) * baseRadius);
 
-                // 5 peaks arranged in an arc in the front (segments 0, 1, 2, 10, 11)
-                float peakY = 0.08F;
-                if (j == 0 || j == 1 || j == 2 || j == 10 || j == 11) {
-                    peakY = 0.28F;
-                }
+            crownConsumer.vertex(matrix, x1, 0.0F, z1).color(r, g, b, a).endVertex();
+            crownConsumer.vertex(matrix, x2, 0.0F, z2).color(r, g, b, a).endVertex();
+            crownConsumer.vertex(matrix, x2, baseHeight, z2).color(r, g, b, a).endVertex();
+            crownConsumer.vertex(matrix, x1, baseHeight, z1).color(r, g, b, a).endVertex();
+        }
 
-                if (peakY > 0.08F) {
-                    float xMid = (x1 + x2) * 0.5F;
-                    float zMid = (z1 + z2) * 0.5F;
-                    
-                    crownConsumer.vertex(matrix, x1, 0.08F, z1).color(r, g, b, a).endVertex();
-                    crownConsumer.vertex(matrix, x2, 0.08F, z2).color(r, g, b, a).endVertex();
-                    crownConsumer.vertex(matrix, xMid, peakY, zMid).color(r, g, b, a).endVertex();
-                    crownConsumer.vertex(matrix, x1, 0.08F, z1).color(r, g, b, a).endVertex();
-                }
-            }
-            poseStack.popPose();
+        // 3 PICOS: 2 pequeños laterales (izq y der) + 1 grande en medio (frente)
+        // Pico grande central (frente = -Z)
+        float bigPeakX = 0.0F, bigPeakZ = -baseRadius;
+        float bigPeakH = 0.35F;
+        float bigPeakW = 0.10F;
+        crownConsumer.vertex(matrix, bigPeakX - bigPeakW, baseHeight, bigPeakZ).color(r, g, b, a).endVertex();
+        crownConsumer.vertex(matrix, bigPeakX + bigPeakW, baseHeight, bigPeakZ).color(r, g, b, a).endVertex();
+        crownConsumer.vertex(matrix, bigPeakX + bigPeakW * 0.5F, baseHeight + bigPeakH, bigPeakZ).color(r, g, b, a).endVertex();
+        crownConsumer.vertex(matrix, bigPeakX - bigPeakW * 0.5F, baseHeight + bigPeakH, bigPeakZ).color(r, g, b, a).endVertex();
 
-            // 2. Arms rotations & custom body deformation
-            if (player.swingTime > 0) {
-                float swingAngle = Mth.sin(Mth.sqrt(swingProgress) * (float)Math.PI);
-                float swingAngleY = Mth.sin(swingProgress * (float)Math.PI);
-                
-                if (combo == 0) {
-                    // Right arm swings, left arm stays idle (Frieza stance)
-                    model.leftArm.xRot = 0.4F;
-                    model.leftArm.yRot = 0.0F;
-                    model.leftArm.zRot = -0.2F;
-                } else if (combo == 1) {
-                    // Left arm swings, right arm stays idle (Frieza stance)
-                    model.rightArm.xRot = 0.4F;
-                    model.rightArm.yRot = 0.0F;
-                    model.rightArm.zRot = 0.2F;
-                    
-                    model.leftArm.xRot = -0.6F - swingAngle * 1.2F;
-                    model.leftArm.yRot = 0.1F - swingAngleY * 0.4F;
-                    model.leftArm.zRot = 0.0F;
-                } else {
-                    // Both arms swing (Double slash X)
-                    // Deform player scale (squash/stretch)
-                    poseStack.pushPose();
-                    poseStack.scale(1.2F, 0.9F, 1.2F);
-                    
-                    model.body.xRot = 0.4F * swingAngle;
-                    
-                    // Cross arms in front
-                    model.rightArm.xRot = -0.8F + swingAngle * 1.5F;
-                    model.rightArm.yRot = -0.5F + swingAngle * 1.0F;
-                    model.rightArm.zRot = -0.5F;
-                    
-                    model.leftArm.xRot = -0.8F + swingAngle * 1.5F;
-                    model.leftArm.yRot = 0.5F - swingAngle * 1.0F;
-                    model.leftArm.zRot = 0.5F;
-                    
-                    player.getPersistentData().putBoolean("xebHolyPushedPose", true);
-                }
+        // Pico pequeño izquierdo (45° a la izquierda del frente)
+        double leftAngle = Math.PI * 0.75D; // 135°
+        float leftX = (float) (Math.cos(leftAngle) * baseRadius);
+        float leftZ = (float) (Math.sin(leftAngle) * baseRadius);
+        float smallH = 0.20F;
+        float smallW = 0.07F;
+        // Calcular dirección perpendicular para el ancho del pico
+        float perpLeftX = (float) Math.sin(leftAngle);
+        float perpLeftZ = -(float) Math.cos(leftAngle);
+        crownConsumer.vertex(matrix, leftX - perpLeftX * smallW, baseHeight, leftZ - perpLeftZ * smallW).color(r, g, b, a).endVertex();
+        crownConsumer.vertex(matrix, leftX + perpLeftX * smallW, baseHeight, leftZ + perpLeftZ * smallW).color(r, g, b, a).endVertex();
+        crownConsumer.vertex(matrix, leftX + perpLeftX * smallW * 0.5F, baseHeight + smallH, leftZ + perpLeftZ * smallW * 0.5F).color(r, g, b, a).endVertex();
+        crownConsumer.vertex(matrix, leftX - perpLeftX * smallW * 0.5F, baseHeight + smallH, leftZ - perpLeftZ * smallW * 0.5F).color(r, g, b, a).endVertex();
+
+        // Pico pequeño derecho (45° a la derecha del frente)
+        double rightAngle = Math.PI * 1.25D; // 225°
+        float rightX = (float) (Math.cos(rightAngle) * baseRadius);
+        float rightZ = (float) (Math.sin(rightAngle) * baseRadius);
+        float perpRightX = (float) Math.sin(rightAngle);
+        float perpRightZ = -(float) Math.cos(rightAngle);
+        crownConsumer.vertex(matrix, rightX - perpRightX * smallW, baseHeight, rightZ - perpRightZ * smallW).color(r, g, b, a).endVertex();
+        crownConsumer.vertex(matrix, rightX + perpRightX * smallW, baseHeight, rightZ + perpRightZ * smallW).color(r, g, b, a).endVertex();
+        crownConsumer.vertex(matrix, rightX + perpRightX * smallW * 0.5F, baseHeight + smallH, rightZ + perpRightZ * smallW * 0.5F).color(r, g, b, a).endVertex();
+        crownConsumer.vertex(matrix, rightX - perpRightX * smallW * 0.5F, baseHeight + smallH, rightZ - perpRightZ * smallW * 0.5F).color(r, g, b, a).endVertex();
+
+        poseStack.popPose();
+
+        // === 2. DEFORMACIÓN DEL PLAYER AL ATACAR ===
+        if (isAttacking) {
+            float swingAngle = Mth.sin(Mth.sqrt(swingProgress) * (float) Math.PI);
+
+            if (combo == 0) {
+                // Tajo derecho — deformar body hacia la derecha
+                poseStack.pushPose();
+                poseStack.scale(1.15F, 0.95F, 1.0F); // ensanchar X, aplastar Y
+                model.body.yRot = -0.3F * swingAngle;
+                model.rightArm.xRot = -1.8F * swingAngle;
+                model.rightArm.yRot = -0.2F;
+                model.leftArm.xRot = 0.3F;
+                model.leftArm.yRot = 0.3F;
+                player.getPersistentData().putBoolean("xebHolyPushedPose", true);
+            } else if (combo == 1) {
+                // Tajo izquierdo — deformar body hacia la izquierda
+                poseStack.pushPose();
+                poseStack.scale(1.15F, 0.95F, 1.0F);
+                model.body.yRot = 0.3F * swingAngle;
+                model.leftArm.xRot = -1.8F * swingAngle;
+                model.leftArm.yRot = 0.2F;
+                model.rightArm.xRot = 0.3F;
+                model.rightArm.yRot = -0.3F;
+                player.getPersistentData().putBoolean("xebHolyPushedPose", true);
             } else {
-                // Frieza idle stance: arms extended downwards, pointing slightly outward
-                model.rightArm.xRot = 0.4F;
-                model.rightArm.yRot = 0.0F;
-                model.rightArm.zRot = 0.2F;
-                
-                model.leftArm.xRot = 0.4F;
-                model.leftArm.yRot = 0.0F;
-                model.leftArm.zRot = -0.2F;
+                // Doble tajo en X — deformar body hacia adelante
+                poseStack.pushPose();
+                poseStack.scale(0.9F, 1.2F, 1.3F); // aplastar X, estirar Y y Z
+                model.body.xRot = 0.4F * swingAngle;
+                // Brazos cruzados en X
+                model.rightArm.xRot = -1.5F * swingAngle;
+                model.rightArm.yRot = -0.6F;
+                model.rightArm.zRot = -0.4F;
+                model.leftArm.xRot = -1.5F * swingAngle;
+                model.leftArm.yRot = 0.6F;
+                model.leftArm.zRot = 0.4F;
+                player.getPersistentData().putBoolean("xebHolyPushedPose", true);
             }
+        } else if (annihilation) {
+            // Annihilation: player girando
+            poseStack.pushPose();
+            float spinAngle = (player.level().getGameTime() + event.getPartialTick()) * 0.8F;
+            model.body.yRot = spinAngle;
+            // Brazos extendidos
+            model.rightArm.xRot = -1.2F;
+            model.rightArm.zRot = -0.8F;
+            model.leftArm.xRot = -1.2F;
+            model.leftArm.zRot = 0.8F;
+            player.getPersistentData().putBoolean("xebHolyPushedPose", true);
+        } else {
+            // Idle stance: brazos ligeramente bajos
+            model.rightArm.xRot = 0.2F;
+            model.rightArm.zRot = 0.1F;
+            model.leftArm.xRot = 0.2F;
+            model.leftArm.zRot = -0.1F;
+        }
 
-            // Render second sword in left hand
+        // === 3. SEGUNDA ESPADA EN MANO IZQUIERDA ===
+        if (!annihilation) {
             poseStack.pushPose();
             model.leftArm.translateAndRotate(poseStack);
-            
-            // Align with left hand
-            poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
+            // Alinear con la mano izquierda
+            poseStack.translate(0.0F, 0.15F, 0.0F);
+            poseStack.mulPose(Axis.XP.rotationDegrees(-80.0F));
             poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
-            poseStack.translate(-0.0625F, 0.125F, -0.625F);
-
-            // Rotate left-hand item slightly to point to floor in Frieza pose
-            if (player.swingTime <= 0) {
-                poseStack.mulPose(Axis.XP.rotationDegrees(35.0F));
-            }
+            poseStack.translate(0.0F, 0.0F, -0.1F);
 
             Minecraft.getInstance().getItemRenderer().renderStatic(
                     player,
@@ -389,10 +412,14 @@ public class HolyDualityClientHandler {
             player.getPersistentData().remove("xebHolyPushedPose");
             event.getPoseStack().popPose();
         }
-        // Reset model rotations
         PlayerModel<AbstractClientPlayer> model = event.getRenderer().getModel();
         model.body.xRot = 0.0F;
+        model.body.yRot = 0.0F;
+        model.leftArm.xRot = 0.0F;
+        model.rightArm.xRot = 0.0F;
         model.leftArm.yRot = 0.0F;
         model.rightArm.yRot = 0.0F;
+        model.leftArm.zRot = 0.0F;
+        model.rightArm.zRot = 0.0F;
     }
 }
