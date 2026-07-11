@@ -107,6 +107,12 @@ public class ActuarKeyPacket {
                     return;
                 }
 
+                // ── Flourish (button 4) — incrementa el mash counter del Beam Struggle activo ──
+                if (msg.button == 4 && msg.press) {
+                    org.xeb.xeb.beamstruggle.BeamStruggleManager.handleFlourishPress(player);
+                    return;
+                }
+
                 if (holdsGoldenFlower) {
                     if (msg.button == 1) {
                         // --- Flower Dance (Activa 1) ---

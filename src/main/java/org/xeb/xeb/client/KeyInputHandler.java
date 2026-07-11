@@ -128,6 +128,7 @@ public class KeyInputHandler {
                 while (ModKeyMappings.ACTIVA_1_KEY.consumeClick());
                 while (ModKeyMappings.ACTIVA_2_KEY.consumeClick());
                 while (ModKeyMappings.ACTIVA_3_KEY.consumeClick());
+                while (ModKeyMappings.FLOURISH_KEY.consumeClick());
                 wasBlockKeyHeld = false;
                 wasOpticActiva1Held = false;
                 wasOpticActiva2Held = false;
@@ -180,6 +181,12 @@ public class KeyInputHandler {
                 } else if (!isActiva2Down && wasOpticActiva2Held) {
                     XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(2, false));
                     wasOpticActiva2Held = false;
+                }
+
+                // Flourish (B) — spam click, envía un packet por cada click
+                if (ModKeyMappings.FLOURISH_KEY.consumeClick()) {
+                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(4, true));
+                    org.xeb.xeb.client.renderer.BeamStruggleRenderer.recordLocalMash(mc.player.getId());
                 }
 
                 wasBlockKeyHeld = false;

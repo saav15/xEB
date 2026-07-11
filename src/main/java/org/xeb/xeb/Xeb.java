@@ -204,6 +204,7 @@ public class Xeb {
             event.register(org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY);
             event.register(org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY);
             event.register(org.xeb.xeb.client.ModKeyMappings.ACTIVA_3_KEY);
+            event.register(org.xeb.xeb.client.ModKeyMappings.FLOURISH_KEY);
         }
 
         @SubscribeEvent

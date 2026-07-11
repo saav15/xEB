@@ -66,6 +66,11 @@ public class OpticBlastTickHandler {
         // Clean up expired beams
         ActiveBeamManager.get().tickBeams(currentTick);
 
+        // Collect external beams and tick struggle decay/timers
+        net.minecraft.server.level.ServerLevel mainLevel = server.overworld();
+        org.xeb.xeb.beamstruggle.ExternalBeamRegistry.collectBeams(mainLevel);
+        org.xeb.xeb.beamstruggle.BeamStruggleManager.onServerTick(mainLevel, currentTick);
+
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (!player.isAlive()) continue;
 
@@ -181,9 +186,46 @@ public class OpticBlastTickHandler {
                 effectiveEnd = beamCollision;
                 hitEntity = null;
 
-                level.sendParticles(ParticleTypes.FLASH, beamCollision.x, beamCollision.y, beamCollision.z,
+                // Buscar el otro beam owner para iniciar/actualizar el Beam Struggle
+                UUID otherOwnerUUID = null;
+                Vec3 otherStart = null;
+
+                for (BeamData otherBeam : ActiveBeamManager.get().getActiveBeams()) {
+                    if (!otherBeam.getOwnerUUID().equals(ownerUUID)) {
+                        otherOwnerUUID = otherBeam.getOwnerUUID();
+                        otherStart = otherBeam.getStart();
+                        break;
+                    }
+                }
+
+                if (otherOwnerUUID == null) {
+                    // Check external beams
+                    for (org.xeb.xeb.beamstruggle.ExternalBeamRegistry.ExternalBeamData otherBeam : org.xeb.xeb.beamstruggle.ExternalBeamRegistry.getCurrentTickBeams()) {
+                        if (!otherBeam.ownerUUID().equals(ownerUUID)) {
+                            otherOwnerUUID = otherBeam.ownerUUID();
+                            otherStart = otherBeam.start();
+                            break;
+                        }
+                    }
+                }
+
+                if (otherOwnerUUID != null && otherStart != null) {
+                    boolean struggleActive = org.xeb.xeb.beamstruggle.BeamStruggleManager.onBeamCollision(
+                            ownerUUID, otherOwnerUUID,
+                            eyePos, otherStart, beamCollision,
+                            currentTick, level
+                    );
+                    if (struggleActive) {
+                        Vec3 currentCollision = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(ownerUUID);
+                        if (currentCollision != null) {
+                            effectiveEnd = currentCollision;
+                        }
+                    }
+                }
+
+                level.sendParticles(ParticleTypes.FLASH, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
                         1, 0.0D, 0.0D, 0.0D, 0.0D);
-                level.sendParticles(ParticleTypes.ELECTRIC_SPARK, beamCollision.x, beamCollision.y, beamCollision.z,
+                level.sendParticles(ParticleTypes.ELECTRIC_SPARK, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
                         8, 0.3D, 0.3D, 0.3D, 0.05D);
             }
         }

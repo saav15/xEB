@@ -188,5 +188,8 @@
   "subtitles.xeb.absorbflowerclone": "Clon absorbido",
   "subtitles.xeb.flowerdance": "¡Flower Dance!",
   "subtitles.xeb.flowerdancefake": "¡Flower Dance...? No, fake.",
-  "curios.identifier.ultimate": "Ultimate"
+  "curios.identifier.ultimate": "Ultimate",
+  "key.xeb.flourish": "Flourish",
+  "hud.xeb.beam_struggle.title": "DUELO DE RAYOS",
+  "hud.xeb.beam_struggle.mash": "¡PULSA %s!"
 }

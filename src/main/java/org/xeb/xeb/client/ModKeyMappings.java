@@ -27,4 +27,11 @@ public class ModKeyMappings {
             GLFW.GLFW_KEY_N,
             KEY_CATEGORY_XEB
     );
+
+    public static final KeyMapping FLOURISH_KEY = new KeyMapping(
+            "key.xeb.flourish",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_B,
+            KEY_CATEGORY_XEB
+    );
 }

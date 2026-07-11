@@ -99,6 +99,32 @@ public class ActiveBeamManager {
             }
         }
 
+        // Also check external beams!
+        for (org.xeb.xeb.beamstruggle.ExternalBeamRegistry.ExternalBeamData other : org.xeb.xeb.beamstruggle.ExternalBeamRegistry.getCurrentTickBeams()) {
+            if (other.ownerUUID().equals(ownerUUID)) continue;
+
+            Vec3 otherStart = other.start();
+            Vec3 otherEnd = other.end();
+
+            List<AABB> mySegments = discretizeBeam(beamStart, beamEnd, halfWidth);
+            List<AABB> otherSegments = discretizeBeam(otherStart, otherEnd, halfWidth);
+
+            for (int i = 0; i < mySegments.size(); i++) {
+                AABB myBox = mySegments.get(i);
+                for (AABB otherBox : otherSegments) {
+                    if (myBox.intersects(otherBox)) {
+                        Vec3 dir = beamEnd.subtract(beamStart).normalize();
+                        Vec3 collisionPoint = beamStart.add(dir.scale(i + 0.5D));
+                        double dist = beamStart.distanceToSqr(collisionPoint);
+                        if (dist < closestDist) {
+                            closestDist = dist;
+                            closestCollision = collisionPoint;
+                        }
+                    }
+                }
+            }
+        }
+
         return closestCollision;
     }
 

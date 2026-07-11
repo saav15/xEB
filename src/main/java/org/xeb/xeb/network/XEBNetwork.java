@@ -39,6 +39,8 @@ public class XEBNetwork {
         CHANNEL.registerMessage(id++, TearsLeftClickPacket.class, TearsLeftClickPacket::encode, TearsLeftClickPacket::decode, TearsLeftClickPacket::handle);
         CHANNEL.registerMessage(id++, TearsSyncPacket.class, TearsSyncPacket::encode, TearsSyncPacket::decode, TearsSyncPacket::handle);
         CHANNEL.registerMessage(id++, EliteMasterySyncPacket.class, EliteMasterySyncPacket::encode, EliteMasterySyncPacket::decode, EliteMasterySyncPacket::handle);
+        CHANNEL.registerMessage(id++, BeamStrugglePacket.class, BeamStrugglePacket::encode, BeamStrugglePacket::decode, BeamStrugglePacket::handle);
+        CHANNEL.registerMessage(id++, BeamStruggleEndPacket.class, BeamStruggleEndPacket::encode, BeamStruggleEndPacket::decode, BeamStruggleEndPacket::handle);
     }
 
     public static class EliteMasterySyncPacket {
