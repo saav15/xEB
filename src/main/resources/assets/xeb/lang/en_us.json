@@ -199,5 +199,15 @@
   "hud.xeb.beam_struggle.title": "BEAM STRUGGLE",
   "hud.xeb.beam_struggle.mash": "MASH %s!",
   "hud.xeb.beam_struggle.prep": "GET READY!",
-  "hud.xeb.beam_struggle.prep_sub": "The duel begins..."
+  "hud.xeb.beam_struggle.prep_sub": "The duel begins...",
+  "item.xeb.mecha_overdrive": "The Mecha II Core",
+  "item.xeb.mecha_overdrive.desc1": "§eA heavy mecha core that channels jet propulsion.",
+  "item.xeb.mecha_overdrive.desc2": "§eSkates on the ground and hovers in the air.",
+  "item.xeb.mecha_overdrive.desc3": "§b§o\"Sonic style overdrive.\"",
+  "item.xeb.holy_duality_blade": "The Holy Crown",
+  "item.xeb.holy_duality_blade.desc1": "§eA dual holy blade that represents the creator and destroyer.",
+  "item.xeb.holy_duality_blade.desc2": "§eSwings in alternating patterns and blocks enemy strikes.",
+  "item.xeb.holy_duality_blade.desc3": "§b§o\"A crown of thorns and gold.\"",
+  "entity.xeb.mecha_vulcan_projectile": "Laser Pellet",
+  "entity.xeb.homing_missile": "Homing Missile"
 }

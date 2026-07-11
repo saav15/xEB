@@ -465,7 +465,7 @@ public class TheTearsItem extends Item {
             if (beamCollision != null) {
                 double collisionDist = mouthPos.distanceToSqr(beamCollision);
                 double currentEndDist = mouthPos.distanceToSqr(renderEnd);
-                if (collisionDist < currentEndDist) {
+                if (collisionDist < currentEndDist + 4.0D) {
                     // Buscar el otro beam owner para iniciar struggle
                     UUID otherOwnerUUID = null;
                     Vec3 otherStart = null;

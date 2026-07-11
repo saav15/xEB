@@ -12,6 +12,14 @@ import org.xeb.xeb.medallion.MedallionManager;
 import org.xeb.xeb.network.BuffParticlePacket;
 import org.xeb.xeb.network.XEBNetwork;
 import org.xeb.xeb.util.DodgeHelper;
+import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
@@ -43,6 +51,20 @@ public class BuffDamageHandler {
         LivingEntity target = event.getEntity();
         if (target == null) return;
 
+        if (target instanceof net.minecraft.world.entity.player.Player player && player.getPersistentData().getBoolean("xebHolyShieldActive")) {
+            event.setCanceled(true);
+            player.getPersistentData().putBoolean("xebHolyShieldActive", false);
+            Level level = player.level();
+            if (!level.isClientSide()) {
+                level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                        SoundEvents.SHIELD_BREAK, SoundSource.PLAYERS, 1.2F, 0.8F);
+                if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                    org.xeb.xeb.item.HolyDualityBladeItem.syncToClient(serverPlayer);
+                }
+            }
+            return;
+        }
+
         // Custom weapon generic left-click tracker (N23)
         if (!target.level().isClientSide()) {
             if (event.getSource().getEntity() instanceof net.minecraft.world.entity.player.Player attackerPlayer) {
@@ -58,6 +80,10 @@ public class BuffDamageHandler {
                     weaponName = "golden_flower";
                 } else if (held.is(org.xeb.xeb.item.ModItems.THE_TEARS.get())) {
                     weaponName = "the_tears";
+                } else if (held.getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem) {
+                    weaponName = "mecha";
+                } else if (held.getItem() instanceof org.xeb.xeb.item.HolyDualityBladeItem) {
+                    weaponName = "holy";
                 }
 
                 if (weaponName != null) {
@@ -797,6 +823,47 @@ public class BuffDamageHandler {
                 // Immediately consume protection tags
                 tag.remove("xebDoomfistFallProtect");
                 tag.remove("xebFallProtectGroundTicks");
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingTick(net.minecraftforge.event.entity.living.LivingEvent.LivingTickEvent event) {
+        LivingEntity entity = event.getEntity();
+        if (entity == null || entity.level().isClientSide()) return;
+        
+        net.minecraft.nbt.CompoundTag tag = entity.getPersistentData();
+        if (tag.contains("xebCharredBurnTicks")) {
+            int ticks = tag.getInt("xebCharredBurnTicks");
+            if (ticks > 0) {
+                tag.putInt("xebCharredBurnTicks", ticks - 1);
+                
+                int stack = tag.getInt("xebCharredBurnStack");
+                if (stack <= 0) stack = 1;
+                
+                if (entity.level() instanceof ServerLevel sl && entity.level().getGameTime() % 2 == 0) {
+                    sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, entity.getX(), entity.getY() + entity.getBbHeight() / 2.0D, entity.getZ(),
+                            2 * stack, 0.3D, 0.3D, 0.3D, 0.01D);
+                }
+                
+                if (ticks % 20 == 0) {
+                    float dmg = 2.0F * stack;
+                    LivingEntity attacker = null;
+                    if (tag.hasUUID("xebCharredBurnAttacker")) {
+                        Entity found = ((ServerLevel)entity.level()).getEntity(tag.getUUID("xebCharredBurnAttacker"));
+                        if (found instanceof LivingEntity) {
+                            attacker = (LivingEntity) found;
+                        }
+                    }
+                    DamageSource source = attacker != null 
+                            ? entity.level().damageSources().magic() 
+                            : entity.level().damageSources().magic();
+                    entity.hurt(source, dmg);
+                }
+            } else {
+                tag.remove("xebCharredBurnTicks");
+                tag.remove("xebCharredBurnStack");
+                tag.remove("xebCharredBurnAttacker");
             }
         }
     }

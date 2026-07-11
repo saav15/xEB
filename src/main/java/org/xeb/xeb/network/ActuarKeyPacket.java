@@ -15,6 +15,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.PacketDistributor;
 import org.xeb.xeb.item.ModItems;
+import org.xeb.xeb.item.MechaOverdriveItem;
+import org.xeb.xeb.item.HolyDualityBladeItem;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 
@@ -60,9 +62,13 @@ public class ActuarKeyPacket {
                         || player.getItemInHand(InteractionHand.OFF_HAND).is(ModItems.BROKEN_DIAMOND.get());
                 boolean holdsTears = player.getItemInHand(InteractionHand.MAIN_HAND).is(ModItems.THE_TEARS.get())
                         || player.getItemInHand(InteractionHand.OFF_HAND).is(ModItems.THE_TEARS.get());
+                boolean holdsMecha = player.getItemInHand(InteractionHand.MAIN_HAND).getItem() instanceof MechaOverdriveItem
+                        || player.getItemInHand(InteractionHand.OFF_HAND).getItem() instanceof MechaOverdriveItem;
+                boolean holdsHoly = player.getItemInHand(InteractionHand.MAIN_HAND).getItem() instanceof HolyDualityBladeItem
+                        || player.getItemInHand(InteractionHand.OFF_HAND).getItem() instanceof HolyDualityBladeItem;
                 boolean hasUltimate = org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player);
 
-                if (!holdsV1 && !holdsV2 && !holdsOpticBlast && !holdsGoldenFlower && !holdsCD && !holdsTears && !hasUltimate) return;
+                if (!holdsV1 && !holdsV2 && !holdsOpticBlast && !holdsGoldenFlower && !holdsCD && !holdsTears && !holdsMecha && !holdsHoly && !hasUltimate) return;
 
                 long time = player.level().getGameTime();
 
@@ -554,6 +560,208 @@ public class ActuarKeyPacket {
                                 player.level().playSound(null, player, SoundEvents.BAT_TAKEOFF, SoundSource.PLAYERS, 1.0F, 1.5F);
                                 player.level().playSound(null, player, SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 0.6F, 1.6F);
                             }
+                        }
+                    } else if (holdsMecha) {
+                        if (msg.button == 1) {
+                            if (msg.press) {
+                                if (player.getPersistentData().getInt("xebMechaA1Cooldown") <= 0) {
+                                    double speed = player.getPersistentData().getDouble("xebMechaKineticSpeed");
+                                    if (speed > 0.4D) {
+                                        // Jet Dash
+                                        player.getPersistentData().putBoolean("xebMechaOverdriveDashing", true);
+                                        player.getPersistentData().putInt("xebMechaDashTicks", 12);
+                                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                                SoundEvents.TRIDENT_RIPTIDE_1, SoundSource.PLAYERS, 1.0F, 1.2F);
+                                        player.getPersistentData().putInt("xebMechaA1Cooldown", 160); // 8s
+                                    } else {
+                                        // Spindash Charge Start
+                                        player.getPersistentData().putInt("xebMechaSpindashState", 1);
+                                        player.getPersistentData().putInt("xebMechaSpindashCharge", 0);
+                                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                                SoundEvents.MINECART_RIDING, SoundSource.PLAYERS, 0.8F, 1.5F);
+                                    }
+                                    org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
+                                }
+                            } else {
+                                // Spindash Release
+                                if (player.getPersistentData().getInt("xebMechaSpindashState") == 1) {
+                                    int charge = player.getPersistentData().getInt("xebMechaSpindashCharge");
+                                    int duration = 20 + charge;
+                                    player.getPersistentData().putInt("xebMechaSpindashState", 3); // ATTACKING
+                                    player.getPersistentData().putInt("xebMechaSpindashTicks", duration);
+                                    player.getPersistentData().putInt("xebSpindashHitCount", 0);
+
+                                    Vec3 look = player.getLookAngle().normalize();
+                                    double mult = 1.0D + charge * 0.05D;
+                                    player.setDeltaMovement(look.x * mult * 1.5D, player.getDeltaMovement().y, look.z * mult * 1.5D);
+                                    player.hurtMarked = true;
+
+                                    player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                            SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.2F, 1.0F);
+                                    player.getPersistentData().putInt("xebMechaA1Cooldown", 160); // 8s
+                                    org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
+                                }
+                            }
+                        } else if (msg.button == 2 && msg.press) {
+                            if (player.getPersistentData().getInt("xebMechaA2Cooldown") <= 0) {
+                                List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(20.0D),
+                                        e -> e != player && e.isAlive() && !(e instanceof Player p && p.isAlliedTo(player)));
+                                if (!targets.isEmpty()) {
+                                    if (targets.size() > 5) {
+                                        targets = targets.subList(0, 5);
+                                    }
+                                    StringBuilder sb = new StringBuilder();
+                                    for (int i = 0; i < targets.size(); i++) {
+                                        sb.append(targets.get(i).getUUID().toString());
+                                        if (i < targets.size() - 1) sb.append(",");
+                                    }
+                                    player.getPersistentData().putString("xebMechaMissileTargets", sb.toString());
+                                    player.getPersistentData().putBoolean("xebMechaMissileSalvoFiring", true);
+                                    player.getPersistentData().putInt("xebMechaMissileSalvoTicks", targets.size() * 4);
+                                    player.getPersistentData().putInt("xebMechaA2Cooldown", 300); // 15s
+                                    org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
+                                }
+                            }
+                        } else if (msg.button == 5 && msg.press) {
+                            // Mecha Drill Punch (Left click)
+                            AABB area = player.getBoundingBox().move(player.getLookAngle().normalize().scale(1.5D)).inflate(1.5D, 1.0D, 1.5D);
+                            List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive());
+                            double speed = player.getPersistentData().getDouble("xebMechaKineticSpeed");
+                            double baseDamage = 6.0D; // TODO: balancear daño
+                            double multiplier = 1.0D + speed * 1.5D; // TODO: calcular multiplicador basado en la velocidad
+                            double finalDmg = baseDamage * multiplier;
+
+                            for (LivingEntity target : targets) {
+                                target.hurt(player.damageSources().playerAttack(player), (float) finalDmg);
+                                Vec3 knock = player.getLookAngle().normalize().add(0, 0.5D, 0).scale(1.8D);
+                                target.setDeltaMovement(knock.x, knock.y, knock.z);
+                                target.hurtMarked = true;
+                            }
+
+                            Vec3 recoil = player.getLookAngle().normalize().scale(-0.4D);
+                            player.setDeltaMovement(player.getDeltaMovement().add(recoil.x, 0.0D, recoil.z));
+                            player.hurtMarked = true;
+
+                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                    SoundEvents.ANVIL_PLACE, SoundSource.PLAYERS, 0.8F, 1.5F);
+                        }
+                    } else if (holdsHoly) {
+                        if (msg.button == 1 && msg.press) {
+                            if (player.getPersistentData().getInt("xebHolyA1Cooldown") <= 0) {
+                                player.getPersistentData().putBoolean("xebHolyShieldActive", true);
+                                player.getPersistentData().putInt("xebHolyBlessedCharges", 3);
+                                player.getPersistentData().putInt("xebHolyA1Cooldown", 333); // 16.66s (333 ticks)
+                                org.xeb.xeb.item.HolyDualityBladeItem.syncToClient((ServerPlayer) player);
+                            }
+                        } else if (msg.button == 2 && msg.press) {
+                            if (player.getPersistentData().getInt("xebHolyA2Cooldown") <= 0) {
+                                double maxDist = 10.0D;
+                                net.minecraft.world.phys.HitResult hit = player.pick(maxDist, 1.0F, false);
+                                Vec3 targetVec = hit.getLocation();
+                                
+                                player.teleportTo(targetVec.x, targetVec.y, targetVec.z);
+                                player.getPersistentData().putBoolean("xebHolyAnnihilationActive", true);
+                                player.getPersistentData().putInt("xebHolyAnnihilationTicks", 6); // lasts 6 ticks
+                                player.getPersistentData().putDouble("xebHolyAnnihilationX", targetVec.x);
+                                player.getPersistentData().putDouble("xebHolyAnnihilationY", targetVec.y);
+                                player.getPersistentData().putDouble("xebHolyAnnihilationZ", targetVec.z);
+                                player.getPersistentData().putInt("xebHolyA2Cooldown", 133); // 6.66s (133 ticks)
+                                org.xeb.xeb.item.HolyDualityBladeItem.syncToClient((ServerPlayer) player);
+                            }
+                        } else if (msg.button == 5 && msg.press) {
+                            // Holy Left Click combo
+                            net.minecraft.world.item.ItemStack stack = player.getMainHandItem().is(ModItems.HOLY_DUALITY_BLADE.get())
+                                    ? player.getMainHandItem() : player.getOffhandItem();
+                            int combo = stack.getOrCreateTag().getInt("xebHolyComboStage"); // 0, 1, 2
+                            
+                            AABB box;
+                            double baseDmg = 4.0D; // TODO: balancear daño
+                            
+                            if (combo == 0) {
+                                // Right slash
+                                Vec3 cross = player.getLookAngle().normalize().cross(new Vec3(0, 1, 0)).normalize();
+                                box = player.getBoundingBox().move(cross.scale(1.2D)).inflate(1.5D);
+                            } else if (combo == 1) {
+                                // Left slash
+                                Vec3 cross = player.getLookAngle().normalize().cross(new Vec3(0, 1, 0)).normalize();
+                                box = player.getBoundingBox().move(cross.scale(-1.2D)).inflate(1.5D);
+                            } else {
+                                // Double slash (X)
+                                box = player.getBoundingBox().move(player.getLookAngle().normalize().scale(1.5D)).inflate(2.0D, 1.5D, 2.0D);
+                                baseDmg = 8.0D; // TODO: balancear daño
+                            }
+
+                            // Advance combo stage
+                            int nextCombo = (combo + 1) % 3;
+                            stack.getOrCreateTag().putInt("xebHolyComboStage", nextCombo);
+
+                            // Check for "After Creation" blessing charges
+                            int blessedCharges = player.getPersistentData().getInt("xebHolyBlessedCharges");
+                            boolean isBlessed = blessedCharges > 0;
+                            if (isBlessed) {
+                                baseDmg *= 3.0D; // 200% more damage (3x damage)
+                                player.getPersistentData().putInt("xebHolyBlessedCharges", blessedCharges - 1);
+                            }
+
+                            // 25% chance of critical hit (The Burn of God!) OR guaranteed crit if blessed
+                            boolean isCrit = isBlessed || (player.getRandom().nextFloat() < 0.25F);
+
+                            List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, box, e -> e != player && e.isAlive());
+                            for (LivingEntity target : targets) {
+                                float finalDmg = (float) baseDmg;
+                                if (isCrit) {
+                                    finalDmg *= 1.5F; // critical damage multiplier
+                                }
+                                
+                                target.hurt(player.damageSources().playerAttack(player), finalDmg);
+
+                                if (isCrit) {
+                                    if (player.level() instanceof ServerLevel sl) {
+                                        sl.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0D, target.getZ(),
+                                                8, 0.2D, 0.2D, 0.2D, 0.15D);
+                                        sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + 1.0D, target.getZ(),
+                                                5, 0.2D, 0.2D, 0.2D, 0.05D);
+                                        sl.sendParticles(ParticleTypes.LAVA, target.getX(), target.getY() + 1.0D, target.getZ(),
+                                                3, 0.1D, 0.1D, 0.1D, 0.0D);
+                                    }
+                                    
+                                    // Apply Charred Burn for 3 seconds (60 ticks)
+                                    net.minecraft.nbt.CompoundTag targetNBT = target.getPersistentData();
+                                    int currentTicks = targetNBT.getInt("xebCharredBurnTicks");
+                                    int currentStack = targetNBT.getInt("xebCharredBurnStack");
+                                    if (currentTicks > 0) {
+                                        targetNBT.putInt("xebCharredBurnStack", currentStack + 1);
+                                    } else {
+                                        targetNBT.putInt("xebCharredBurnStack", 1);
+                                    }
+                                    targetNBT.putInt("xebCharredBurnTicks", 60);
+                                    targetNBT.putUUID("xebCharredBurnAttacker", player.getUUID());
+                                }
+
+                                net.minecraft.nbt.CompoundTag targetNBT = target.getPersistentData();
+                                long lastHitTime = targetNBT.getLong("xebLastHolyHitTime");
+                                int lastCombo = targetNBT.getInt("xebLastHolyCombo");
+                                long now = player.level().getGameTime();
+
+                                if (now - lastHitTime <= 15 && lastCombo != combo) {
+                                    // Stagger
+                                    target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 9));
+                                    player.level().playSound(null, target.getX(), target.getY(), target.getZ(),
+                                            SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 1.0F, 1.5F);
+                                }
+
+                                targetNBT.putLong("xebLastHolyHitTime", now);
+                                targetNBT.putInt("xebLastHolyCombo", combo);
+                            }
+
+                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                    SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 1.2F);
+                            if (combo == 2) {
+                                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                        SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 1.5F);
+                            }
+                            player.swing(InteractionHand.MAIN_HAND, true);
+                            org.xeb.xeb.item.HolyDualityBladeItem.syncToClient((ServerPlayer) player);
                         }
                     }
                 }

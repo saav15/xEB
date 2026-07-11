@@ -238,4 +238,38 @@ public class ClientPacketHandler {
     public static void handlePermanightSync(PermanightSyncPacket msg) {
         org.xeb.xeb.client.PermanightClientRenderer.isPermanightActive = msg.isActive();
     }
+
+    public static void handleMechaSync(MechaSyncPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            net.minecraft.world.entity.Entity entity = mc.level.getEntity(msg.getEntityId());
+            if (entity instanceof net.minecraft.world.entity.player.Player player) {
+                net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
+                tag.putBoolean("xebMechaJetActive", msg.isJetActive());
+                tag.putBoolean("xebMechaVulcanFiring", msg.isVulcanFiring());
+                tag.putInt("xebMechaSpindashState", msg.getSpindashState());
+                tag.putBoolean("xebMechaOverdriveDashing", msg.isDashing());
+                tag.putInt("xebMechaA1Cooldown", msg.getA1Cooldown());
+                tag.putInt("xebMechaA2Cooldown", msg.getA2Cooldown());
+                tag.putDouble("xebMechaKineticSpeed", msg.getKineticSpeed());
+            }
+        }
+    }
+
+    public static void handleHolySync(HolySyncPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            net.minecraft.world.entity.Entity entity = mc.level.getEntity(msg.getEntityId());
+            if (entity instanceof net.minecraft.world.entity.player.Player player) {
+                net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
+                tag.putBoolean("xebHolyShieldActive", msg.isParrying());
+                tag.putInt("xebHolyCrownState", msg.getCrownState());
+                tag.putInt("xebHolyCrownTicks", msg.getCrownTicks());
+                tag.putBoolean("xebHolyAnnihilationActive", msg.isCrossSlashActive());
+                tag.putInt("xebHolyA1Cooldown", msg.getA1Cooldown());
+                tag.putInt("xebHolyA2Cooldown", msg.getA2Cooldown());
+                tag.putInt("xebHolyComboStage", msg.getComboStage());
+            }
+        }
+    }
 }

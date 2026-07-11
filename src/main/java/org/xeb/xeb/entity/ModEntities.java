@@ -109,6 +109,22 @@ public class ModEntities {
                     .build("hot_poker")
     );
 
+    public static final RegistryObject<EntityType<MechaVulcanProjectileEntity>> MECHA_VULCAN_PROJECTILE = ENTITY_TYPES.register("mecha_vulcan_projectile",
+            () -> EntityType.Builder.<MechaVulcanProjectileEntity>of(MechaVulcanProjectileEntity::new, MobCategory.MISC)
+                    .sized(0.2F, 0.2F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("mecha_vulcan_projectile")
+    );
+
+    public static final RegistryObject<EntityType<HomingMissileEntity>> HOMING_MISSILE = ENTITY_TYPES.register("homing_missile",
+            () -> EntityType.Builder.<HomingMissileEntity>of(HomingMissileEntity::new, MobCategory.MISC)
+                    .sized(0.3F, 0.3F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("homing_missile")
+    );
+
     public static void register(IEventBus eventBus) {
         ENTITY_TYPES.register(eventBus);
     }

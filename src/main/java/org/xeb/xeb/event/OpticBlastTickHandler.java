@@ -219,7 +219,7 @@ public class OpticBlastTickHandler {
             if (beamCollision != null) {
                 double collisionDist = eyePos.distanceToSqr(beamCollision);
                 double currentEndDist = eyePos.distanceToSqr(effectiveEnd);
-                if (collisionDist < currentEndDist) {
+                if (collisionDist < currentEndDist + 4.0D) {
                     // Buscar el otro beam
                     UUID otherOwnerUUID = null;
                     Vec3 otherStart = null;

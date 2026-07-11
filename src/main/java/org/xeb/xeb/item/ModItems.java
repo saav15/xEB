@@ -70,6 +70,12 @@ public class ModItems {
     public static final RegistryObject<Item> THE_TEARS = ITEMS.register("the_tears",
             () -> new org.xeb.xeb.item.TheTearsItem(new Item.Properties().stacksTo(1).rarity(net.minecraft.world.item.Rarity.EPIC)));
 
+    public static final RegistryObject<Item> MECHA_OVERDRIVE = ITEMS.register("mecha_overdrive",
+            () -> new MechaOverdriveItem(new Item.Properties().stacksTo(1)));
+
+    public static final RegistryObject<Item> HOLY_DUALITY_BLADE = ITEMS.register("holy_duality_blade",
+            () -> new HolyDualityBladeItem(new Item.Properties().stacksTo(1)));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }

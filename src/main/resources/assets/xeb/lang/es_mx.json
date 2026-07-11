@@ -196,5 +196,15 @@
   "hud.xeb.beam_struggle.title": "DUELO DE RAYOS",
   "hud.xeb.beam_struggle.mash": "¡PULSA %s!",
   "hud.xeb.beam_struggle.prep": "¡PREPÁRATE!",
-  "hud.xeb.beam_struggle.prep_sub": "El duelo comienza..."
+  "hud.xeb.beam_struggle.prep_sub": "El duelo comienza...",
+  "item.xeb.mecha_overdrive": "The Mecha II Core",
+  "item.xeb.mecha_overdrive.desc1": "§eUn pesado núcleo mecha que canaliza propulsión a chorro.",
+  "item.xeb.mecha_overdrive.desc2": "§eSe desliza por el suelo y flota en el aire.",
+  "item.xeb.mecha_overdrive.desc3": "§b§o\"Sobrecarga al estilo Sonic.\"",
+  "item.xeb.holy_duality_blade": "The Holy Crown",
+  "item.xeb.holy_duality_blade.desc1": "§eUna espada sagrada dual que representa al creador y destructor.",
+  "item.xeb.holy_duality_blade.desc2": "§eGolpea en patrones alternantes y bloquea ataques enemigos.",
+  "item.xeb.holy_duality_blade.desc3": "§b§o\"Una corona de espinas y oro.\"",
+  "entity.xeb.mecha_vulcan_projectile": "Perdigón Láser",
+  "entity.xeb.homing_missile": "Misil Teledirigido"
 }

@@ -31,6 +31,8 @@ public class DoomfistHUDOverlay {
             boolean holdsFlower = mainHand.is(org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get()) || offHand.is(org.xeb.xeb.item.ModItems.GOLDEN_FLOWER.get());
             boolean holdsCD = mainHand.is(org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get()) || offHand.is(org.xeb.xeb.item.ModItems.BROKEN_DIAMOND.get());
             boolean holdsTears = mainHand.is(org.xeb.xeb.item.ModItems.THE_TEARS.get()) || offHand.is(org.xeb.xeb.item.ModItems.THE_TEARS.get());
+            boolean holdsMecha = mainHand.getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem || offHand.getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem;
+            boolean holdsHoly = mainHand.getItem() instanceof org.xeb.xeb.item.HolyDualityBladeItem || offHand.getItem() instanceof org.xeb.xeb.item.HolyDualityBladeItem;
             boolean hasUltimate = org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player);
             
             if (holdsV1 || holdsV2) {
@@ -50,7 +52,17 @@ public class DoomfistHUDOverlay {
                 if (hasUltimate) {
                     renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
                 }
-            } else if (!holdsOptic && !holdsFlower && !holdsCD && !holdsTears && hasUltimate) {
+            } else if (holdsMecha) {
+                renderMechaAbilityCooldowns(event, mc, player);
+                if (hasUltimate) {
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                }
+            } else if (holdsHoly) {
+                renderHolyAbilityCooldowns(event, mc, player);
+                if (hasUltimate) {
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                }
+            } else if (!holdsOptic && !holdsFlower && !holdsCD && !holdsTears && !holdsMecha && !holdsHoly && hasUltimate) {
                 renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
             }
 
@@ -561,6 +573,124 @@ public class DoomfistHUDOverlay {
                     if (angle <= maxAngle) {
                         g.fill(cx + x, cy + y, cx + x + 1, cy + y + 1, color);
                     }
+                }
+            }
+        }
+    }
+
+    private static void renderMechaAbilityCooldowns(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player) {
+        int width = event.getWindow().getGuiScaledWidth();
+        int height = event.getWindow().getGuiScaledHeight();
+        
+        int xStart = org.xeb.xeb.Config.opticBlastHudX;
+        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
+        
+        GuiGraphics g = event.getGuiGraphics();
+        net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
+        
+        int a1CD = tag.getInt("xebMechaA1Cooldown");
+        int a2CD = tag.getInt("xebMechaA2Cooldown");
+        boolean spindashActive = tag.getInt("xebMechaSpindashState") > 0;
+        boolean missileActive = tag.getBoolean("xebMechaMissileSalvoFiring");
+        
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        
+        String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        
+        // Activa 1: Spindash
+        renderAbilityIconBox(g, mc, xStart, yStart, key1, "SPIN", a1CD, 160, spindashActive);
+        
+        // Activa 2: Homing Missile
+        renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "MISS", a2CD, 300, missileActive);
+        
+        // Render Kinetic Speed Bar next to crosshair
+        int centerX = width / 2;
+        int centerY = height / 2;
+        int barX = centerX + 18;
+        int barY = centerY - 20;
+        int barW = 4;
+        int barH = 40;
+        
+        double speed = tag.getDouble("xebMechaKineticSpeed");
+        float speedRatio = (float) Math.min(1.0D, speed / 1.5D);
+        
+        // Bar background
+        g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0x66000000);
+        
+        // Bar fill (cyan / aqua representing jet engine kinetic speed)
+        int fillH = (int) (barH * speedRatio);
+        if (fillH > 0) {
+            int fillY = barY + barH - fillH;
+            g.fill(barX, fillY, barX + barW, barY + barH, 0xFF00FFFF);
+        }
+        
+        // Text indicator: KNT
+        g.drawString(mc.font, "KNT", barX - 1, barY - 9, 0xFF00FFFF, true);
+    }
+
+    private static void renderHolyAbilityCooldowns(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player) {
+        int width = event.getWindow().getGuiScaledWidth();
+        int height = event.getWindow().getGuiScaledHeight();
+        
+        int xStart = org.xeb.xeb.Config.opticBlastHudX;
+        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
+        
+        GuiGraphics g = event.getGuiGraphics();
+        net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
+        
+        int a1CD = tag.getInt("xebHolyA1Cooldown");
+        int a2CD = tag.getInt("xebHolyA2Cooldown");
+        boolean shieldActive = tag.getBoolean("xebHolyShieldActive");
+        boolean annihilationActive = tag.getBoolean("xebHolyAnnihilationActive");
+        
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        
+        String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+        
+        // Activa 1: After Creation
+        renderAbilityIconBox(g, mc, xStart, yStart, key1, "CREAT", a1CD, 333, shieldActive);
+        
+        // Activa 2: Annihilation
+        renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "ANNIL", a2CD, 133, annihilationActive);
+        
+        // Render Holy Blast Charge Bar below crosshair
+        int centerX = width / 2;
+        int centerY = height / 2;
+        
+        int charge = tag.getInt("xebHolyBlastCharge");
+        if (charge > 0) {
+            int barX = centerX - 20;
+            int barY = centerY + 12;
+            int barW = 40;
+            int barH = 4;
+            
+            float pct = Math.min(1.0F, charge / 40.0F);
+            
+            // Draw background
+            g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0x66000000);
+            
+            // Draw fill (aqua blue)
+            int fillW = (int) (barW * pct);
+            g.fill(barX, barY, barX + fillW, barY + barH, 0xFF00FFFF);
+            
+            if (pct >= 1.0F) {
+                // Glow border
+                g.fill(barX - 1, barY - 1, barX + barW + 1, barY, 0xFFFFFFFF);
+                g.fill(barX - 1, barY + barH, barX + barW + 1, barY + barH + 1, 0xFFFFFFFF);
+                g.fill(barX - 1, barY - 1, barX, barY + barH + 1, 0xFFFFFFFF);
+                g.fill(barX + barW, barY - 1, barX + barW + 1, barY + barH + 1, 0xFFFFFFFF);
+                
+                // Spawn client particles
+                if (mc.level.random.nextFloat() < 0.3F) {
+                    mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.SOUL_FIRE_FLAME,
+                            player.getX() + (mc.level.random.nextDouble() - 0.5D) * 0.5D,
+                            player.getY() + 1.0D,
+                            player.getZ() + (mc.level.random.nextDouble() - 0.5D) * 0.5D,
+                            0.0D, 0.02D, 0.0D);
                 }
             }
         }
