@@ -815,8 +815,11 @@ public class BuffDamageHandler {
     public static void onLivingFall(net.minecraftforge.event.entity.living.LivingFallEvent event) {
         if (event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
             net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
+            boolean holdsMecha = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem
+                    || player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem;
             boolean isUsingGauntlet = player.isUsingItem() && (player.getUseItem().is(org.xeb.xeb.item.ModItems.DOOMFIST.get()) || player.getUseItem().is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get()));
-            if (tag.getBoolean("xebDoomfistFallProtect") || isUsingGauntlet) {
+            double momentum = tag.getDouble("xebMechaMomentum");
+            if (tag.getBoolean("xebDoomfistFallProtect") || isUsingGauntlet || tag.getBoolean("xebHolyAnnihilationActive") || (holdsMecha && momentum >= 0.5D)) {
                 event.setCanceled(true);
                 event.setDamageMultiplier(0.0F);
                 // Immediately consume protection tags

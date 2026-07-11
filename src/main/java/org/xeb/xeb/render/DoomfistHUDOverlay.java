@@ -589,9 +589,14 @@ public class DoomfistHUDOverlay {
         net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
         
         int a1CD = tag.getInt("xebMechaA1Cooldown");
-        int a2CD = tag.getInt("xebMechaA2Cooldown");
+        boolean jetActive = tag.getBoolean("xebMechaOverdriveDashing");
+        
+        int spindashCharges = tag.getInt("xebSpindashCharges");
+        if (!tag.contains("xebSpindashCharges")) {
+            spindashCharges = 3;
+        }
+        int spindashTimer = tag.getInt("xebSpindashRechargeTimer");
         boolean spindashActive = tag.getInt("xebMechaSpindashState") > 0;
-        boolean missileActive = tag.getBoolean("xebMechaMissileSalvoFiring");
         
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -599,52 +604,74 @@ public class DoomfistHUDOverlay {
         String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         
-        // Activa 1: Spindash
-        renderAbilityIconBox(g, mc, xStart, yStart, key1, "SPIN", a1CD, 160, spindashActive);
+        // Activa 1: Jet Dash (JETS)
+        renderAbilityIconBox(g, mc, xStart, yStart, key1, "JETS", a1CD, 160, jetActive);
         
-        // Activa 2: Homing Missile
-        renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "MISS", a2CD, 300, missileActive);
+        // Activa 2: Spindash Missile (SPMS)
+        renderSpindashBox(g, mc, xStart + 30, yStart, key2, "SPMS", spindashCharges, spindashTimer, spindashActive);
         
         // Render Momentum Bar next to crosshair
         int centerX = width / 2;
         int centerY = height / 2;
-        int barX = centerX + 18;
-        int barY = centerY - 20;
-        int barW = 4;
-        int barH = 40;
         
         double momentum = tag.getDouble("xebMechaMomentum");
-        float momRatio = (float) Math.min(1.0D, momentum);
         boolean overcharged = tag.getBoolean("xebMechaOvercharged");
         boolean levitating = tag.getBoolean("xebMechaLevitating");
         
-        // Bar background
-        g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0x66000000);
+        // Futuristic Slanted Segmented Gauge next to crosshairs
+        int segmentsCount = 5;
+        double segmentMax = 2.0D;
+        double step = segmentMax / segmentsCount; // 0.4 per segment
         
-        // Bar fill (cyan normally, gold pulsing if overcharged)
-        int fillH = (int) (barH * momRatio);
-        int fillColor = 0xFF00FFFF;
-        if (overcharged) {
-            float pulse = 0.7F + 0.3F * (float) Math.sin((mc.level.getGameTime() + event.getPartialTick()) * 0.5D);
-            int red = (int) (255 * pulse);
-            int grn = (int) (215 * pulse);
-            fillColor = (0xFF << 24) | (red << 16) | (grn << 8) | 0; // gold pulse
+        for (int i = 0; i < segmentsCount; i++) {
+            // Slanted offset based on segment index
+            int segX = centerX + 18 + i;
+            int segY = centerY + 14 - i * 8;
+            int segW = 6;
+            int segH = 5;
+            
+            // Draw segment background
+            g.fill(segX - 1, segY - 1, segX + segW + 1, segY + segH + 1, 0x66000000);
+            
+            // Check if active
+            double required = (i + 1) * step;
+            boolean active = momentum >= (required - 0.05D);
+            
+            if (active) {
+                int fillColor = 0xFFFF8800; // default orange
+                if (i == 0) fillColor = 0xFFFF3300;
+                else if (i == 1) fillColor = 0xFFFF6600;
+                else if (i == 2) fillColor = 0xFFFF9900;
+                else if (i == 3) fillColor = 0xFFFFCC00;
+                else if (i == 4) fillColor = 0xFFFFFF00;
+                
+                if (overcharged) {
+                    float pulse = 0.7F + 0.3F * (float) Math.sin((mc.level.getGameTime() + event.getPartialTick()) * 0.5D);
+                    int red = (int) (255 * pulse);
+                    int grn = (int) (200 * pulse * (i / 4.0F)); // gold to orange gradient pulse
+                    fillColor = (0xFF << 24) | (red << 16) | (grn << 8) | 0;
+                }
+                g.fill(segX, segY, segX + segW, segY + segH, fillColor);
+            }
         }
         
-        if (fillH > 0) {
-            int fillY = barY + barH - fillH;
-            g.fill(barX, fillY, barX + barW, barY + barH, fillColor);
-        }
-        
-        // Text indicator: MOM
-        int momColor = overcharged ? 0xFFFFD700 : 0xFF00FFFF;
-        g.drawString(mc.font, "MOM", barX - 1, barY - 9, momColor, true);
+        // Text indicator: O.CLOCK
+        int momColor = overcharged ? 0xFFFFD700 : 0xFFFF5500;
+        g.drawString(mc.font, "O.CLOCK", centerX + 18, centerY - 28, momColor, true);
         
         // Status labels
         if (overcharged) {
-            g.drawString(mc.font, "OVERCHARGE", barX + 8, barY + 12, 0xFFFFD700, true);
+            g.drawString(mc.font, "OVERCHARGE", centerX + 28, centerY - 5, 0xFFFFD700, true);
+            int barTicks = tag.getInt("xebMechaOverchargeTicks");
+            int barW = 24;
+            int barH = 2;
+            int barX = centerX + 28;
+            int barY = centerY + 4;
+            float pct = Math.max(0.0F, Math.min(1.0F, (barTicks - 60) / 40.0F)); // scale 60-100 to 0.0-1.0
+            g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0x66000000);
+            g.fill(barX, barY, barX + (int)(barW * pct), barY + barH, 0xFFFFD700);
         } else if (levitating) {
-            g.drawString(mc.font, "LEVITATING", barX + 8, barY + 12, 0xFF00FFFF, true);
+            g.drawString(mc.font, "LEVITATING", centerX + 28, centerY - 5, 0xFFFFDD00, true);
         }
         
         RenderSystem.disableBlend();
@@ -704,5 +731,70 @@ public class DoomfistHUDOverlay {
         }
         
         RenderSystem.disableBlend();
+    }
+
+    private static void renderSpindashBox(GuiGraphics g, Minecraft mc, int x, int y,
+                                          String key, String label, int charges, int timer,
+                                          boolean isActive) {
+        int boxW = 24;
+        int boxH = 24;
+
+        // Background
+        g.fill(x - 1, y - 1, x + boxW + 1, y + boxH + 1, 0xFF000000);
+
+        if (isActive) {
+            float pulse = 0.5F + 0.5F * (float) Math.sin(mc.level.getGameTime() * 0.4D);
+            int color = (0xBB << 24) | (((int)(255 * pulse)) << 16) | (((int)(120 * pulse)) << 8) | 0; // glowing orange/red
+            g.fill(x, y, x + boxW, y + boxH, color);
+        } else {
+            g.fill(x, y, x + boxW, y + boxH, 0x44000000);
+        }
+
+        // Recharge overlay if not full
+        if (charges < 3 && !isActive) {
+            float ratio = (120 - timer) / 120.0F;
+            int overlayH = (int) (boxH * ratio);
+            g.fill(x, y + boxH - overlayH, x + boxW, y + boxH, 0x99555555);
+        }
+
+        // Border
+        int borderColor = (charges == 0 && !isActive) ? 0x44FFFFFF : 0xBBFFFFFF;
+        if (isActive) borderColor = 0xFFFF6600; // Orange border
+        g.fill(x, y, x + boxW, y + 1, borderColor);
+        g.fill(x, y + boxH - 1, x + boxW, y + boxH, borderColor);
+        g.fill(x, y, x + 1, y + boxH, borderColor);
+        g.fill(x + boxW - 1, y, x + boxW, y + boxH, borderColor);
+
+        // Keybind (Centered & scaled if too long)
+        int keyColor = (charges == 0 && !isActive) ? 0x88AAAAAA : 0xFFFFAA00;
+        int textWidth = mc.font.width(key);
+        if (textWidth > boxW - 2) {
+            float scale = (float) (boxW - 2) / textWidth;
+            g.pose().pushPose();
+            g.pose().translate(x + boxW / 2.0F, y + boxH / 2.0F, 0);
+            g.pose().scale(scale, scale, 1.0F);
+            g.drawString(mc.font, key, -textWidth / 2.0F, -mc.font.lineHeight / 2.0F, keyColor, false);
+            g.pose().popPose();
+        } else {
+            int keyX = x + (boxW - textWidth) / 2;
+            int keyY = y + (boxH - mc.font.lineHeight) / 2;
+            g.drawString(mc.font, key, keyX, keyY, keyColor, false);
+        }
+
+        // Label above the box
+        int labelColor = (charges == 0 && !isActive) ? 0x44FFFFFF : 0x88FFFFFF;
+        g.drawString(mc.font, label, x, y - 9, labelColor, false);
+
+        // Charge Counter in the bottom-right corner of the box itself
+        String chargeStr = "x" + charges;
+        int chargeW = mc.font.width(chargeStr);
+        g.drawString(mc.font, chargeStr, x + boxW - chargeW - 1, y + boxH - 9, charges > 0 ? 0xFFFFDD00 : 0xFFFF3300, true);
+
+        // Cooldown timer below the box if recharging
+        if (charges < 3 && !isActive) {
+            String timeText = String.format("%.1fs", (120 - timer) / 20.0F);
+            int timeX = x + (boxW - mc.font.width(timeText)) / 2;
+            g.drawString(mc.font, timeText, timeX, y + boxH + 2, 0xFFFF9900, true);
+        }
     }
 }

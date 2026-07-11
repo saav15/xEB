@@ -2,6 +2,7 @@ package org.xeb.xeb.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
@@ -178,12 +179,12 @@ public class MechaOverdriveClientHandler {
                 trail.addFirst(player.position().add(0, player.getBbHeight() / 2.0D, 0));
                 
                 if (mc.level.random.nextFloat() < 0.4F) {
-                    mc.level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, player.getX() + (mc.level.random.nextDouble() - 0.5D) * 0.8D,
+                    mc.level.addParticle(ParticleTypes.FLAME, player.getX() + (mc.level.random.nextDouble() - 0.5D) * 0.8D,
                             player.getY() + 0.3D, player.getZ() + (mc.level.random.nextDouble() - 0.5D) * 0.8D,
                             0, 0.02D, 0);
                 }
                 if (mc.level.random.nextFloat() < 0.2F) {
-                    mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK, player.getX() + (mc.level.random.nextDouble() - 0.5D) * 0.8D,
+                    mc.level.addParticle(ParticleTypes.SMALL_FLAME, player.getX() + (mc.level.random.nextDouble() - 0.5D) * 0.8D,
                             player.getY() + 0.3D, player.getZ() + (mc.level.random.nextDouble() - 0.5D) * 0.8D,
                             0, 0.0D, 0);
                 }
@@ -198,9 +199,9 @@ public class MechaOverdriveClientHandler {
                 double vy = (mc.level.random.nextDouble() - 0.5D) * 0.02D;
                 double vz = -look.z * 0.15D + (mc.level.random.nextDouble() - 0.5D) * 0.05D;
                 
-                mc.level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, backPos.x, backPos.y, backPos.z, vx, vy, vz);
+                mc.level.addParticle(ParticleTypes.FLAME, backPos.x, backPos.y, backPos.z, vx, vy, vz);
                 if (mc.level.random.nextFloat() < 0.3F) {
-                    mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK, backPos.x, backPos.y, backPos.z, vx, vy, vz);
+                    mc.level.addParticle(ParticleTypes.SMALL_FLAME, backPos.x, backPos.y, backPos.z, vx, vy, vz);
                 }
             } else {
                 if (!trail.isEmpty()) {
@@ -237,29 +238,76 @@ public class MechaOverdriveClientHandler {
         PoseStack poseStack = event.getPoseStack();
         MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
 
-        // 1. Render Jet / Momentum Trails
+        // 1. Render Jet / Momentum Trails (Continuous Ribbon)
         VertexConsumer consumer = bufferSource.getBuffer(RenderType.lightning());
         poseStack.pushPose();
         poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
         Matrix4f matrix = poseStack.last().pose();
 
+        RenderSystem.disableCull(); // Disable culling so ribbon is visible from both left and right sides!
+
         for (Map.Entry<UUID, ArrayDeque<Vec3>> entry : PLAYER_TRAILS.entrySet()) {
             ArrayDeque<Vec3> trail = entry.getValue();
-            int i = 0;
-            int total = trail.size();
-            for (Vec3 point : trail) {
-                float progress = (float) i / total; // 0 to 1
+            if (trail.size() < 2) continue;
 
-                // Layer 1: Outer Cyan transparent
-                drawTrailLayer(consumer, matrix, point, 0.5F * (1.0F - progress), 0.0F, 1.0F, 1.0F, 0.3F * (1.0F - progress));
-                // Layer 2: Medium Blue
-                drawTrailLayer(consumer, matrix, point, 0.3F * (1.0F - progress), 0.0F, 0.0F, 1.0F, 0.6F * (1.0F - progress));
-                // Layer 3: Inner White core
-                drawTrailLayer(consumer, matrix, point, 0.1F * (1.0F - progress), 1.0F, 1.0F, 1.0F, 0.9F * (1.0F - progress));
+            java.util.List<Vec3> list = new java.util.ArrayList<>(trail);
 
-                i++;
+            for (int i = 0; i < list.size() - 1; i++) {
+                Vec3 p1 = list.get(i);
+                Vec3 p2 = list.get(i + 1);
+
+                float progress1 = (float) i / list.size();
+                float progress2 = (float) (i + 1) / list.size();
+
+                float size1 = 0.25F * (1.0F - progress1);
+                float size2 = 0.25F * (1.0F - progress2);
+
+                Vec3 dir = p1.subtract(p2);
+                if (dir.lengthSqr() < 0.001D) {
+                    dir = new Vec3(0, 0, 1);
+                }
+                Vec3 perp = new Vec3(-dir.z, 0.0D, dir.x).normalize();
+
+                Vec3 left1 = p1.subtract(perp.scale(size1));
+                Vec3 right1 = p1.add(perp.scale(size1));
+                Vec3 left2 = p2.subtract(perp.scale(size2));
+                Vec3 right2 = p2.add(perp.scale(size2));
+
+                Vec3 up1 = p1.add(0.0D, size1, 0.0D);
+                Vec3 down1 = p1.subtract(0.0D, size1, 0.0D);
+                Vec3 up2 = p2.add(0.0D, size2, 0.0D);
+                Vec3 down2 = p2.subtract(0.0D, size2, 0.0D);
+
+                // Layer 1: Outer Orange transparent
+                float a1 = 0.20F * (1.0F - progress1);
+                float a2 = 0.20F * (1.0F - progress2);
+                drawRibbon(consumer, matrix, left1, right1, right2, left2, up1, down1, down2, up2, 1.0F, 0.35F, 0.0F, a1, a2);
+
+                // Layer 2: Inner Gold/Yellow
+                float a3 = 0.45F * (1.0F - progress1);
+                float a4 = 0.45F * (1.0F - progress2);
+                drawRibbon(consumer, matrix, left1, right1, right2, left2, up1, down1, down2, up2, 1.0F, 0.75F, 0.0F, a3, a4);
+
+                // Layer 3: White core
+                float sizeCore1 = size1 * 0.3F;
+                float sizeCore2 = size2 * 0.3F;
+                Vec3 leftCore1 = p1.subtract(perp.scale(sizeCore1));
+                Vec3 rightCore1 = p1.add(perp.scale(sizeCore1));
+                Vec3 leftCore2 = p2.subtract(perp.scale(sizeCore2));
+                Vec3 rightCore2 = p2.add(perp.scale(sizeCore2));
+                Vec3 upCore1 = p1.add(0.0D, sizeCore1, 0.0D);
+                Vec3 downCore1 = p1.subtract(0.0D, sizeCore1, 0.0D);
+                Vec3 upCore2 = p2.add(0.0D, sizeCore2, 0.0D);
+                Vec3 downCore2 = p2.subtract(0.0D, sizeCore2, 0.0D);
+
+                float a5 = 0.75F * (1.0F - progress1);
+                float a6 = 0.75F * (1.0F - progress2);
+                drawRibbon(consumer, matrix, leftCore1, rightCore1, rightCore2, leftCore2, upCore1, downCore1, downCore2, upCore2, 1.0F, 1.0F, 1.0F, a5, a6);
             }
         }
+
+        RenderSystem.enableCull(); // Restore culling
+
         poseStack.popPose();
 
         // 2. Render Jet Dash Afterimages
@@ -290,131 +338,71 @@ public class MechaOverdriveClientHandler {
         }
     }
 
-    private static void drawTrailLayer(VertexConsumer consumer, Matrix4f matrix, Vec3 point, float size, float r, float g, float b, float a) {
-        // Horizontal (XZ)
-        consumer.vertex(matrix, (float) point.x - size, (float) point.y, (float) point.z - size).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) point.x - size, (float) point.y, (float) point.z + size).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) point.x + size, (float) point.y, (float) point.z + size).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) point.x + size, (float) point.y, (float) point.z - size).color(r, g, b, a).endVertex();
+    private static void drawRibbon(VertexConsumer consumer, Matrix4f matrix,
+                                   Vec3 left1, Vec3 right1, Vec3 right2, Vec3 left2,
+                                   Vec3 up1, Vec3 down1, Vec3 down2, Vec3 up2,
+                                   float r, float g, float b, float a1, float a2) {
+        // Horizontal Quad
+        consumer.vertex(matrix, (float) left1.x, (float) left1.y, (float) left1.z).color(r, g, b, a1).endVertex();
+        consumer.vertex(matrix, (float) right1.x, (float) right1.y, (float) right1.z).color(r, g, b, a1).endVertex();
+        consumer.vertex(matrix, (float) right2.x, (float) right2.y, (float) right2.z).color(r, g, b, a2).endVertex();
+        consumer.vertex(matrix, (float) left2.x, (float) left2.y, (float) left2.z).color(r, g, b, a2).endVertex();
 
-        // Vertical (XY)
-        consumer.vertex(matrix, (float) point.x - size, (float) point.y - size, (float) point.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) point.x - size, (float) point.y + size, (float) point.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) point.x + size, (float) point.y + size, (float) point.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) point.x + size, (float) point.y - size, (float) point.z).color(r, g, b, a).endVertex();
+        // Vertical Quad
+        consumer.vertex(matrix, (float) down1.x, (float) down1.y, (float) down1.z).color(r, g, b, a1).endVertex();
+        consumer.vertex(matrix, (float) up1.x, (float) up1.y, (float) up1.z).color(r, g, b, a1).endVertex();
+        consumer.vertex(matrix, (float) up2.x, (float) up2.y, (float) up2.z).color(r, g, b, a2).endVertex();
+        consumer.vertex(matrix, (float) down2.x, (float) down2.y, (float) down2.z).color(r, g, b, a2).endVertex();
     }
 
     @SubscribeEvent
     public static void onRenderPlayerPre(RenderPlayerEvent.Pre event) {
         Player player = event.getEntity();
-        CompoundTag data = player.getPersistentData();
-
         boolean holdsMecha = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem
                 || player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem;
         if (!holdsMecha) return;
 
-        PlayerModel<AbstractClientPlayer> model = event.getRenderer().getModel();
-        PoseStack poseStack = event.getPoseStack();
+        if (net.minecraftforge.fml.ModList.get().isLoaded("bettercombat")) return;
 
-        double momentum = data.getDouble("xebMechaMomentum");
-        boolean levitating = data.getBoolean("xebMechaLevitating");
-        boolean dashing = data.getBoolean("xebMechaOverdriveDashing");
+        CompoundTag data = player.getPersistentData();
         int sdState = data.getInt("xebMechaSpindashState");
-        boolean vulcanFiring = data.getBoolean("xebMechaVulcanFiring");
-
-        // POSE: Levitando (momentum alto, en el aire o deslizando)
-        if (levitating && !dashing && sdState == 0) {
-            // Levitar ligeramente
-            poseStack.pushPose();
-            poseStack.translate(0.0F, 0.12F, 0.0F);
-
-            // Body inclinado hacia adelante como mecha sonic corriendo
-            model.body.xRot = 0.15F;
-            // Brazos traseros como propulsores
-            model.rightArm.xRot = -1.2F;
-            model.rightArm.zRot = 0.3F;
-            model.leftArm.xRot = -1.2F;
-            model.leftArm.zRot = -0.3F;
-            // Piernas dobladas como patinando
-            model.rightLeg.xRot = -0.3F;
-            model.leftLeg.xRot = -0.3F;
-            model.rightLeg.zRot = 0.1F;
-            model.leftLeg.zRot = -0.1F;
-
+        if (sdState > 0) {
+            event.getPoseStack().pushPose();
+            if (sdState == 1) {
+                event.getPoseStack().scale(1.4F, 0.8F, 1.4F);
+            } else {
+                event.getPoseStack().scale(1.6F, 0.85F, 1.6F);
+            }
             data.putBoolean("xebMechaPushedPose", true);
-        }
-        // POSE: Vulcan (Click Derecho ametralladora)
-        else if (vulcanFiring) {
-            poseStack.pushPose();
-            // Body inclinado hacia adelante
-            model.body.xRot = 0.2F;
-            // Ambos brazos hacia adelante agarrando el cañón
-            model.rightArm.xRot = -1.5F;
-            model.rightArm.yRot = -0.1F;
-            model.leftArm.xRot = -1.5F;
-            model.leftArm.yRot = 0.1F;
-            // Piernas firmes
-            model.rightLeg.xRot = 0.0F;
-            model.leftLeg.xRot = 0.0F;
-
-            data.putBoolean("xebMechaPushedPose", true);
-        }
-        // POSE: Jet Dash (horizontal como misil)
-        else if (dashing) {
-            poseStack.pushPose();
-            // Body casi horizontal
-            model.body.xRot = 1.4F;
-            // Brazos pegados al cuerpo como aerodinámico
-            model.rightArm.xRot = 0.0F;
-            model.rightArm.zRot = 0.4F;
-            model.leftArm.xRot = 0.0F;
-            model.leftArm.zRot = -0.4F;
-            // Piernas atrás como vuelo
-            model.rightLeg.xRot = -0.8F;
-            model.leftLeg.xRot = -0.8F;
-
-            data.putBoolean("xebMechaPushedPose", true);
-        }
-        // POSE: Spindash (bola metálica)
-        else if (sdState > 0) {
-            poseStack.pushPose();
-            // Esconder todo
-            model.leftArm.visible = false;
-            model.rightArm.visible = false;
-            model.leftLeg.visible = false;
-            model.rightLeg.visible = false;
-            model.head.visible = false;
-            model.hat.visible = false;
-            // Escalar body a bola
-            poseStack.scale(1.6F, 0.85F, 1.6F);
-
-            data.putBoolean("xebMechaPushedPose", true);
-            data.putBoolean("xebMechaSpinball", true);
         }
     }
 
     @SubscribeEvent
     public static void onRenderPlayerPost(RenderPlayerEvent.Post event) {
         Player player = event.getEntity();
-        CompoundTag data = player.getPersistentData();
+        boolean holdsMecha = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem
+                || player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem;
+        if (!holdsMecha) return;
 
+        if (net.minecraftforge.fml.ModList.get().isLoaded("bettercombat")) return;
+
+        CompoundTag data = player.getPersistentData();
         if (data.getBoolean("xebMechaPushedPose")) {
             data.remove("xebMechaPushedPose");
             event.getPoseStack().popPose();
         }
-        if (data.getBoolean("xebMechaSpinball")) {
-            data.remove("xebMechaSpinball");
-            PlayerModel<AbstractClientPlayer> model = event.getRenderer().getModel();
-            model.leftArm.visible = true;
-            model.rightArm.visible = true;
-            model.leftLeg.visible = true;
-            model.rightLeg.visible = true;
-            model.head.visible = true;
-            model.hat.visible = true;
-        }
-        // Reset rotations
+
         PlayerModel<AbstractClientPlayer> model = event.getRenderer().getModel();
+        model.leftArm.visible = true;
+        model.rightArm.visible = true;
+        model.leftLeg.visible = true;
+        model.rightLeg.visible = true;
+        model.head.visible = true;
+        model.hat.visible = true;
+
+        // Reset rotations
         model.body.xRot = 0.0F;
+        model.body.yRot = 0.0F;
         model.rightArm.xRot = 0.0F;
         model.leftArm.xRot = 0.0F;
         model.rightArm.zRot = 0.0F;

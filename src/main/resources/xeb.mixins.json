@@ -7,7 +7,8 @@
   "mixins": [
     "CombatTrackerMixin",
     "EnchantmentHelperMixin",
-    "HumanoidModelMixin"
+    "HumanoidModelMixin",
+    "LivingEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -1,0 +1,209 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.xeb_player.idle": {
+      "loop": true,
+      "animation_length": 2.0,
+      "bones": {
+        "body": {
+          "rotation": {"0.0": [0, 0, 0], "1.0": [0, 0, 0], "2.0": [0, 0, 0]}
+        }
+      }
+    },
+    "animation.xeb_player.mecha_levitate": {
+      "loop": true,
+      "animation_length": 1.0,
+      "bones": {
+        "body": {
+          "rotation": {"0.0": [10, 0, 0], "0.5": [12, 0, 0], "1.0": [10, 0, 0]},
+          "position": {"0.0": [0, 1.5, 0], "0.5": [0, 2, 0], "1.0": [0, 1.5, 0]}
+        },
+        "right_arm": {
+          "rotation": {"0.0": [-70, 0, 20], "0.5": [-75, 0, 25], "1.0": [-70, 0, 20]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [-70, 0, -20], "0.5": [-75, 0, -25], "1.0": [-70, 0, -20]}
+        },
+        "right_leg": {
+          "rotation": {"0.0": [-25, 0, 5], "0.5": [-30, 0, 8], "1.0": [-25, 0, 5]}
+        },
+        "left_leg": {
+          "rotation": {"0.0": [-25, 0, -5], "0.5": [-30, 0, -8], "1.0": [-25, 0, -5]}
+        }
+      }
+    },
+    "animation.xeb_player.mecha_vulcan": {
+      "loop": true,
+      "animation_length": 0.5,
+      "bones": {
+        "body": {
+          "rotation": {"0.0": [15, 0, 0], "0.25": [18, 0, 0], "0.5": [15, 0, 0]}
+        },
+        "right_arm": {
+          "rotation": {"0.0": [-90, -5, 0], "0.25": [-95, -5, 0], "0.5": [-90, -5, 0]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [-90, 5, 0], "0.25": [-95, 5, 0], "0.5": [-90, 5, 0]}
+        },
+        "right_leg": {
+          "rotation": {"0.0": [0, 0, 0]}
+        },
+        "left_leg": {
+          "rotation": {"0.0": [0, 0, 0]}
+        }
+      }
+    },
+    "animation.xeb_player.mecha_dash": {
+      "loop": true,
+      "animation_length": 0.5,
+      "bones": {
+        "body": {
+          "rotation": {"0.0": [80, 0, 0]}
+        },
+        "right_arm": {
+          "rotation": {"0.0": [0, 0, 30]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [0, 0, -30]}
+        },
+        "right_leg": {
+          "rotation": {"0.0": [-50, 0, 0]}
+        },
+        "left_leg": {
+          "rotation": {"0.0": [-50, 0, 0]}
+        }
+      }
+    },
+    "animation.xeb_player.mecha_spindash_charge": {
+      "loop": true,
+      "animation_length": 0.5,
+      "bones": {
+        "body": {
+          "rotation": {"0.0": [30, 0, 0], "0.25": [35, 0, 0], "0.5": [30, 0, 0]},
+          "scale": {"0.0": [1.4, 0.8, 1.4], "0.25": [1.5, 0.75, 1.5], "0.5": [1.4, 0.8, 1.4]}
+        },
+        "right_arm": {
+          "rotation": {"0.0": [-60, 0, -40]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [-60, 0, 40]}
+        },
+        "head": {
+          "rotation": {"0.0": [20, 0, 0]}
+        },
+        "right_leg": {
+          "rotation": {"0.0": [-40, 0, 0]}
+        },
+        "left_leg": {
+          "rotation": {"0.0": [-40, 0, 0]}
+        }
+      }
+    },
+    "animation.xeb_player.mecha_spindash_attack": {
+      "loop": true,
+      "animation_length": 0.3,
+      "bones": {
+        "body": {
+          "rotation": {"0.0": [0, 0, 0], "0.15": [0, 180, 0], "0.3": [0, 360, 0]},
+          "scale": {"0.0": [1.6, 0.85, 1.6]}
+        },
+        "right_arm": {
+          "rotation": {"0.0": [0, 0, 0]},
+          "scale": {"0.0": [0, 0, 0]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [0, 0, 0]},
+          "scale": {"0.0": [0, 0, 0]}
+        },
+        "right_leg": {
+          "rotation": {"0.0": [0, 0, 0]},
+          "scale": {"0.0": [0, 0, 0]}
+        },
+        "left_leg": {
+          "rotation": {"0.0": [0, 0, 0]},
+          "scale": {"0.0": [0, 0, 0]}
+        },
+        "head": {
+          "scale": {"0.0": [0, 0, 0]}
+        }
+      }
+    },
+    "animation.xeb_player.holy_idle": {
+      "loop": true,
+      "animation_length": 2.0,
+      "bones": {
+        "right_arm": {
+          "rotation": {"0.0": [15, 0, 5], "1.0": [15, 0, 5], "2.0": [15, 0, 5]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [15, 0, -5], "1.0": [15, 0, -5], "2.0": [15, 0, -5]}
+        }
+      }
+    },
+    "animation.xeb_player.holy_slash_right": {
+      "loop": false,
+      "animation_length": 0.4,
+      "bones": {
+        "body": {
+          "rotation": {"0.0": [0, -20, 0], "0.15": [0, -30, 0], "0.3": [0, -10, 0], "0.4": [0, 0, 0]}
+        },
+        "right_arm": {
+          "rotation": {"0.0": [-30, 0, -20], "0.15": [-100, 0, -10], "0.3": [-60, 0, 20], "0.4": [-30, 0, 0]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [15, 0, -10], "0.15": [20, 0, -15], "0.3": [15, 0, -10], "0.4": [15, 0, -5]}
+        }
+      }
+    },
+    "animation.xeb_player.holy_slash_left": {
+      "loop": false,
+      "animation_length": 0.4,
+      "bones": {
+        "body": {
+          "rotation": {"0.0": [0, 20, 0], "0.15": [0, 30, 0], "0.3": [0, 10, 0], "0.4": [0, 0, 0]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [-30, 0, 20], "0.15": [-100, 0, 10], "0.3": [-60, 0, -20], "0.4": [-30, 0, 0]}
+        },
+        "right_arm": {
+          "rotation": {"0.0": [15, 0, 10], "0.15": [20, 0, 15], "0.3": [15, 0, 10], "0.4": [15, 0, 5]}
+        }
+      }
+    },
+    "animation.xeb_player.holy_slash_x": {
+      "loop": false,
+      "animation_length": 0.5,
+      "bones": {
+        "body": {
+          "rotation": {"0.0": [20, 0, 0], "0.15": [25, 0, 0], "0.3": [15, 0, 0], "0.5": [0, 0, 0]}
+        },
+        "right_arm": {
+          "rotation": {"0.0": [-80, -30, -30], "0.2": [-100, 30, 30], "0.4": [-60, 0, 0], "0.5": [-30, 0, 0]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [-80, 30, 30], "0.2": [-100, -30, -30], "0.4": [-60, 0, 0], "0.5": [-30, 0, 0]}
+        }
+      }
+    },
+    "animation.xeb_player.holy_annihilation": {
+      "loop": false,
+      "animation_length": 1.5,
+      "bones": {
+        "body": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.5": [0, 360, 0],
+            "1.0": [0, 720, 0],
+            "1.5": [0, 1080, 0]
+          }
+        },
+        "right_arm": {
+          "rotation": {"0.0": [-90, 0, -45], "0.5": [-90, 0, -45], "1.0": [-90, 0, -45], "1.5": [-90, 0, -45]}
+        },
+        "left_arm": {
+          "rotation": {"0.0": [-90, 0, 45], "0.5": [-90, 0, 45], "1.0": [-90, 0, 45], "1.5": [-90, 0, 45]}
+        }
+      }
+    }
+  }
+}

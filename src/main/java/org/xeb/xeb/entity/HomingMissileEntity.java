@@ -62,6 +62,10 @@ public class HomingMissileEntity extends ThrowableProjectile implements net.mine
         if (this.level() instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY(), this.getZ(),
                     1, 0.0D, 0.0D, 0.0D, 0.0D);
+            serverLevel.sendParticles(ParticleTypes.FLAME, this.getX(), this.getY(), this.getZ(),
+                    1, 0.0D, 0.0D, 0.0D, 0.0D);
+            serverLevel.sendParticles(ParticleTypes.SMALL_FLAME, this.getX(), this.getY(), this.getZ(),
+                    1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
     }
 

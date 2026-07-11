@@ -50,6 +50,14 @@ public class HumanoidModelMixin {
     @Inject(method = "setupAnim", at = @At("TAIL"))
     private void onSetupAnim(LivingEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
         if (entity instanceof net.minecraft.world.entity.player.Player player) {
+            if (!net.minecraftforge.fml.ModList.get().isLoaded("bettercombat")) {
+                org.xeb.xeb.client.XebAnimationApplier.applyAnimation(
+                        (net.minecraft.client.player.AbstractClientPlayer) player,
+                        (HumanoidModel<?>)(Object)this,
+                        ageInTicks
+                );
+            }
+
             org.xeb.xeb.client.JaronaAttack.ActiveKick kick = org.xeb.xeb.client.JaronaAttack.getKick(player);
             if (kick != null) {
                 float step = kick.comboStep;

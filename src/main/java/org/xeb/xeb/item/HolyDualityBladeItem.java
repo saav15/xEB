@@ -159,6 +159,7 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
             player.getPersistentData().putInt("xebHolyBlastCharge", 0);
             
             if (player.getPersistentData().getInt("xebHolyRCD") <= 0 && ticksUsed >= 10) {
+                player.getPersistentData().putInt("xebHolyBlastCastTicks", 10);
                 if (!level.isClientSide()) {
                     triggerHolyBlast(level, player, ticksUsed);
                 } else {
