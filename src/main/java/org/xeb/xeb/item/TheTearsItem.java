@@ -280,109 +280,140 @@ public class TheTearsItem extends Item {
 
         Set<LivingEntity> hitEntities = new HashSet<>();
         Vec3 finalCollisionPoint = null;
+        UUID playerUUID = player.getUUID();
 
-        // Brimstone Morado (Purple): curves and loops targets
-        if (imbue == TearsProjectileEntity.IMBUE_PURPLE) {
-            Vec3 currentPos = mouthPos;
-            Vec3 currentDir = lookDir;
-            double segmentLength = 2.0D;
-            int maxSegments = 12;
+        Vec3 struggleCollision = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(playerUUID);
+        if (struggleCollision != null) {
+            points.add(struggleCollision);
+            finalCollisionPoint = struggleCollision;
 
-            for (int i = 0; i < maxSegments; i++) {
-                Vec3 nextPos = currentPos.add(currentDir.scale(segmentLength));
+            // Update struggle collision point using current raycast look direction
+            Vec3 otherStart = null;
+            UUID otherOwnerUUID = null;
+            for (BeamData otherBeam : ActiveBeamManager.get().getActiveBeams()) {
+                if (!otherBeam.getOwnerUUID().equals(playerUUID)) {
+                    otherOwnerUUID = otherBeam.getOwnerUUID();
+                    otherStart = otherBeam.getStart();
+                    break;
+                }
+            }
+            if (otherStart != null) {
+                double reach = 40.0D;
+                Vec3 lookEnd = mouthPos.add(lookDir.scale(reach));
+                Vec3 closestCol = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, lookEnd, 0.75D);
+                if (closestCol != null) {
+                    org.xeb.xeb.beamstruggle.BeamStruggleManager.updateCollisionPoint(playerUUID, closestCol);
+                    Vec3 updatedCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(playerUUID);
+                    if (updatedCol != null) {
+                        finalCollisionPoint = updatedCol;
+                        points.set(points.size() - 1, finalCollisionPoint);
+                    }
+                }
+            }
+        } else {
+            // Brimstone Morado (Purple): curves and loops targets
+            if (imbue == TearsProjectileEntity.IMBUE_PURPLE) {
+                Vec3 currentPos = mouthPos;
+                Vec3 currentDir = lookDir;
+                double segmentLength = 2.0D;
+                int maxSegments = 12;
+
+                for (int i = 0; i < maxSegments; i++) {
+                    Vec3 nextPos = currentPos.add(currentDir.scale(segmentLength));
+
+                    BlockHitResult blockHit = level.clip(new ClipContext(
+                            currentPos, nextPos,
+                            ClipContext.Block.COLLIDER,
+                            ClipContext.Fluid.NONE,
+                            player
+                    ));
+
+                    Vec3 segmentEnd = (blockHit.getType() != HitResult.Type.MISS) ? blockHit.getLocation() : nextPos;
+
+                    // Find entities near segmentEnd
+                    AABB sweepBox = new AABB(currentPos, segmentEnd).inflate(0.8D);
+                    List<LivingEntity> entities = level.getEntitiesOfClass(LivingEntity.class, sweepBox,
+                            e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() 
+                                 && !hitEntities.contains(e) && !(e instanceof CrazyDiamondEntity));
+
+                    if (!entities.isEmpty() && hitEntities.size() < 5) {
+                        LivingEntity closest = null;
+                        double closestDist = Double.MAX_VALUE;
+                        for (LivingEntity e : entities) {
+                            double d = currentPos.distanceToSqr(e.position());
+                            if (d < closestDist) {
+                                closestDist = d;
+                                closest = e;
+                            }
+                        }
+
+                        if (closest != null) {
+                            hitEntities.add(closest);
+                            // Bend next segment towards entity center
+                            Vec3 targetCenter = closest.getBoundingBox().getCenter();
+                            currentDir = targetCenter.subtract(currentPos).normalize();
+                            
+                            nextPos = currentPos.add(currentDir.scale(segmentLength));
+                            blockHit = level.clip(new ClipContext(
+                                    currentPos, nextPos,
+                                    ClipContext.Block.COLLIDER,
+                                    ClipContext.Fluid.NONE,
+                                    player
+                            ));
+                            segmentEnd = (blockHit.getType() != HitResult.Type.MISS) ? blockHit.getLocation() : nextPos;
+                        }
+                    }
+
+                    points.add(segmentEnd);
+                    currentPos = segmentEnd;
+
+                    if (blockHit.getType() != HitResult.Type.MISS) {
+                        finalCollisionPoint = segmentEnd;
+                        break;
+                    }
+                }
+            } else {
+                // Straight Beam
+                double reach = 40.0D;
+                Vec3 beamEnd = mouthPos.add(lookDir.scale(reach));
 
                 BlockHitResult blockHit = level.clip(new ClipContext(
-                        currentPos, nextPos,
+                        mouthPos, beamEnd,
                         ClipContext.Block.COLLIDER,
                         ClipContext.Fluid.NONE,
                         player
                 ));
 
-                Vec3 segmentEnd = (blockHit.getType() != HitResult.Type.MISS) ? blockHit.getLocation() : nextPos;
+                Vec3 effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
 
-                // Find entities near segmentEnd
-                AABB sweepBox = new AABB(currentPos, segmentEnd).inflate(0.8D);
-                List<LivingEntity> entities = level.getEntitiesOfClass(LivingEntity.class, sweepBox,
-                        e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() 
-                             && !hitEntities.contains(e) && !(e instanceof CrazyDiamondEntity));
+                // Entity sweep along the beam (hitbox scaled up to 1.5x1.5 blocks = 0.75F inflation)
+                AABB sweepBox = new AABB(mouthPos, effectiveEnd).inflate(0.75D);
+                List<LivingEntity> list = level.getEntitiesOfClass(LivingEntity.class, sweepBox,
+                        e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() && !(e instanceof CrazyDiamondEntity));
 
-                if (!entities.isEmpty() && hitEntities.size() < 5) {
-                    LivingEntity closest = null;
-                    double closestDist = Double.MAX_VALUE;
-                    for (LivingEntity e : entities) {
-                        double d = currentPos.distanceToSqr(e.position());
-                        if (d < closestDist) {
-                            closestDist = d;
-                            closest = e;
+                LivingEntity closestTarget = null;
+                double closestDist = Double.MAX_VALUE;
+                for (LivingEntity target : list) {
+                    // Ray-to-entity-aabb check
+                    AABB aabb = target.getBoundingBox().inflate(0.75D);
+                    Optional<Vec3> clip = aabb.clip(mouthPos, effectiveEnd);
+                    if (clip.isPresent()) {
+                        double dist = mouthPos.distanceToSqr(clip.get());
+                        if (dist < closestDist) {
+                            closestDist = dist;
+                            closestTarget = target;
+                            effectiveEnd = clip.get();
                         }
                     }
-
-                    if (closest != null) {
-                        hitEntities.add(closest);
-                        // Bend next segment towards entity center
-                        Vec3 targetCenter = closest.getBoundingBox().getCenter();
-                        currentDir = targetCenter.subtract(currentPos).normalize();
-                        
-                        nextPos = currentPos.add(currentDir.scale(segmentLength));
-                        blockHit = level.clip(new ClipContext(
-                                currentPos, nextPos,
-                                ClipContext.Block.COLLIDER,
-                                ClipContext.Fluid.NONE,
-                                player
-                        ));
-                        segmentEnd = (blockHit.getType() != HitResult.Type.MISS) ? blockHit.getLocation() : nextPos;
-                    }
                 }
 
-                points.add(segmentEnd);
-                currentPos = segmentEnd;
-
-                if (blockHit.getType() != HitResult.Type.MISS) {
-                    finalCollisionPoint = segmentEnd;
-                    break;
+                if (closestTarget != null) {
+                    hitEntities.add(closestTarget);
                 }
+
+                points.add(effectiveEnd);
+                finalCollisionPoint = effectiveEnd;
             }
-        } else {
-            // Straight Beam
-            double reach = 40.0D;
-            Vec3 beamEnd = mouthPos.add(lookDir.scale(reach));
-
-            BlockHitResult blockHit = level.clip(new ClipContext(
-                    mouthPos, beamEnd,
-                    ClipContext.Block.COLLIDER,
-                    ClipContext.Fluid.NONE,
-                    player
-            ));
-
-            Vec3 effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
-
-            // Entity sweep along the beam (hitbox scaled up to 1.5x1.5 blocks = 0.75F inflation)
-            AABB sweepBox = new AABB(mouthPos, effectiveEnd).inflate(0.75D);
-            List<LivingEntity> list = level.getEntitiesOfClass(LivingEntity.class, sweepBox,
-                    e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() && !(e instanceof CrazyDiamondEntity));
-
-            LivingEntity closestTarget = null;
-            double closestDist = Double.MAX_VALUE;
-            for (LivingEntity target : list) {
-                // Ray-to-entity-aabb check
-                AABB aabb = target.getBoundingBox().inflate(0.75D);
-                Optional<Vec3> clip = aabb.clip(mouthPos, effectiveEnd);
-                if (clip.isPresent()) {
-                    double dist = mouthPos.distanceToSqr(clip.get());
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        closestTarget = target;
-                        effectiveEnd = clip.get();
-                    }
-                }
-            }
-
-            if (closestTarget != null) {
-                hitEntities.add(closestTarget);
-            }
-
-            points.add(effectiveEnd);
-            finalCollisionPoint = effectiveEnd;
         }
 
         // --- 1. Apply Damage & Special element ticks ---
@@ -417,28 +448,67 @@ public class TheTearsItem extends Item {
         }
 
         // --- 2. Check Beam vs Beam Collision in ActiveBeamManager ---
-        UUID playerUUID = player.getUUID();
         Vec3 renderEnd = points.get(points.size() - 1);
 
-        // BUG 2 fix: override endpoint if in active struggle
-        Vec3 struggleCollision = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(playerUUID);
-        if (struggleCollision != null) {
-            renderEnd = struggleCollision;
-            points.set(points.size() - 1, renderEnd);
-        } else {
-            Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, renderEnd);
+        if (struggleCollision == null) {
+            Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, renderEnd, 0.75D);
             if (beamCollision != null) {
                 double collisionDist = mouthPos.distanceToSqr(beamCollision);
                 double currentEndDist = mouthPos.distanceToSqr(renderEnd);
                 if (collisionDist < currentEndDist) {
-                    renderEnd = beamCollision;
-                    points.set(points.size() - 1, renderEnd);
+                    // Buscar el otro beam
+                    UUID otherOwnerUUID = null;
+                    Vec3 otherStart = null, otherEnd = null;
+                    for (BeamData otherBeam : ActiveBeamManager.get().getActiveBeams()) {
+                        if (!otherBeam.getOwnerUUID().equals(playerUUID)) {
+                            otherOwnerUUID = otherBeam.getOwnerUUID();
+                            otherStart = otherBeam.getStart();
+                            otherEnd = otherBeam.getEnd();
+                            break;
+                        }
+                    }
 
-                    if (level instanceof ServerLevel serverLevel) {
-                        serverLevel.sendParticles(ParticleTypes.FLASH, beamCollision.x, beamCollision.y, beamCollision.z,
-                                1, 0.0D, 0.0D, 0.0D, 0.0D);
-                        serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, beamCollision.x, beamCollision.y, beamCollision.z,
-                                8, 0.3D, 0.3D, 0.3D, 0.05D);
+                    if (otherOwnerUUID != null && otherStart != null && otherEnd != null) {
+                        Vec3 myDir = renderEnd.subtract(mouthPos).normalize();
+                        Vec3 otherDir = otherEnd.subtract(otherStart).normalize();
+                        double dotProduct = myDir.dot(otherDir);
+
+                        if (dotProduct < -0.5D) {
+                            // Frontal — struggle
+                            renderEnd = beamCollision;
+                            points.set(points.size() - 1, renderEnd);
+                            org.xeb.xeb.beamstruggle.BeamStruggleManager.onBeamCollision(
+                                    playerUUID, otherOwnerUUID, mouthPos, otherStart, beamCollision, currentTick, (ServerLevel) level);
+                            org.xeb.xeb.beamstruggle.BeamStruggleManager.updateCollisionPoint(playerUUID, beamCollision);
+
+                            if (level instanceof ServerLevel serverLevel) {
+                                serverLevel.sendParticles(ParticleTypes.FLASH, renderEnd.x, renderEnd.y, renderEnd.z,
+                                        1, 0.0D, 0.0D, 0.0D, 0.0D);
+                                serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, renderEnd.x, renderEnd.y, renderEnd.z,
+                                        8, 0.3D, 0.3D, 0.3D, 0.05D);
+                            }
+                        } else {
+                            // No frontal — cortar beam y drenar
+                            renderEnd = beamCollision;
+                            points.set(points.size() - 1, renderEnd);
+
+                            net.minecraft.nbt.CompoundTag pData = player.getPersistentData();
+                            pData.putInt("xebBrimstoneFiringTicks", 0);
+                            pData.remove("xebBrimstoneFiringTicks");
+                            pData.putInt("xebBrimstoneCharge", 0);
+
+                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                                    new BrimstoneBeamPacket(player.getId(), false, TearsProjectileEntity.IMBUE_NONE, Collections.emptyList()));
+
+                            if (level instanceof ServerLevel serverLevel) {
+                                serverLevel.sendParticles(ParticleTypes.FLASH, beamCollision.x, beamCollision.y, beamCollision.z,
+                                        3, 0.0D, 0.0D, 0.0D, 0.0D);
+                                serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, beamCollision.x, beamCollision.y, beamCollision.z,
+                                        15, 0.5D, 0.5D, 0.5D, 0.1D);
+                            }
+                            level.playSound(null, beamCollision.x, beamCollision.y, beamCollision.z,
+                                    SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8F, 1.5F);
+                        }
                     }
                 }
             }

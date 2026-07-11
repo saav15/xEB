@@ -1,9 +1,11 @@
 package org.xeb.xeb.beamstruggle;
 
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -65,33 +67,67 @@ public final class ExternalBeamRegistry {
         if (!net.minecraftforge.fml.ModList.get().isLoaded("alexscaves")) return;
 
         registerBeamProvider("tremorzilla", entity -> {
-            if (!entity.getClass().getName().toLowerCase().contains("tremorzilla")) return null;
+            String className = entity.getClass().getName().toLowerCase();
+            if (!className.contains("tremorzilla")) return null;
             MethodCache cache = METHOD_CACHE.computeIfAbsent(entity.getClass(), k -> new MethodCache());
             if (!cache.initialized) {
                 initMethodCache(cache, entity.getClass(),
-                        new String[]{"isFiringBeam", "isBeamActive", "isLaserActive", "isShooting"},
-                        new String[]{"getBeamEndpoint", "getBeamEnd", "getLaserTarget", "getBeamTarget", "getTargetPosition"});
+                        new String[]{
+                            "isFiringBeam", "isBeamActive", "isLaserActive", "isShooting",
+                            "isBeamFiring", "isFiringLaser", "getBeamActive", "isCharging",
+                            "isShootingBeam", "isUsingBeam"
+                        },
+                        new String[]{
+                            "getBeamEndpoint", "getBeamEnd", "getLaserTarget", "getBeamTarget",
+                            "getTargetPosition", "getBeamPos", "getLaserEnd", "getTargetPos",
+                            "getAimPos", "getLookTarget"
+                        });
                 cache.initialized = true;
             }
-            return extractBeamData(entity, cache, 0x40FF80); // green
+            ExternalBeamData data = extractBeamData(entity, cache, 0x40FF80);
+            if (data == null) {
+                // Fallback: detectar via NBT
+                data = detectViaNBT(entity, 0x40FF80, "Tremorzilla", "BeamActive", "BeamEnd");
+            }
+            return data;
         });
 
-        registerBeamProvider("tremorzilla_alt", entity -> {
+        // Fallback adicional: scan de entidades LaserBeam cerca del Tremorzilla
+        registerBeamProvider("tremorzilla_laser_entity", entity -> {
             if (!entity.getClass().getName().toLowerCase().contains("tremorzilla")) return null;
-            if (entity.getPersistentData().contains("BeamActive") && entity.getPersistentData().getBoolean("BeamActive")) {
-                Vec3 start = entity.getEyePosition(1.0F);
-                Vec3 end = start.add(entity.getLookAngle().scale(40.0D));
-                if (entity.getPersistentData().contains("BeamEndX")) {
-                    end = new Vec3(
-                            entity.getPersistentData().getDouble("BeamEndX"),
-                            entity.getPersistentData().getDouble("BeamEndY"),
-                            entity.getPersistentData().getDouble("BeamEndZ")
-                    );
+            AABB searchBox = entity.getBoundingBox().inflate(20.0D);
+            List<net.minecraft.world.entity.Entity> nearby = entity.level().getEntities(entity, searchBox);
+            for (net.minecraft.world.entity.Entity e : nearby) {
+                String eClassName = e.getClass().getName().toLowerCase();
+                if (eClassName.contains("laser") || eClassName.contains("beam")) {
+                    if (e.getUUID().equals(entity.getUUID()) ||
+                        (e.getPersistentData().hasUUID("Owner") && e.getPersistentData().getUUID("Owner").equals(entity.getUUID())) ||
+                        (e.getPersistentData().hasUUID("owner") && e.getPersistentData().getUUID("owner").equals(entity.getUUID()))) {
+                        Vec3 start = entity.getEyePosition(1.0F);
+                        Vec3 end = e.position();
+                        return new ExternalBeamData(entity.getUUID(), start, end, 0x40FF80);
+                    }
                 }
-                return new ExternalBeamData(entity.getUUID(), start, end, 0x40FF80);
             }
             return null;
         });
+    }
+
+    private static ExternalBeamData detectViaNBT(LivingEntity entity, int color, String entityName,
+                                                  String firingTag, String endTagPrefix) {
+        if (entity.getPersistentData().contains(firingTag) && entity.getPersistentData().getBoolean(firingTag)) {
+            Vec3 start = entity.getEyePosition(1.0F);
+            Vec3 end = start.add(entity.getLookAngle().scale(40.0D));
+            if (entity.getPersistentData().contains(endTagPrefix + "X")) {
+                end = new Vec3(
+                    entity.getPersistentData().getDouble(endTagPrefix + "X"),
+                    entity.getPersistentData().getDouble(endTagPrefix + "Y"),
+                    entity.getPersistentData().getDouble(endTagPrefix + "Z")
+                );
+            }
+            return new ExternalBeamData(entity.getUUID(), start, end, color);
+        }
+        return null;
     }
 
     private static void registerCataclysmProviders() {
@@ -104,11 +140,19 @@ public final class ExternalBeamRegistry {
             MethodCache cache = METHOD_CACHE.computeIfAbsent(entity.getClass(), k -> new MethodCache());
             if (!cache.initialized) {
                 initMethodCache(cache, entity.getClass(),
-                        new String[]{"isLaserActive", "isBeamActive", "isFiringBeam", "isShootingLaser"},
-                        new String[]{"getLaserTarget", "getBeamTarget", "getBeamEnd", "getTargetPos"});
+                        new String[]{
+                            "isLaserActive", "isBeamActive", "isFiringBeam", "isShootingLaser",
+                            "isLaserCharging", "isBlastingLaser", "isShooting", "getLaserActive"
+                        },
+                        new String[]{
+                            "getLaserTarget", "getBeamTarget", "getBeamEnd", "getTargetPos",
+                            "getLaserEnd", "getAimTarget", "getBlastTarget"
+                        });
                 cache.initialized = true;
             }
-            return extractBeamData(entity, cache, 0xB000FF); // purple
+            ExternalBeamData data = extractBeamData(entity, cache, 0xB000FF);
+            if (data == null) data = detectViaNBT(entity, 0xB000FF, "Harbinger", "LaserActive", "LaserEnd");
+            return data;
         });
 
         // The Leviathan
@@ -118,11 +162,40 @@ public final class ExternalBeamRegistry {
             MethodCache cache = METHOD_CACHE.computeIfAbsent(entity.getClass(), k -> new MethodCache());
             if (!cache.initialized) {
                 initMethodCache(cache, entity.getClass(),
-                        new String[]{"isBeamFiring", "isBeamActive", "isLaserActive", "isShooting"},
-                        new String[]{"getBeamTarget", "getBeamEnd", "getLaserTarget", "getTargetPos"});
+                        new String[]{
+                            "isBeamFiring", "isBeamActive", "isLaserActive", "isShooting",
+                            "isFiringBeam", "isBlastActive", "isShootingBeam"
+                        },
+                        new String[]{
+                            "getBeamTarget", "getBeamEnd", "getLaserTarget", "getTargetPos",
+                            "getBlastTarget", "getBeamEnd", "getAimPos"
+                        });
                 cache.initialized = true;
             }
-            return extractBeamData(entity, cache, 0x00DDFF); // cyan
+            ExternalBeamData data = extractBeamData(entity, cache, 0x00DDFF);
+            if (data == null) data = detectViaNBT(entity, 0x00DDFF, "Leviathan", "BeamActive", "BeamEnd");
+            return data;
+        });
+
+        // Generic LaserBeam entity scan for Cataclysm
+        registerBeamProvider("cataclysm_laser_scan", entity -> {
+            String className = entity.getClass().getName().toLowerCase();
+            if (!className.contains("laser") && !className.contains("beam")) return null;
+            try {
+                Method getOwner = entity.getClass().getMethod("getOwner");
+                Object owner = getOwner.invoke(entity);
+                if (owner instanceof LivingEntity livingOwner) {
+                    Vec3 start = entity.position();
+                    Vec3 end = start.add(entity.getDeltaMovement().scale(40.0D));
+                    try {
+                        Method getEnd = entity.getClass().getMethod("getEnd");
+                        Object endResult = getEnd.invoke(entity);
+                        if (endResult instanceof Vec3 v) end = v;
+                    } catch (Exception ignored) {}
+                    return new ExternalBeamData(livingOwner.getUUID(), start, end, 0xB000FF);
+                }
+            } catch (Exception ignored) {}
+            return null;
         });
     }
 

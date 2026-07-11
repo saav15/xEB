@@ -6,7 +6,6 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
@@ -24,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BrimstoneBeamRenderer {
 
     public static final Map<Integer, ClientBrimstoneData> CLIENT_BRIMSTONES = new ConcurrentHashMap<>();
+    private static final BeamStyle BEAM_STYLE = new BeamStyle();
 
     public static void handleBeamPacket(int ownerEntityId, boolean active, int imbueType, List<Vec3> points) {
         if (active && points.size() >= 2) {
@@ -63,24 +63,79 @@ public class BrimstoneBeamRenderer {
             List<Vec3> points = beam.points;
             int imbue = beam.imbueType;
 
-            // Colors mapping
-            float r = 0.9F, g = 0.0F, b = 0.0F, a = 0.9F; // Default: Blood red
+            // Configure colors based on imbue
+            float r = 0.9F, g = 0.0F, b = 0.0F; // Rojo default
+            float coreR = 0.3F, coreG = 0.0F, coreB = 0.0F; // Darker center
             if (imbue == TearsProjectileEntity.IMBUE_PURPLE) {
-                r = 0.7F; g = 0.0F; b = 1.0F; // Purple
+                r = 0.7F; g = 0.0F; b = 1.0F;
+                coreR = 0.9F; coreG = 0.3F; coreB = 1.0F;
             } else if (imbue == TearsProjectileEntity.IMBUE_WHITE) {
-                r = 1.0F; g = 1.0F; b = 1.0F; // White
+                r = 0.9F; g = 0.9F; b = 0.9F;
+                coreR = 1.0F; coreG = 1.0F; coreB = 1.0F;
             } else if (imbue == TearsProjectileEntity.IMBUE_DARK) {
-                r = 0.15F; g = 0.1F; b = 0.15F; // Tar black
+                r = 0.15F; g = 0.1F; b = 0.15F;
+                coreR = 0.05F; coreG = 0.05F; coreB = 0.05F;
             } else if (imbue == TearsProjectileEntity.IMBUE_COLD) {
-                r = 0.5F; g = 0.85F; b = 1.0F; // Ice blue
+                r = 0.4F; g = 0.8F; b = 1.0F;
+                coreR = 0.8F; coreG = 0.95F; coreB = 1.0F;
             }
 
+            BEAM_STYLE.coreR = coreR; BEAM_STYLE.coreG = coreG; BEAM_STYLE.coreB = coreB;
+            BEAM_STYLE.auraR = r; BEAM_STYLE.auraG = g; BEAM_STYLE.auraB = b;
+            BEAM_STYLE.auraWidth = 0.75F;
+            BEAM_STYLE.glowWidth = 0.50F;
+            BEAM_STYLE.coreWidth = 0.30F;
+            BEAM_STYLE.innerWidth = 0.10F;
+            BEAM_STYLE.heatHaze = true;
+
+            // Render wavy organic segments
+            Vec3 lastPos = points.get(0);
             for (int i = 0; i < points.size() - 1; i++) {
-                drawBrimstoneSegment(poseStack, consumer, points.get(i), points.get(i + 1), r, g, b, now);
+                Vec3 pStart = lastPos;
+                Vec3 pEnd = points.get(i + 1);
+
+                // Add organic sine wave displacement to pEnd (unless it is the final collision endpoint)
+                if (i < points.size() - 2) {
+                    Vec3 dirN = pEnd.subtract(pStart).normalize();
+                    Vec3 perp = dirN.cross(new Vec3(0, 1, 0));
+                    if (perp.lengthSqr() < 0.001D) perp = dirN.cross(new Vec3(1, 0, 0));
+                    perp = perp.normalize();
+
+                    double amp = (imbue == TearsProjectileEntity.IMBUE_PURPLE) ? 0.35D : 0.12D;
+                    double freq = (imbue == TearsProjectileEntity.IMBUE_PURPLE) ? 0.02D : 0.015D;
+                    double wavePhase = now * freq + i * 0.7D;
+                    Vec3 waveOffset = perp.scale(Math.sin(wavePhase) * amp);
+
+                    pEnd = pEnd.add(waveOffset);
+                }
+
+                drawBrimstoneSegment(poseStack, consumer, pStart, pEnd, now);
+                lastPos = pEnd;
             }
 
-            // Draw volumetric collision sprite at final endpoint
-            renderCollisionSprite(poseStack, consumer, points.get(points.size() - 1), r, g, b, now);
+            // Draw impact sphere
+            Matrix4f matrix = poseStack.last().pose();
+            BEAM_STYLE.renderImpact(consumer, matrix, points.get(points.size() - 1), now);
+
+            // Spawn custom client-side particles along the segments (BUG 7)
+            if (now % 30 < 10) {
+                net.minecraft.client.multiplayer.ClientLevel level = mc.level;
+                if (level != null) {
+                    for (int i = 0; i < points.size() - 1; i++) {
+                        Vec3 start = points.get(i);
+                        Vec3 end = points.get(i + 1);
+                        Vec3 dir = end.subtract(start);
+                        double len = dir.length();
+                        if (len > 1.0D) {
+                            Vec3 dirN = dir.normalize();
+                            for (double d = 1.0D; d < len; d += 4.0D) {
+                                Vec3 spawnPos = start.add(dirN.scale(d));
+                                spawnImbueParticle(level, spawnPos, imbue);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         bufferSource.endBatch(RenderType.lightning());
@@ -88,111 +143,29 @@ public class BrimstoneBeamRenderer {
     }
 
     private static void drawBrimstoneSegment(PoseStack poseStack, VertexConsumer consumer,
-                                             Vec3 start, Vec3 end, float r, float g, float b, long timeMs) {
-        Vec3 beamDir = end.subtract(start);
-        double length = beamDir.length();
-        if (length < 0.01D) return;
-
-        Vec3 beamDirNorm = beamDir.normalize();
-
-        // Visor aligned perpendicular vectors
-        Vec3 perp1 = beamDirNorm.cross(new Vec3(0, 1, 0));
-        if (perp1.lengthSqr() < 0.0001D) {
-            perp1 = beamDirNorm.cross(new Vec3(1, 0, 0));
-        }
-        perp1 = perp1.normalize();
-        Vec3 perp2 = beamDirNorm.cross(perp1).normalize();
-
-        float pulse = 0.90F + 0.10F * (float) Math.sin(timeMs * 0.008D);
-        float glowPulse = 0.75F + 0.25F * (float) Math.sin(timeMs * 0.005D);
-
-        // Core thickness scaled up to 1.5x1.5 blocks width (0.75F radius)
-        float coreH = 0.50F * pulse;
-        float coreV = 0.50F * pulse;
-
-        float midH = 0.75F * glowPulse;
-        float midV = 0.75F * glowPulse;
-
-        float auraH = 1.10F * glowPulse;
-        float auraV = 1.10F * glowPulse;
-
+                                             Vec3 start, Vec3 end, long timeMs) {
         Matrix4f matrix = poseStack.last().pose();
+        BEAM_STYLE.render(consumer, matrix, start, end, timeMs);
+    }
 
-        // Layer 1: Outer aura
-        drawRectQuad(consumer, matrix, start, end, perp1, perp2, auraH, auraV, r, g, b, 0.06F * glowPulse);
+    private static void spawnImbueParticle(net.minecraft.client.multiplayer.ClientLevel level, Vec3 pos, int imbue) {
+        double rx = (level.random.nextFloat() - 0.5D) * 0.15D;
+        double ry = (level.random.nextFloat() - 0.5D) * 0.15D;
+        double rz = (level.random.nextFloat() - 0.5D) * 0.15D;
 
-        // Layer 2: Mid glow
-        drawRectQuad(consumer, matrix, start, end, perp1, perp2, midH, midV, r, g, b, 0.16F * glowPulse);
-
-        // Layer 3: Core beam (slightly darker core for Tar, white center for normal/laser)
-        float coreR = r, coreG = g, coreB = b;
-        if (r == 0.9F && g == 0.0F && b == 0.0F) { // Blood red
-            coreR = 0.3F; coreG = 0.0F; coreB = 0.0F; // Darker center representing brimstone core
+        if (imbue == TearsProjectileEntity.IMBUE_WHITE) {
+            level.addParticle(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, pos.x, pos.y, pos.z, rx, ry, rz);
+        } else if (imbue == TearsProjectileEntity.IMBUE_DARK) {
+            level.addParticle(net.minecraft.core.particles.ParticleTypes.SMOKE, pos.x, pos.y, pos.z, rx * 0.2D, ry * 0.2D, rz * 0.2D);
+        } else if (imbue == TearsProjectileEntity.IMBUE_COLD) {
+            level.addParticle(net.minecraft.core.particles.ParticleTypes.INSTANT_EFFECT, pos.x, pos.y, pos.z, rx, ry, rz);
+        } else {
+            // Default/Red/Purple: flame & lava drip
+            level.addParticle(net.minecraft.core.particles.ParticleTypes.FLAME, pos.x, pos.y, pos.z, rx * 0.1D, 0.01D, rz * 0.1D);
+            if (level.random.nextFloat() < 0.1F) {
+                level.addParticle(net.minecraft.core.particles.ParticleTypes.LAVA, pos.x, pos.y, pos.z, 0, 0, 0);
+            }
         }
-        drawRectQuad(consumer, matrix, start, end, perp1, perp2, coreH, coreV, coreR, coreG, coreB, 0.85F);
-
-        // Layer 4: Inner hot line
-        float innerH = coreH * 0.3F;
-        float innerV = coreV * 0.3F;
-        drawRectQuad(consumer, matrix, start, end, perp1, perp2, innerH, innerV, 1.0F, 1.0F, 1.0F, 0.95F);
-    }
-
-    private static void renderCollisionSprite(PoseStack poseStack, VertexConsumer consumer, Vec3 end,
-                                               float r, float g, float b, long timeMs) {
-        Matrix4f matrix = poseStack.last().pose();
-        float pulse = 0.85F + 0.15F * (float) Math.sin(timeMs * 0.02D);
-
-        float outerSize = 1.2F * pulse;
-        drawCrossQuad(consumer, matrix, end, outerSize, r, g, b, 0.20F * pulse);
-
-        float midSize = 0.8F * pulse;
-        drawCrossQuad(consumer, matrix, end, midSize, r, g, b, 0.50F * pulse);
-
-        float innerSize = 0.4F * pulse;
-        drawCrossQuad(consumer, matrix, end, innerSize, 1.0F, 1.0F, 1.0F, 0.85F);
-    }
-
-    private static void drawCrossQuad(VertexConsumer consumer, Matrix4f matrix, Vec3 center, float halfWidth,
-                                       float r, float g, float b, float a) {
-        // Horizontal (XZ)
-        consumer.vertex(matrix, (float) center.x - halfWidth, (float) center.y, (float) center.z - halfWidth).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) center.x - halfWidth, (float) center.y, (float) center.z + halfWidth).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) center.x + halfWidth, (float) center.y, (float) center.z + halfWidth).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) center.x + halfWidth, (float) center.y, (float) center.z - halfWidth).color(r, g, b, a).endVertex();
-
-        // Vertical XY
-        consumer.vertex(matrix, (float) center.x - halfWidth, (float) center.y - halfWidth, (float) center.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) center.x - halfWidth, (float) center.y + halfWidth, (float) center.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) center.x + halfWidth, (float) center.y + halfWidth, (float) center.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) center.x + halfWidth, (float) center.y - halfWidth, (float) center.z).color(r, g, b, a).endVertex();
-
-        // Vertical YZ
-        consumer.vertex(matrix, (float) center.x, (float) center.y - halfWidth, (float) center.z - halfWidth).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) center.x, (float) center.y + halfWidth, (float) center.z - halfWidth).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) center.x, (float) center.y + halfWidth, (float) center.z + halfWidth).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) center.x, (float) center.y - halfWidth, (float) center.z + halfWidth).color(r, g, b, a).endVertex();
-    }
-
-    private static void drawRectQuad(VertexConsumer consumer, Matrix4f matrix,
-                                      Vec3 start, Vec3 end, Vec3 perpHoriz, Vec3 perpVert,
-                                      float halfWidthH, float halfWidthV,
-                                      float r, float g, float b, float a) {
-        drawQuad(consumer, matrix, start, end, perpHoriz, halfWidthH, r, g, b, a);
-        drawQuad(consumer, matrix, start, end, perpVert, halfWidthV, r, g, b, a);
-    }
-
-    private static void drawQuad(VertexConsumer consumer, Matrix4f matrix,
-                                  Vec3 start, Vec3 end, Vec3 perp, float halfWidth,
-                                  float r, float g, float b, float a) {
-        Vec3 p1 = start.add(perp.scale(halfWidth));
-        Vec3 p2 = start.add(perp.scale(-halfWidth));
-        Vec3 p3 = end.add(perp.scale(-halfWidth));
-        Vec3 p4 = end.add(perp.scale(halfWidth));
-
-        consumer.vertex(matrix, (float) p1.x, (float) p1.y, (float) p1.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) p2.x, (float) p2.y, (float) p2.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) p3.x, (float) p3.y, (float) p3.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) p4.x, (float) p4.y, (float) p4.z).color(r, g, b, a).endVertex();
     }
 
     private static class ClientBrimstoneData {

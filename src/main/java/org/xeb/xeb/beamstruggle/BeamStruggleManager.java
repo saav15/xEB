@@ -24,8 +24,9 @@ public class BeamStruggleManager {
 
     private static final Map<UUID, BeamStruggle> ACTIVE_STRUGGLES = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> OWNER_TO_STRUGGLE = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> RECENT_STRUGGLE_COOLDOWN = new ConcurrentHashMap<>();
 
-    public static final int MAX_STRUGGLE_TICKS = 160;
+    public static final int MAX_STRUGGLE_TICKS = 320; // 16 seconds (was 160)
     public static final double MASH_POINT_PER_CLICK = 1.0;
     public static final double MASH_DECAY_PER_TICK = 0.05;
     public static final double COLLISION_MOVE_PER_POINT = 0.15;
@@ -36,6 +37,8 @@ public class BeamStruggleManager {
     public static final double WIN_DISTANCE_NORMAL = 6.0;
     public static final double WIN_DISTANCE_POINT_BLANK = 2.0;
 
+    public static final int STRUGGLE_COOLDOWN_TICKS = 20; // 1 second cooldown
+
     public static class BeamStruggle {
         public final UUID struggleId;
         public final UUID ownerA;
@@ -44,7 +47,7 @@ public class BeamStruggleManager {
         public final int ownerBEntityId;
         public final Vec3 startPosA;
         public final Vec3 startPosB;
-        public final Vec3 midpoint;
+        public Vec3 midpoint; // non-final to update tick-by-tick
         public Vec3 currentCollision;
         public double pointsA;
         public double pointsB;
@@ -78,6 +81,12 @@ public class BeamStruggleManager {
 
     public static boolean onBeamCollision(UUID ownerA, UUID ownerB, Vec3 startA, Vec3 startB,
                                           Vec3 collisionPoint, long currentTick, ServerLevel level) {
+        // BUG 3 fix: cooldown check to avoid instant re-triggers
+        Long cooldownA = RECENT_STRUGGLE_COOLDOWN.get(ownerA);
+        Long cooldownB = RECENT_STRUGGLE_COOLDOWN.get(ownerB);
+        if (cooldownA != null && currentTick - cooldownA < STRUGGLE_COOLDOWN_TICKS) return false;
+        if (cooldownB != null && currentTick - cooldownB < STRUGGLE_COOLDOWN_TICKS) return false;
+
         BeamStruggle struggle = findActiveStruggle(ownerA, ownerB);
 
         if (struggle == null) {
@@ -122,17 +131,20 @@ public class BeamStruggleManager {
         }
 
         if (struggle.phase == StrugglePhase.ACTIVE) {
+            double timeMultiplier = 1.0 + (struggle.ticksElapsed / 80.0); // BUG 6: mash escalation
+            double effectiveWinDistance = struggle.winDistance * (1.0 + struggle.ticksElapsed / 120.0);
+
             double advantage = struggle.pointsA - struggle.pointsB;
             Vec3 dirAtoB = struggle.startPosB.subtract(struggle.startPosA).normalize();
             Vec3 moveVector = dirAtoB.scale(advantage * COLLISION_MOVE_PER_POINT);
             struggle.currentCollision = struggle.currentCollision.add(moveVector);
 
-            double decay = MASH_DECAY_PER_TICK * struggle.mashMultiplier;
+            double decay = MASH_DECAY_PER_TICK * struggle.mashMultiplier * timeMultiplier;
             struggle.pointsA = Math.max(0, struggle.pointsA - decay);
             struggle.pointsB = Math.max(0, struggle.pointsB - decay);
 
             double distFromMid = struggle.currentCollision.distanceTo(struggle.midpoint);
-            if (distFromMid >= struggle.winDistance || struggle.ticksElapsed >= MAX_STRUGGLE_TICKS) {
+            if (distFromMid >= effectiveWinDistance || struggle.ticksElapsed >= MAX_STRUGGLE_TICKS) {
                 resolveStruggle(struggle, level, currentTick);
                 return false;
             }
@@ -150,6 +162,19 @@ public class BeamStruggleManager {
         return false;
     }
 
+    public static void updateCollisionPoint(UUID owner, Vec3 realCollisionPoint) {
+        UUID struggleId = OWNER_TO_STRUGGLE.get(owner);
+        if (struggleId != null) {
+            BeamStruggle s = ACTIVE_STRUGGLES.get(struggleId);
+            if (s != null && s.phase != StrugglePhase.RESOLVED) {
+                // BUG 3 & BUG 4 fix: update midpoint and currentCollision with advantage offset
+                Vec3 advantageOffset = s.currentCollision.subtract(s.midpoint);
+                s.midpoint = realCollisionPoint;
+                s.currentCollision = realCollisionPoint.add(advantageOffset);
+            }
+        }
+    }
+
     public static void handleFlourishPress(ServerPlayer player) {
         UUID struggleId = OWNER_TO_STRUGGLE.get(player.getUUID());
         if (struggleId == null) return;
@@ -158,7 +183,8 @@ public class BeamStruggleManager {
         if (struggle == null) return;
         if (struggle.phase != StrugglePhase.ACTIVE) return;
 
-        double points = MASH_POINT_PER_CLICK * struggle.mashMultiplier;
+        double timeMultiplier = 1.0 + (struggle.ticksElapsed / 80.0); // BUG 6: mash escalation
+        double points = MASH_POINT_PER_CLICK * struggle.mashMultiplier * timeMultiplier;
         if (player.getUUID().equals(struggle.ownerA)) {
             struggle.pointsA += points;
         } else if (player.getUUID().equals(struggle.ownerB)) {
@@ -181,9 +207,16 @@ public class BeamStruggleManager {
         UUID struggleId = OWNER_TO_STRUGGLE.get(owner);
         if (struggleId != null) {
             BeamStruggle s = ACTIVE_STRUGGLES.get(struggleId);
-            if (s != null) return s.currentCollision;
+            // BUG 1 fix: only return collision point if struggle is not RESOLVED
+            if (s != null && s.phase != StrugglePhase.RESOLVED) {
+                return s.currentCollision;
+            }
         }
         return null;
+    }
+
+    public static void clearOwnerMapping(UUID owner) {
+        OWNER_TO_STRUGGLE.remove(owner);
     }
 
     private static BeamStruggle findActiveStruggle(UUID a, UUID b) {
@@ -215,14 +248,14 @@ public class BeamStruggleManager {
             // Draw
             applyBlastImpact(level, struggle.ownerA, struggle.currentCollision, 1.0F, false);
             applyBlastImpact(level, struggle.ownerB, struggle.currentCollision, 1.0F, false);
-            cleanupStruggle(struggle);
+            cleanupStruggle(struggle, level);
             return;
         }
 
         applyBlastImpact(level, loser, struggle.currentCollision, 2.0F, true);
         applyBlastImpact(level, winner, struggle.currentCollision, 0.0F, false); // Play victory sound on winner
 
-        cleanupStruggle(struggle);
+        cleanupStruggle(struggle, level);
 
         broadcastStruggleEnd(struggle, level, winner, loser);
     }
@@ -318,10 +351,14 @@ public class BeamStruggleManager {
         );
     }
 
-    private static void cleanupStruggle(BeamStruggle struggle) {
+    private static void cleanupStruggle(BeamStruggle struggle, ServerLevel level) {
+        struggle.phase = StrugglePhase.RESOLVED;
         ACTIVE_STRUGGLES.remove(struggle.struggleId);
         OWNER_TO_STRUGGLE.remove(struggle.ownerA);
         OWNER_TO_STRUGGLE.remove(struggle.ownerB);
+        long endTick = level.getGameTime();
+        RECENT_STRUGGLE_COOLDOWN.put(struggle.ownerA, endTick);
+        RECENT_STRUGGLE_COOLDOWN.put(struggle.ownerB, endTick);
     }
 
     private static int getEntityIdFromUUID(ServerLevel level, UUID uuid) {

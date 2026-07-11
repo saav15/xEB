@@ -137,97 +137,177 @@ public class OpticBlastTickHandler {
         Vec3 lookDir = player.getLookAngle();
         Vec3 beamEnd = eyePos.add(lookDir.scale(MAX_BEAM_DISTANCE));
 
-        // Block clip
-        BlockHitResult blockHit = level.clip(new ClipContext(
-                eyePos, beamEnd,
-                ClipContext.Block.COLLIDER,
-                ClipContext.Fluid.NONE,
-                player
-        ));
-
-        Vec3 effectiveEnd;
-        if (blockHit.getType() != HitResult.Type.MISS) {
-            effectiveEnd = blockHit.getLocation();
-        } else {
-            effectiveEnd = beamEnd;
-        }
-
-        // --- 2. Entity sweep along the beam ---
-        AABB sweepBox = new AABB(eyePos, effectiveEnd).inflate(BEAM_ENTITY_INFLATION);
-        EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
-                player, eyePos, effectiveEnd, sweepBox,
-                (entity) -> entity instanceof LivingEntity
-                        && entity.isAlive()
-                        && entity != player
-                        && !entity.isSpectator()
-                        && entity.isPickable(),
-                MAX_BEAM_DISTANCE * MAX_BEAM_DISTANCE
-        );
-
-        // --- 3. Determine which hit is closer ---
+        UUID ownerUUID = player.getUUID();
+        Vec3 effectiveEnd = beamEnd;
         LivingEntity hitEntity = null;
-        if (entityHit != null) {
-            double entityDist = eyePos.distanceToSqr(entityHit.getLocation());
-            double blockDist = eyePos.distanceToSqr(effectiveEnd);
-            if (entityDist < blockDist) {
-                effectiveEnd = entityHit.getLocation();
-                if (entityHit.getEntity() instanceof LivingEntity living) {
-                    hitEntity = living;
+
+        Vec3 struggleCollision = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(ownerUUID);
+        if (struggleCollision != null) {
+            effectiveEnd = struggleCollision;
+            // Update struggle collision point using current raycast look direction
+            // so if players rotate their eyes, the intersection updates.
+            Vec3 otherStart = null;
+            UUID otherOwnerUUID = null;
+            for (BeamData otherBeam : ActiveBeamManager.get().getActiveBeams()) {
+                if (!otherBeam.getOwnerUUID().equals(ownerUUID)) {
+                    otherOwnerUUID = otherBeam.getOwnerUUID();
+                    otherStart = otherBeam.getStart();
+                    break;
                 }
             }
-        }
-
-        // --- 4. Check beam-vs-beam collision ---
-        UUID ownerUUID = player.getUUID();
-        Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(ownerUUID, eyePos, effectiveEnd);
-        if (beamCollision != null) {
-            double collisionDist = eyePos.distanceToSqr(beamCollision);
-            double currentEndDist = eyePos.distanceToSqr(effectiveEnd);
-            if (collisionDist < currentEndDist) {
-                effectiveEnd = beamCollision;
-                hitEntity = null;
-
-                // Buscar el otro beam owner para iniciar/actualizar el Beam Struggle
-                UUID otherOwnerUUID = null;
-                Vec3 otherStart = null;
-
-                for (BeamData otherBeam : ActiveBeamManager.get().getActiveBeams()) {
-                    if (!otherBeam.getOwnerUUID().equals(ownerUUID)) {
-                        otherOwnerUUID = otherBeam.getOwnerUUID();
-                        otherStart = otherBeam.getStart();
+            if (otherOwnerUUID == null) {
+                for (org.xeb.xeb.beamstruggle.ExternalBeamRegistry.ExternalBeamData otherBeam : org.xeb.xeb.beamstruggle.ExternalBeamRegistry.getCurrentTickBeams()) {
+                    if (!otherBeam.ownerUUID().equals(ownerUUID)) {
+                        otherOwnerUUID = otherBeam.ownerUUID();
+                        otherStart = otherBeam.start();
                         break;
                     }
                 }
+            }
+            if (otherStart != null) {
+                Vec3 lookEnd = eyePos.add(lookDir.scale(MAX_BEAM_DISTANCE));
+                Vec3 closestCol = ActiveBeamManager.get().checkBeamVsBeamCollision(ownerUUID, eyePos, lookEnd, 0.4D);
+                if (closestCol != null) {
+                    org.xeb.xeb.beamstruggle.BeamStruggleManager.updateCollisionPoint(ownerUUID, closestCol);
+                    Vec3 updatedCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(ownerUUID);
+                    if (updatedCol != null) {
+                        effectiveEnd = updatedCol;
+                    }
+                }
+            }
+        } else {
+            // Block clip
+            BlockHitResult blockHit = level.clip(new ClipContext(
+                    eyePos, beamEnd,
+                    ClipContext.Block.COLLIDER,
+                    ClipContext.Fluid.NONE,
+                    player
+            ));
 
-                if (otherOwnerUUID == null) {
-                    // Check external beams
-                    for (org.xeb.xeb.beamstruggle.ExternalBeamRegistry.ExternalBeamData otherBeam : org.xeb.xeb.beamstruggle.ExternalBeamRegistry.getCurrentTickBeams()) {
-                        if (!otherBeam.ownerUUID().equals(ownerUUID)) {
-                            otherOwnerUUID = otherBeam.ownerUUID();
-                            otherStart = otherBeam.start();
+            if (blockHit.getType() != HitResult.Type.MISS) {
+                effectiveEnd = blockHit.getLocation();
+            }
+
+            // --- 2. Entity sweep along the beam ---
+            AABB sweepBox = new AABB(eyePos, effectiveEnd).inflate(BEAM_ENTITY_INFLATION);
+            EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
+                    player, eyePos, effectiveEnd, sweepBox,
+                    (entity) -> entity instanceof LivingEntity
+                            && entity.isAlive()
+                            && entity != player
+                            && !entity.isSpectator()
+                            && entity.isPickable(),
+                    MAX_BEAM_DISTANCE * MAX_BEAM_DISTANCE
+            );
+
+            // --- 3. Determine which hit is closer ---
+            if (entityHit != null) {
+                double entityDist = eyePos.distanceToSqr(entityHit.getLocation());
+                double blockDist = eyePos.distanceToSqr(effectiveEnd);
+                if (entityDist < blockDist) {
+                    effectiveEnd = entityHit.getLocation();
+                    if (entityHit.getEntity() instanceof LivingEntity living) {
+                        hitEntity = living;
+                    }
+                }
+            }
+
+            // --- 4. Check beam-vs-beam collision ---
+            Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(ownerUUID, eyePos, effectiveEnd, 0.4D);
+            if (beamCollision != null) {
+                double collisionDist = eyePos.distanceToSqr(beamCollision);
+                double currentEndDist = eyePos.distanceToSqr(effectiveEnd);
+                if (collisionDist < currentEndDist) {
+                    // Buscar el otro beam
+                    UUID otherOwnerUUID = null;
+                    Vec3 otherStart = null;
+                    Vec3 otherEnd = null;
+
+                    for (BeamData otherBeam : ActiveBeamManager.get().getActiveBeams()) {
+                        if (!otherBeam.getOwnerUUID().equals(ownerUUID)) {
+                            otherOwnerUUID = otherBeam.getOwnerUUID();
+                            otherStart = otherBeam.getStart();
+                            otherEnd = otherBeam.getEnd();
                             break;
                         }
                     }
-                }
 
-                if (otherOwnerUUID != null && otherStart != null) {
-                    boolean struggleActive = org.xeb.xeb.beamstruggle.BeamStruggleManager.onBeamCollision(
-                            ownerUUID, otherOwnerUUID,
-                            eyePos, otherStart, beamCollision,
-                            currentTick, level
-                    );
-                    if (struggleActive) {
-                        Vec3 currentCollision = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(ownerUUID);
-                        if (currentCollision != null) {
-                            effectiveEnd = currentCollision;
+                    if (otherOwnerUUID == null) {
+                        for (org.xeb.xeb.beamstruggle.ExternalBeamRegistry.ExternalBeamData otherBeam : org.xeb.xeb.beamstruggle.ExternalBeamRegistry.getCurrentTickBeams()) {
+                            if (!otherBeam.ownerUUID().equals(ownerUUID)) {
+                                otherOwnerUUID = otherBeam.ownerUUID();
+                                otherStart = otherBeam.start();
+                                otherEnd = otherBeam.end();
+                                break;
+                            }
+                        }
+                    }
+
+                    if (otherOwnerUUID != null && otherStart != null && otherEnd != null) {
+                        // BUG 4 fix: verificar si los beams son frontales (look angle dot product < -0.5)
+                        Vec3 myDir = lookDir; // player's look direction
+                        Vec3 otherDir = otherEnd.subtract(otherStart).normalize();
+                        double dotProduct = myDir.dot(otherDir);
+
+                        if (dotProduct < -0.5D) {
+                            // Frontal — struggle
+                            effectiveEnd = beamCollision;
+                            hitEntity = null;
+
+                            boolean struggleActive = org.xeb.xeb.beamstruggle.BeamStruggleManager.onBeamCollision(
+                                    ownerUUID, otherOwnerUUID,
+                                    eyePos, otherStart, beamCollision,
+                                    currentTick, level
+                            );
+                            if (struggleActive) {
+                                org.xeb.xeb.beamstruggle.BeamStruggleManager.updateCollisionPoint(ownerUUID, beamCollision);
+                                Vec3 updatedCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(ownerUUID);
+                                if (updatedCol != null) {
+                                    effectiveEnd = updatedCol;
+                                }
+                            }
+
+                            level.sendParticles(ParticleTypes.FLASH, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
+                                    1, 0.0D, 0.0D, 0.0D, 0.0D);
+                            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
+                                    8, 0.3D, 0.3D, 0.3D, 0.05D);
+                        } else {
+                            // NO frontal — los beams se cortan inmediatamente con penalización
+                            effectiveEnd = beamCollision;
+                            hitEntity = null;
+
+                            // Cortar el beam del player
+                            if (player.isUsingItem()) {
+                                player.releaseUsingItem();
+                            }
+                            org.xeb.xeb.item.OpticBlastItem.setEnergy(player, 0.0F);
+                            player.getCooldowns().addCooldown(ModItems.OPTIC_BLAST.get(), 60); // 3s cooldown
+
+                            // Cortar el beam del otro owner si es player
+                            net.minecraft.world.entity.Entity otherEnt = null;
+                            for (ServerPlayer otherP : level.getServer().getPlayerList().getPlayers()) {
+                                if (otherP.getUUID().equals(otherOwnerUUID)) {
+                                    otherEnt = otherP;
+                                    break;
+                                }
+                            }
+                            if (otherEnt instanceof ServerPlayer otherPlayer) {
+                                if (otherPlayer.isUsingItem()) {
+                                    otherPlayer.releaseUsingItem();
+                                }
+                                org.xeb.xeb.item.OpticBlastItem.setEnergy(otherPlayer, 0.0F);
+                                otherPlayer.getCooldowns().addCooldown(ModItems.OPTIC_BLAST.get(), 60);
+                            }
+
+                            level.sendParticles(ParticleTypes.FLASH, beamCollision.x, beamCollision.y, beamCollision.z,
+                                    3, 0.0D, 0.0D, 0.0D, 0.0D);
+                            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, beamCollision.x, beamCollision.y, beamCollision.z,
+                                    15, 0.5D, 0.5D, 0.5D, 0.1D);
+                            level.playSound(null, beamCollision.x, beamCollision.y, beamCollision.z,
+                                    SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8F, 1.5F);
                         }
                     }
                 }
-
-                level.sendParticles(ParticleTypes.FLASH, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
-                        1, 0.0D, 0.0D, 0.0D, 0.0D);
-                level.sendParticles(ParticleTypes.ELECTRIC_SPARK, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
-                        8, 0.3D, 0.3D, 0.3D, 0.05D);
             }
         }
 

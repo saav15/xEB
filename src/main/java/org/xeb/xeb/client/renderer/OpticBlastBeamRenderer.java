@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class OpticBlastBeamRenderer {
+    private static final BeamStyle BEAM_STYLE = new BeamStyle();
 
     /** Client-side beam data keyed by owner entity ID. */
     public static final Map<Integer, ClientBeamData> CLIENT_BEAMS = new ConcurrentHashMap<>();
@@ -213,63 +214,27 @@ public class OpticBlastBeamRenderer {
         renderCollisionSprite(poseStack, consumer, end, timeMs);
     }
 
-    /**
-     * Renders a single straight beam segment from start to end.
-     */
     private static void renderBeamSegment(PoseStack poseStack, VertexConsumer consumer,
                                           Vec3 start, Vec3 end, long timeMs, boolean isChain) {
-        Vec3 beamDir = end.subtract(start);
-        double length = beamDir.length();
-        if (length < 0.01D) return;
-
-        Vec3 beamDirNorm = beamDir.normalize();
-
-        // Perpendicular vectors (visor-aligned: perp1 horizontal, perp2 vertical)
-        Vec3 perp1 = beamDirNorm.cross(new Vec3(0, 1, 0));
-        if (perp1.lengthSqr() < 0.0001D) {
-            perp1 = beamDirNorm.cross(new Vec3(1, 0, 0));
-        }
-        perp1 = perp1.normalize();
-
-        Vec3 perp2 = beamDirNorm.cross(perp1).normalize();
-
-        float pulse = (isChain ? 0.80F + 0.20F * (float) Math.sin(timeMs * 0.02D)
-                               : 0.90F + 0.10F * (float) Math.sin(timeMs * 0.008D));
-        float glowPulse = (isChain ? 0.65F + 0.35F * (float) Math.sin(timeMs * 0.015D)
-                                   : 0.75F + 0.25F * (float) Math.sin(timeMs * 0.005D));
-
-        float coreHoriz = (isChain ? 0.09F : 0.06F) * pulse;
-        float coreVert = (isChain ? 0.20F : 0.14F) * pulse;
-
-        float midHoriz = (isChain ? 0.22F : 0.14F) * glowPulse;
-        float midVert = (isChain ? 0.40F : 0.28F) * glowPulse;
-
-        float auraHoriz = (isChain ? 0.45F : 0.30F) * glowPulse;
-        float auraVert = (isChain ? 0.75F : 0.50F) * glowPulse;
-
         Matrix4f matrix = poseStack.last().pose();
 
-        // Layer 1: Outer aura — very transparent red
-        drawRectQuad(consumer, matrix, start, end, perp1, perp2,
-                auraHoriz, auraVert,
-                0.7F, 0.0F, 0.0F, 0.08F * glowPulse);
+        BEAM_STYLE.coreR = 1.0F; BEAM_STYLE.coreG = 0.1F; BEAM_STYLE.coreB = 0.1F;
+        BEAM_STYLE.auraR = 1.0F; BEAM_STYLE.auraG = 0.0F; BEAM_STYLE.auraB = 0.0F;
 
-        // Layer 2: Mid glow — semi-transparent red
-        drawRectQuad(consumer, matrix, start, end, perp1, perp2,
-                midHoriz, midVert,
-                0.9F, 0.02F, 0.0F, 0.22F * glowPulse);
+        if (isChain) {
+            BEAM_STYLE.auraWidth = 0.5F;
+            BEAM_STYLE.glowWidth = 0.3F;
+            BEAM_STYLE.coreWidth = 0.15F;
+            BEAM_STYLE.innerWidth = 0.05F;
+        } else {
+            BEAM_STYLE.auraWidth = 0.45F;
+            BEAM_STYLE.glowWidth = 0.25F;
+            BEAM_STYLE.coreWidth = 0.12F;
+            BEAM_STYLE.innerWidth = 0.04F;
+        }
+        BEAM_STYLE.heatHaze = true;
 
-        // Layer 3: Core beam — solid bright red, rectangular
-        drawRectQuad(consumer, matrix, start, end, perp1, perp2,
-                coreHoriz, coreVert,
-                1.0F, isChain ? 0.0F : 0.08F, isChain ? 0.15F : 0.02F, 0.90F);
-
-        // Layer 4: Inner hot line — very narrow, slightly brighter red
-        float innerH = coreHoriz * 0.3F;
-        float innerV = coreVert * 0.3F;
-        drawRectQuad(consumer, matrix, start, end, perp1, perp2,
-                innerH, innerV,
-                1.0F, 0.15F, 0.05F, 0.95F);
+        BEAM_STYLE.render(consumer, matrix, start, end, timeMs);
     }
 
     /**
@@ -278,9 +243,34 @@ public class OpticBlastBeamRenderer {
     private static void renderBeam(PoseStack poseStack, VertexConsumer consumer,
                                     Vec3 start, Vec3 end, long timeMs, boolean isChain) {
         renderBeamSegment(poseStack, consumer, start, end, timeMs, isChain);
-        
-        // Draw volumetric collision sprite at the beam endpoint (block hit)
-        renderCollisionSprite(poseStack, consumer, end, timeMs);
+
+        Matrix4f matrix = poseStack.last().pose();
+        BEAM_STYLE.renderImpact(consumer, matrix, end, timeMs);
+
+        // Spawn sparks and fire particles along the beam on the client (BUG 7)
+        if (timeMs % 40 < 10) {
+            Vec3 dir = end.subtract(start);
+            double length = dir.length();
+            if (length > 1.0D) {
+                Vec3 dirN = dir.normalize();
+                net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
+                if (level != null) {
+                    for (double d = 2.0D; d < length; d += 5.0D) {
+                        Vec3 spawnPos = start.add(dirN.scale(d));
+                        level.addParticle(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK,
+                                spawnPos.x, spawnPos.y, spawnPos.z,
+                                (level.random.nextFloat() - 0.5F) * 0.1D,
+                                (level.random.nextFloat() - 0.5F) * 0.1D,
+                                (level.random.nextFloat() - 0.5F) * 0.1D);
+                        if (level.random.nextFloat() < 0.3F) {
+                            level.addParticle(net.minecraft.core.particles.ParticleTypes.FLAME,
+                                    spawnPos.x, spawnPos.y, spawnPos.z,
+                                    0, 0.02D, 0);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**

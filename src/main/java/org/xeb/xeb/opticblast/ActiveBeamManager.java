@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manages all active laser beams in the world.
- * Provides beam-vs-beam collision checking by discretizing beams into 1-block AABB segments.
+ * Provides optimized segment-to-segment collision checking.
  */
 public class ActiveBeamManager {
     private static final ActiveBeamManager INSTANCE = new ActiveBeamManager();
@@ -58,16 +58,23 @@ public class ActiveBeamManager {
     }
 
     /**
-     * Checks if a beam from the given owner intersects with any other active beam.
-     * Discretizes both beams into 1-block segments and checks AABB overlaps.
-     *
-     * @param ownerUUID  The UUID of the beam owner to check
-     * @param beamStart  Start position of the beam
-     * @param beamEnd    End position of the beam
-     * @return The collision point (closest intersection), or null if no collision.
+     * Default collision check for Optic Blast.
      */
     public Vec3 checkBeamVsBeamCollision(UUID ownerUUID, Vec3 beamStart, Vec3 beamEnd) {
-        double halfWidth = 0.5D; // half the 1-block-wide hitbox
+        return checkBeamVsBeamCollision(ownerUUID, beamStart, beamEnd, 0.4D);
+    }
+
+    /**
+     * Checks if a beam from the given owner intersects with any other active beam.
+     * Uses optimized segment-to-segment math.
+     *
+     * @param ownerUUID    The UUID of the beam owner to check
+     * @param beamStart    Start position of the beam
+     * @param beamEnd      End position of the beam
+     * @param myHalfWidth  Collision half-width for this beam
+     * @return The collision point (closest intersection), or null if no collision.
+     */
+    public Vec3 checkBeamVsBeamCollision(UUID ownerUUID, Vec3 beamStart, Vec3 beamEnd, double myHalfWidth) {
         Vec3 closestCollision = null;
         double closestDist = Double.MAX_VALUE;
 
@@ -75,52 +82,31 @@ public class ActiveBeamManager {
             if (entry.getValue().getOwnerUUID().equals(ownerUUID)) continue; // don't collide with self
 
             BeamData other = entry.getValue();
+            double otherHalfWidth = getBeamHalfWidth(other.getBeamSource());
             Vec3 otherStart = other.getStart();
             Vec3 otherEnd = other.getEnd();
 
-            // Discretize both beams into segments
-            List<AABB> mySegments = discretizeBeam(beamStart, beamEnd, halfWidth);
-            List<AABB> otherSegments = discretizeBeam(otherStart, otherEnd, halfWidth);
-
-            for (int i = 0; i < mySegments.size(); i++) {
-                AABB myBox = mySegments.get(i);
-                for (AABB otherBox : otherSegments) {
-                    if (myBox.intersects(otherBox)) {
-                        // Calculate approximate collision point (center of my segment)
-                        Vec3 dir = beamEnd.subtract(beamStart).normalize();
-                        Vec3 collisionPoint = beamStart.add(dir.scale(i + 0.5D));
-                        double dist = beamStart.distanceToSqr(collisionPoint);
-                        if (dist < closestDist) {
-                            closestDist = dist;
-                            closestCollision = collisionPoint;
-                        }
-                    }
+            Vec3 collision = checkSegmentIntersection(beamStart, beamEnd, otherStart, otherEnd, myHalfWidth, otherHalfWidth);
+            if (collision != null) {
+                double dist = beamStart.distanceToSqr(collision);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestCollision = collision;
                 }
             }
         }
 
-        // Also check external beams!
+        // External beams
         for (org.xeb.xeb.beamstruggle.ExternalBeamRegistry.ExternalBeamData other : org.xeb.xeb.beamstruggle.ExternalBeamRegistry.getCurrentTickBeams()) {
             if (other.ownerUUID().equals(ownerUUID)) continue;
 
-            Vec3 otherStart = other.start();
-            Vec3 otherEnd = other.end();
-
-            List<AABB> mySegments = discretizeBeam(beamStart, beamEnd, halfWidth);
-            List<AABB> otherSegments = discretizeBeam(otherStart, otherEnd, halfWidth);
-
-            for (int i = 0; i < mySegments.size(); i++) {
-                AABB myBox = mySegments.get(i);
-                for (AABB otherBox : otherSegments) {
-                    if (myBox.intersects(otherBox)) {
-                        Vec3 dir = beamEnd.subtract(beamStart).normalize();
-                        Vec3 collisionPoint = beamStart.add(dir.scale(i + 0.5D));
-                        double dist = beamStart.distanceToSqr(collisionPoint);
-                        if (dist < closestDist) {
-                            closestDist = dist;
-                            closestCollision = collisionPoint;
-                        }
-                    }
+            double otherHalfWidth = 0.6D; // external beams default
+            Vec3 collision = checkSegmentIntersection(beamStart, beamEnd, other.start(), other.end(), myHalfWidth, otherHalfWidth);
+            if (collision != null) {
+                double dist = beamStart.distanceToSqr(collision);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestCollision = collision;
                 }
             }
         }
@@ -128,31 +114,77 @@ public class ActiveBeamManager {
         return closestCollision;
     }
 
-    /**
-     * Discretizes a beam into 1-block-length AABB segments.
-     */
-    private static List<AABB> discretizeBeam(Vec3 start, Vec3 end, double halfWidth) {
-        List<AABB> segments = new ArrayList<>();
-        double length = start.distanceTo(end);
-        if (length < 0.01D) return segments;
-
-        Vec3 dir = end.subtract(start).normalize();
-        int segmentCount = Math.max(1, (int) Math.ceil(length));
-
-        for (int i = 0; i < segmentCount; i++) {
-            Vec3 segCenter = start.add(dir.scale(i + 0.5D));
-            AABB box = new AABB(
-                    segCenter.x - halfWidth, segCenter.y - halfWidth, segCenter.z - halfWidth,
-                    segCenter.x + halfWidth, segCenter.y + halfWidth, segCenter.z + halfWidth
-            );
-            segments.add(box);
-        }
-
-        return segments;
+    private double getBeamHalfWidth(String beamSource) {
+        if (beamSource == null) return 0.5D;
+        return switch (beamSource) {
+            case "brimstone" -> 0.75D; // Brimstone is thicker
+            case "optic_blast" -> 0.4D;
+            default -> 0.5D;
+        };
     }
 
     /**
-     * Clears all beams (e.g., on server stop or dimension change).
+     * Calculates the real intersection point between two 3D segments using line closest approach math.
+     * Returns the midpoint of closest approach if they are within threshold distance.
+     */
+    private Vec3 checkSegmentIntersection(Vec3 a1, Vec3 a2, Vec3 b1, Vec3 b2, double halfWidthA, double halfWidthB) {
+        double threshold = halfWidthA + halfWidthB;
+        double thresholdSq = threshold * threshold;
+
+        Vec3 d1 = a2.subtract(a1); // direction of segment A
+        Vec3 d2 = b2.subtract(b1); // direction of segment B
+        Vec3 r = a1.subtract(b1);
+
+        double a = d1.dot(d1);
+        double e = d2.dot(d2);
+        double f = d2.dot(r);
+
+        double s, t;
+        if (a <= 1e-6 && e <= 1e-6) {
+            s = 0; t = 0;
+        } else if (a <= 1e-6) {
+            s = 0;
+            t = Math.max(0, Math.min(1, f / e));
+        } else {
+            double c = d1.dot(r);
+            if (e <= 1e-6) {
+                t = 0;
+                s = Math.max(0, Math.min(1, -c / a));
+            } else {
+                double b = d1.dot(d2);
+                double denom = a * e - b * b;
+                if (denom != 0) {
+                    s = Math.max(0, Math.min(1, (b * f - c * e) / denom));
+                } else {
+                    s = 0;
+                }
+                t = (b * s + f) / e;
+                if (t < 0) {
+                    t = 0;
+                    s = Math.max(0, Math.min(1, -c / a));
+                } else if (t > 1) {
+                    t = 1;
+                    s = Math.max(0, Math.min(1, (b - c) / a));
+                }
+            }
+        }
+
+        Vec3 closestA = a1.add(d1.scale(s));
+        Vec3 closestB = b1.add(d2.scale(t));
+        double distSq = closestA.distanceToSqr(closestB);
+
+        if (distSq < thresholdSq) {
+            return new Vec3(
+                    (closestA.x + closestB.x) / 2.0,
+                    (closestA.y + closestB.y) / 2.0,
+                    (closestA.z + closestB.z) / 2.0
+            );
+        }
+        return null;
+    }
+
+    /**
+     * Clears all beams.
      */
     public void clearAll() {
         activeBeams.clear();
