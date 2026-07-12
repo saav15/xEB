@@ -69,3 +69,11 @@ mandatory = true
 versionRange = "[4.0.0,)"
 ordering = "BEFORE"
 side = "BOTH"
+
+# Tinkers' Construct — optional dependency
+[[dependencies."${mod_id}"]]
+modId = "tconstruct"
+mandatory = false
+versionRange = "[3.5,)"
+ordering = "AFTER"
+side = "BOTH"

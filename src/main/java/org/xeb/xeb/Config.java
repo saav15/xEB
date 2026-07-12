@@ -174,6 +174,35 @@ public class Config {
             .comment("Y offset of the active ability cooldowns HUD (Default 42, relative to bottom-left, subtracted from screen height).")
             .defineInRange("hud.opticBlastHudY", 42, 0, 10000);
 
+    // Elite Loot Group
+    public static final ForgeConfigSpec.BooleanValue LOOT_DROPS_ENABLED = BUILDER
+            .comment("Whether elite mobs drop Bits and Essences.")
+            .define("eliteLoot.enabled", true);
+
+    public static final ForgeConfigSpec.DoubleValue BRONZE_BIT_DROP_CHANCE = BUILDER
+            .comment("Chance for Bronze Bit drop from Bronze medallion mobs (0.0 to 1.0).")
+            .defineInRange("eliteLoot.bronzeBitChance", 0.40D, 0.0D, 1.0D);
+
+    public static final ForgeConfigSpec.DoubleValue SILVER_BIT_DROP_CHANCE = BUILDER
+            .comment("Chance for Silver Bit drop from Silver medallion mobs (0.0 to 1.0).")
+            .defineInRange("eliteLoot.silverBitChance", 0.55D, 0.0D, 1.0D);
+
+    public static final ForgeConfigSpec.DoubleValue GOLD_BIT_DROP_CHANCE = BUILDER
+            .comment("Chance for Gold Bit drop from Gold medallion mobs (0.0 to 1.0).")
+            .defineInRange("eliteLoot.goldBitChance", 0.75D, 0.0D, 1.0D);
+
+    public static final ForgeConfigSpec.DoubleValue ESSENCE_DROP_CHANCE = BUILDER
+            .comment("Base chance for Essence drop (modified by medallion tier).")
+            .defineInRange("eliteLoot.essenceChance", 0.08D, 0.0D, 1.0D);
+
+    public static final ForgeConfigSpec.BooleanValue BOSS_BIT_GUARANTEED = BUILDER
+            .comment("If true, bosses have +20% chance to drop bits.")
+            .define("eliteLoot.bossBitGuaranteed", true);
+
+    public static final ForgeConfigSpec.BooleanValue TCONSTRUCT_INTEGRATION_ENABLED = BUILDER
+            .comment("If true and Tinkers' Construct is loaded, register elite materials and modifiers.")
+            .define("eliteLoot.tconstructIntegration", true);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static boolean enabled = true;
@@ -224,6 +253,15 @@ public class Config {
     // HUD position config
     public static int opticBlastHudX = 10;
     public static int opticBlastHudY = 42;
+
+    // Elite Loot config static variables
+    public static boolean lootDropsEnabled = true;
+    public static double bronzeBitDropChance = 0.40D;
+    public static double silverBitDropChance = 0.55D;
+    public static double goldBitDropChance = 0.75D;
+    public static double essenceDropChance = 0.08D;
+    public static boolean bossBitGuaranteed = true;
+    public static boolean tconstructIntegrationEnabled = true;
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
@@ -285,5 +323,14 @@ public class Config {
         // Load HUD config
         opticBlastHudX = OPTIC_BLAST_HUD_X.get();
         opticBlastHudY = OPTIC_BLAST_HUD_Y.get();
+
+        // Load Elite Loot config
+        lootDropsEnabled = LOOT_DROPS_ENABLED.get();
+        bronzeBitDropChance = BRONZE_BIT_DROP_CHANCE.get();
+        silverBitDropChance = SILVER_BIT_DROP_CHANCE.get();
+        goldBitDropChance = GOLD_BIT_DROP_CHANCE.get();
+        essenceDropChance = ESSENCE_DROP_CHANCE.get();
+        bossBitGuaranteed = BOSS_BIT_GUARANTEED.get();
+        tconstructIntegrationEnabled = TCONSTRUCT_INTEGRATION_ENABLED.get();
     }
 }

@@ -57,6 +57,8 @@ public class Xeb {
         org.xeb.xeb.sound.ModSounds.register(modEventBus);
         org.xeb.xeb.item.ModItems.register(modEventBus);
         org.xeb.xeb.item.ModCreativeModeTabs.register(modEventBus);
+        org.xeb.xeb.block.ModBlocks.register(modEventBus);
+        org.xeb.xeb.fluid.ModFluids.register(modEventBus);
 
         // Register lifecycle listeners
         modEventBus.addListener(this::commonSetup);
@@ -72,6 +74,7 @@ public class Xeb {
 
         // Register all 28 buffs
         registerAllBuffs();
+        registerAllEssences();
 
         LOGGER.info("xEB (xd Elite Buffs) loaded!");
     }
@@ -318,5 +321,23 @@ public class Xeb {
                 }
             }
         }
+    }
+
+    private void registerAllEssences() {
+        String[] buffIds = {
+            // combat
+            "spiky", "reactive", "damaging", "flaming", "creepy", "mad", "mirror", "plow",
+            "resonant", "sandy", "static",
+            // defense
+            "absorbent", "hardy", "healthy", "protected", "shielded", "tough", "undying",
+            // utility
+            "bouncy", "evolving", "lucky", "mega", "speedy", "sticky", "twin",
+            // special
+            "depressing", "infested", "slightly_depressing"
+        };
+        for (String id : buffIds) {
+            org.xeb.xeb.loot.EssenceRegistry.register(id);
+        }
+        LOGGER.info("xEB: Registered {} essences", buffIds.length);
     }
 }

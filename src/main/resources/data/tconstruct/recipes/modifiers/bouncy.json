@@ -1,0 +1,12 @@
+{
+  "type": "tconstruct:modifier",
+  "inputs": [
+    { "item": "xeb:bouncy_essence" },
+    { "item": "xeb:gold_elite_bit" },
+    { "item": "xeb:moon_tear" }
+  ],
+  "tools": { "tag": "tconstruct:modifiable" },
+  "result": { "name": "tconstruct:bouncy", "level": 1 },
+  "max_level": 3,
+  "slots": { "upgrades": 1 }
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BBB",
+    "BBB",
+    "BBB"
+  ],
+  "key": {
+    "B": {
+      "item": "xeb:bronze_elite_bit"
+    }
+  },
+  "result": {
+    "item": "xeb:bronze_elite_ingot"
+  }
+}

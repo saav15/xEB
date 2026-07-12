@@ -1,0 +1,5 @@
+{
+  "craftable": false,
+  "fluid": "xeb:molten_gold_elite",
+  "fallback": "tconstruct:gold"
+}

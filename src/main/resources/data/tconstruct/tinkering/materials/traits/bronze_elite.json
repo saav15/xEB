@@ -1,0 +1,9 @@
+{
+  "material": "tconstruct:bronze_elite",
+  "traits": [
+    {
+      "name": "tconstruct:spiked_conditioning",
+      "level": 1
+    }
+  ]
+}

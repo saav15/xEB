@@ -1,0 +1,12 @@
+{
+  "type": "tconstruct:melting",
+  "ingredient": {
+    "item": "xeb:bronze_elite_bit"
+  },
+  "result": {
+    "fluid": "xeb:molten_bronze_elite",
+    "amount": 16
+  },
+  "temperature": 700,
+  "time": 30
+}

@@ -30,6 +30,44 @@ public class ModCreativeModeTabs {
                     .build()
     );
 
+    public static final RegistryObject<CreativeModeTab> XEB_TINKERS_TAB = CREATIVE_MODE_TABS.register("xeb_tinkers_tab",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("creativeTab.xeb.xeb_tinkers"))
+                    .icon(() -> new ItemStack(ModItems.BRONZE_ELITE_INGOT.get()))
+                    .displayItems((parameters, output) -> {
+                        // Elite Bits
+                        output.accept(ModItems.BRONZE_ELITE_BIT.get());
+                        output.accept(ModItems.SILVER_ELITE_BIT.get());
+                        output.accept(ModItems.GOLD_ELITE_BIT.get());
+                        
+                        // Elite Ingots
+                        output.accept(ModItems.BRONZE_ELITE_INGOT.get());
+                        output.accept(ModItems.SILVER_ELITE_INGOT.get());
+                        output.accept(ModItems.GOLD_ELITE_INGOT.get());
+                        
+                        // Molten Buckets
+                        output.accept(ModItems.MOLTEN_BRONZE_ELITE_BUCKET.get());
+                        output.accept(ModItems.MOLTEN_SILVER_ELITE_BUCKET.get());
+                        output.accept(ModItems.MOLTEN_GOLD_ELITE_BUCKET.get());
+
+                        // Essences (all tiers)
+                        for (var reg : org.xeb.xeb.loot.EssenceRegistry.getAll().values()) {
+                            net.minecraft.world.item.ItemStack commonStack = new net.minecraft.world.item.ItemStack(reg.get());
+                            commonStack.getOrCreateTag().putString("MedallionTier", "COMMON");
+                            output.accept(commonStack);
+                            
+                            net.minecraft.world.item.ItemStack rareStack = new net.minecraft.world.item.ItemStack(reg.get());
+                            rareStack.getOrCreateTag().putString("MedallionTier", "RARE");
+                            output.accept(rareStack);
+                            
+                            net.minecraft.world.item.ItemStack legendaryStack = new net.minecraft.world.item.ItemStack(reg.get());
+                            legendaryStack.getOrCreateTag().putString("MedallionTier", "LEGENDARY");
+                            output.accept(legendaryStack);
+                        }
+                    })
+                    .build()
+    );
+
     public static final RegistryObject<CreativeModeTab> ETERNAL_BULWARK_TAB = CREATIVE_MODE_TABS.register("eternal_bulwark_tab",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("creativeTab.xeb.eternal_bulwark"))

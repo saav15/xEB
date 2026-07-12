@@ -1,0 +1,9 @@
+{
+  "material": "tconstruct:silver_elite",
+  "traits": [
+    {
+      "name": "tconstruct:elite_reflexes",
+      "level": 1
+    }
+  ]
+}

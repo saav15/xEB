@@ -137,7 +137,7 @@ public class MechaOverdriveItem extends Item implements GeoItem {
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
         if (!(entity instanceof Player player)) return;
 
-        boolean holdsMecha = player.getMainHandItem() == stack || player.getOffhandItem() == stack;
+        boolean holdsMecha = player.getMainHandItem().getItem() == this || player.getOffhandItem().getItem() == this;
         if (!holdsMecha) {
             // Clean up state if not held
             CompoundTag pData = player.getPersistentData();

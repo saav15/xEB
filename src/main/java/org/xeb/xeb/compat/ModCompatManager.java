@@ -202,5 +202,12 @@ public class ModCompatManager {
 
         // Initialize external beam registry
         org.xeb.xeb.beamstruggle.ExternalBeamRegistry.init();
+
+        // Tinkers' Construct integration
+        try {
+            org.xeb.xeb.compat.tconstruct.XEBTinkersModule.init();
+        } catch (Exception e) {
+            com.mojang.logging.LogUtils.getLogger().error("xEB: Failed to init Tinkers integration", e);
+        }
     }
 }

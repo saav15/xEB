@@ -76,6 +76,33 @@ public class ModItems {
     public static final RegistryObject<Item> HOLY_DUALITY_BLADE = ITEMS.register("holy_duality_blade",
             () -> new HolyDualityBladeItem(new Item.Properties().stacksTo(1)));
 
+    // ── Elite Bits (drops de mobs elite) ──
+    public static final RegistryObject<Item> BRONZE_ELITE_BIT = ITEMS.register("bronze_elite_bit",
+            () -> new Item(new Item.Properties().stacksTo(64)));
+    public static final RegistryObject<Item> SILVER_ELITE_BIT = ITEMS.register("silver_elite_bit",
+            () -> new Item(new Item.Properties().stacksTo(64)));
+    public static final RegistryObject<Item> GOLD_ELITE_BIT = ITEMS.register("gold_elite_bit",
+            () -> new Item(new Item.Properties().stacksTo(64)));
+
+    // ── Elite Ingots (materiales base) ──
+    public static final RegistryObject<Item> BRONZE_ELITE_INGOT = ITEMS.register("bronze_elite_ingot",
+            () -> new Item(new Item.Properties().stacksTo(64)));
+    public static final RegistryObject<Item> SILVER_ELITE_INGOT = ITEMS.register("silver_elite_ingot",
+            () -> new Item(new Item.Properties().stacksTo(64)));
+    public static final RegistryObject<Item> GOLD_ELITE_INGOT = ITEMS.register("gold_elite_ingot",
+            () -> new Item(new Item.Properties().stacksTo(64)));
+
+    // ── Molten Buckets (Tinkers molten parts) ──
+    public static final RegistryObject<Item> MOLTEN_BRONZE_ELITE_BUCKET = ITEMS.register("molten_bronze_elite_bucket",
+            () -> new net.minecraft.world.item.BucketItem(() -> org.xeb.xeb.fluid.ModFluids.MOLTEN_BRONZE_ELITE.get(),
+                    new Item.Properties().craftRemainder(net.minecraft.world.item.Items.BUCKET).stacksTo(1)));
+    public static final RegistryObject<Item> MOLTEN_SILVER_ELITE_BUCKET = ITEMS.register("molten_silver_elite_bucket",
+            () -> new net.minecraft.world.item.BucketItem(() -> org.xeb.xeb.fluid.ModFluids.MOLTEN_SILVER_ELITE.get(),
+                    new Item.Properties().craftRemainder(net.minecraft.world.item.Items.BUCKET).stacksTo(1)));
+    public static final RegistryObject<Item> MOLTEN_GOLD_ELITE_BUCKET = ITEMS.register("molten_gold_elite_bucket",
+            () -> new net.minecraft.world.item.BucketItem(() -> org.xeb.xeb.fluid.ModFluids.MOLTEN_GOLD_ELITE.get(),
+                    new Item.Properties().craftRemainder(net.minecraft.world.item.Items.BUCKET).stacksTo(1)));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }

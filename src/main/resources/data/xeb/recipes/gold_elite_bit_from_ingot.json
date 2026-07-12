@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "xeb:gold_elite_ingot"
+    }
+  ],
+  "result": {
+    "item": "xeb:gold_elite_bit",
+    "count": 9
+  }
+}

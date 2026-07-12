@@ -1,0 +1,5 @@
+{
+  "craftable": false,
+  "fluid": "xeb:molten_silver_elite",
+  "fallback": "tconstruct:iron"
+}

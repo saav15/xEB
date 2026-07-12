@@ -1,0 +1,12 @@
+{
+  "type": "tconstruct:melting",
+  "ingredient": {
+    "item": "xeb:gold_elite_ingot"
+  },
+  "result": {
+    "fluid": "xeb:molten_gold_elite",
+    "amount": 144
+  },
+  "temperature": 1200,
+  "time": 60
+}

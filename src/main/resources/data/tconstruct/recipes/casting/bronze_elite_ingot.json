@@ -1,0 +1,13 @@
+{
+  "type": "tconstruct:casting_table",
+  "cast": {
+    "tag": "tconstruct:casts/multi_use/ingot"
+  },
+  "cast_consumed": false,
+  "fluid": "xeb:molten_bronze_elite",
+  "amount": 144,
+  "result": {
+    "item": "xeb:bronze_elite_ingot"
+  },
+  "cooling_time": 60
+}

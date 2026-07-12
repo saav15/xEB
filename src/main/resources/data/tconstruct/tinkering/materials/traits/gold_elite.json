@@ -1,0 +1,9 @@
+{
+  "material": "tconstruct:gold_elite",
+  "traits": [
+    {
+      "name": "tconstruct:elite_slayer",
+      "level": 1
+    }
+  ]
+}
