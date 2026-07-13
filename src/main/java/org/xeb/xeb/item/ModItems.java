@@ -103,6 +103,16 @@ public class ModItems {
             () -> new net.minecraft.world.item.BucketItem(() -> org.xeb.xeb.fluid.ModFluids.MOLTEN_GOLD_ELITE.get(),
                     new Item.Properties().craftRemainder(net.minecraft.world.item.Items.BUCKET).stacksTo(1)));
 
+    public static final RegistryObject<Item> MOLTEN_BRONZE_ELITE_BLOCK_ITEM = ITEMS.register("molten_bronze_elite",
+            () -> new net.minecraft.world.item.BlockItem(org.xeb.xeb.block.ModBlocks.MOLTEN_BRONZE_ELITE_BLOCK.get(),
+                    new Item.Properties()));
+    public static final RegistryObject<Item> MOLTEN_SILVER_ELITE_BLOCK_ITEM = ITEMS.register("molten_silver_elite",
+            () -> new net.minecraft.world.item.BlockItem(org.xeb.xeb.block.ModBlocks.MOLTEN_SILVER_ELITE_BLOCK.get(),
+                    new Item.Properties()));
+    public static final RegistryObject<Item> MOLTEN_GOLD_ELITE_BLOCK_ITEM = ITEMS.register("molten_gold_elite",
+            () -> new net.minecraft.world.item.BlockItem(org.xeb.xeb.block.ModBlocks.MOLTEN_GOLD_ELITE_BLOCK.get(),
+                    new Item.Properties()));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }

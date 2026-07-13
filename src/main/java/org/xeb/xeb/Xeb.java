@@ -59,6 +59,7 @@ public class Xeb {
         org.xeb.xeb.item.ModCreativeModeTabs.register(modEventBus);
         org.xeb.xeb.block.ModBlocks.register(modEventBus);
         org.xeb.xeb.fluid.ModFluids.register(modEventBus);
+        org.xeb.xeb.fluid.ModFluidTypes.FLUID_TYPES.register(modEventBus);
 
         // Register lifecycle listeners
         modEventBus.addListener(this::commonSetup);
