@@ -47,7 +47,11 @@ public class HotPokerGeoRenderer extends GeoEntityRenderer<HotPokerEntity> {
                 poseStack.pushPose();
                 // Standard rotation & translation offset for weapons to render correctly aligned in Geckolib hands
                 poseStack.translate(0.0D, bone.getName().equals("HANDright") ? -0.25D : -0.05D, 0.0D);
-                poseStack.mulPose(Axis.XP.rotationDegrees(0.0F));
+                if (bone.getName().equals("HANDleft")) {
+                    poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
+                } else {
+                    poseStack.mulPose(Axis.XP.rotationDegrees(0.0F));
+                }
                 poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
                 
                 // Scale weapons down by 50%

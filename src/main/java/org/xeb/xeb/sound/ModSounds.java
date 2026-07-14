@@ -38,6 +38,12 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> FLOWER_DANCE_FAKE = SOUNDS.register("flowerdancefake",
             () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Xeb.MODID, "flowerdancefake")));
 
+    public static final RegistryObject<SoundEvent> HOTPOKER_TP = SOUNDS.register("hotpokertp",
+            () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Xeb.MODID, "hotpokertp")));
+
+    public static final RegistryObject<SoundEvent> HOTPOKER_DMG = SOUNDS.register("hotpokerdmg",
+            () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Xeb.MODID, "hotpokerdmg")));
+
     public static void register(IEventBus eventBus) {
         SOUNDS.register(eventBus);
     }

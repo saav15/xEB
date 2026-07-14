@@ -52,5 +52,15 @@
     "sounds": [
       "xeb:flowerdancefake"
     ]
+  },
+  "hotpokertp": {
+    "sounds": [
+      "xeb:hotpokertp"
+    ]
+  },
+  "hotpokerdmg": {
+    "sounds": [
+      "xeb:hotpokerdmg"
+    ]
   }
 }
