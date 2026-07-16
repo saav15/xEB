@@ -76,6 +76,9 @@ public class ModItems {
     public static final RegistryObject<Item> HOLY_DUALITY_BLADE = ITEMS.register("holy_duality_blade",
             () -> new HolyDualityBladeItem(new Item.Properties().stacksTo(1)));
 
+    public static final RegistryObject<Item> ENIGMA_BIOS = ITEMS.register("enigma_bios",
+            () -> new EnigmaBiosItem(new Item.Properties().stacksTo(1)));
+
     // ── Elite Bits (drops de mobs elite) ──
     public static final RegistryObject<Item> BRONZE_ELITE_BIT = ITEMS.register("bronze_elite_bit",
             () -> new Item(new Item.Properties().stacksTo(64)));

@@ -46,3 +46,7 @@ nbbuild/
 dist/
 nbdist/
 .nb-gradle/
+
+# Lore documentation
+/LORE.md
+
