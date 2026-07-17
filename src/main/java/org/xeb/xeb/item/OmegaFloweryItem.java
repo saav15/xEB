@@ -28,7 +28,6 @@ public class OmegaFloweryItem extends Item {
                                 List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.xeb.omega_flowery.desc1"));
         tooltip.add(Component.translatable("item.xeb.omega_flowery.desc2", Component.keybind("key.xeb.activa_3")));
-        tooltip.add(Component.translatable("item.xeb.omega_flowery.desc3"));
         tooltip.add(Component.translatable("item.xeb.omega_flowery.requires",
                 Component.translatable("item.xeb.golden_flower")));
         super.appendHoverText(stack, level, tooltip, flag);

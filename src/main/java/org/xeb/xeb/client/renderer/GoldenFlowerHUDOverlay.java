@@ -116,9 +116,11 @@ public class GoldenFlowerHUDOverlay {
             // Render Jarona box
             renderJaronaBox(g, mc, xStart + boxW + 6, yStart, key2, "JARO", jaronaCharges, jaronaTimer, jaronaActive);
 
-            // Ultimate Curio box
-            if (org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player)) {
-                org.xeb.xeb.render.DoomfistHUDOverlay.renderUltimateBox(g, mc, player, screenH);
+            // Extreme Burst curio box
+            org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry =
+                    org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
+            if (burstEntry != null) {
+                org.xeb.xeb.render.DoomfistHUDOverlay.renderUltimateBox(g, mc, player, screenH, burstEntry);
             }
 
             RenderSystem.disableBlend();

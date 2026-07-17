@@ -300,8 +300,8 @@ public class KeyInputHandler {
                 wasOpticActiva2Held = false;
             }
 
-            // Ultimate Curio - Activa 3 (N) Key Input Handler (Global/Compatible with any weapon status)
-            if (org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player)) {
+            // Extreme Burst (Activa 3 / N) — usable with any equipped burst curio (Universal or Limited)
+            if (org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player) != null) {
                 if (ModKeyMappings.ACTIVA_3_KEY.consumeClick()) {
                     XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(3, true));
                 }

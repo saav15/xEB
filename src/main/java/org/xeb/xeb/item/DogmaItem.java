@@ -27,7 +27,6 @@ public class DogmaItem extends Item {
                                 List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.xeb.dogma.desc1"));
         tooltip.add(Component.translatable("item.xeb.dogma.desc2", Component.keybind("key.xeb.activa_3")));
-        tooltip.add(Component.translatable("item.xeb.dogma.desc3"));
         tooltip.add(Component.translatable("item.xeb.dogma.requires",
                 Component.translatable("item.xeb.the_tears")));
         super.appendHoverText(stack, level, tooltip, flag);

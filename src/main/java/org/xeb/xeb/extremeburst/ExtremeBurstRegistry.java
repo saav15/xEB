@@ -71,9 +71,23 @@ public class ExtremeBurstRegistry {
      * Returns {@code null} if no registered curio is equipped.
      */
     public static ExtremeBurstEntry findActiveBurst(LivingEntity entity) {
+        // 1. Primary: scan all Curios slots
         for (net.minecraft.world.item.ItemStack stack : org.xeb.xeb.compat.ModCompatManager.getCuriosItems(entity)) {
             ExtremeBurstEntry entry = REGISTRY.get(stack.getItem());
             if (entry != null) return entry;
+        }
+        // 2. Fallback: if Curios is absent/not resolved yet, check offhand and armor slots
+        // This allows the HUD and key input to work even before the Curios handler is ready.
+        if (entity instanceof net.minecraft.world.entity.player.Player player) {
+            // Check offhand
+            ExtremeBurstEntry e = REGISTRY.get(player.getOffhandItem().getItem());
+            if (e != null) return e;
+            // Check full inventory (hotbar + main inventory)
+            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                net.minecraft.world.item.ItemStack s = player.getInventory().getItem(i);
+                ExtremeBurstEntry ie = REGISTRY.get(s.getItem());
+                if (ie != null) return ie;
+            }
         }
         return null;
     }

@@ -23,7 +23,7 @@ public class EnigmaBiosScreen extends Screen {
 
     private int activeTab = 0; // 0: Analizador, 1-5: Bitácoras
     private ItemStack analyzedStack = ItemStack.EMPTY;
-    private int selectedAbilityIndex = 0; // 0: Clic Izq, 1: Clic Der, 2: Activa 1, 3: Activa 2, 4: Ultimate
+    private int selectedAbilityIndex = 0; // 0: Clic Izq, 1: Clic Der, 2: Activa 1, 3: Activa 2, 4: Extreme Burst
 
     // Lore Logs
     private final List<LogEntry> logs = new ArrayList<>();
@@ -241,7 +241,7 @@ public class EnigmaBiosScreen extends Screen {
                         "gui.xeb.enigma_bios.btn.right_click",
                         "gui.xeb.enigma_bios.btn.active1",
                         "gui.xeb.enigma_bios.btn.active2",
-                        "gui.xeb.enigma_bios.btn.ultimate"
+                        "gui.xeb.enigma_bios.btn.extreme_burst"
                     };
 
                     for (int k = 0; k < 5; k++) {
@@ -278,7 +278,24 @@ public class EnigmaBiosScreen extends Screen {
 
                         String btnText = translate(btnKeys[k]);
                         int textW = this.font.width(btnText);
-                        g.drawString(this.font, btnText, bx + (btnW - textW) / 2, btnY + 3, textColor, false);
+                        int textPad = 4; // px de margen lateral
+                        int available = btnW - textPad * 2;
+                        if (textW <= available) {
+                            // Normal render: centered
+                            g.drawString(this.font, btnText, bx + (btnW - textW) / 2, btnY + 3, textColor, false);
+                        } else {
+                            // Scale down text to fit: pivot at center of button
+                            float scale = (float) available / (float) textW;
+                            com.mojang.blaze3d.vertex.PoseStack ps = g.pose();
+                            ps.pushPose();
+                            float cx = bx + btnW / 2.0f;
+                            float cy = btnY + 3 + this.font.lineHeight / 2.0f;
+                            ps.translate(cx, cy, 0);
+                            ps.scale(scale, scale, 1.0f);
+                            ps.translate(-cx, -cy, 0);
+                            g.drawString(this.font, btnText, bx + (btnW - textW) / 2, btnY + 3, textColor, false);
+                            ps.popPose();
+                        }
                     }
 
                     // Render selected ability details
@@ -286,9 +303,67 @@ public class EnigmaBiosScreen extends Screen {
                     int idx = this.selectedAbilityIndex;
                     
                     if (idx == 4) {
-                        // Ultimate details: show pending
-                        g.drawString(this.font, translate("gui.xeb.enigma_bios.btn.ultimate"), areaX + 12, detailY, 0xFF00FFCC, false);
-                        g.drawString(this.font, translate("gui.xeb.enigma_bios.ultimate_pending"), areaX + 12, detailY + 12, 0xFFFF5555, false);
+                        // Extreme Burst details: detect equipped burst and show info
+                        net.minecraft.world.entity.player.Player mcPlayer = net.minecraft.client.Minecraft.getInstance().player;
+                        org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry = null;
+                        if (mcPlayer != null) {
+                            burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(mcPlayer);
+                        }
+
+                        if (burstEntry != null) {
+                            // Get item name
+                            net.minecraft.resources.ResourceKey<net.minecraft.world.item.Item> rk =
+                                    net.minecraftforge.registries.ForgeRegistries.ITEMS.getResourceKey(burstEntry.curioItem).orElse(null);
+                            String itemName = rk != null
+                                    ? new net.minecraft.world.item.ItemStack(burstEntry.curioItem).getHoverName().getString()
+                                    : burstEntry.curioItem.toString();
+
+                            // Draw Extreme Burst name
+                            g.drawString(this.font, itemName, areaX + 12, detailY, 0xFF00FFCC, false);
+
+                            // Type (Universal/Limited)
+                            String typeKey = burstEntry.type == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType.UNIVERSAL
+                                    ? "gui.xeb.enigma_bios.extreme_burst.universal"
+                                    : "gui.xeb.enigma_bios.extreme_burst.limited";
+                            g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.type") + ": " + translate(typeKey),
+                                    areaX + 12, detailY + 12, 0xFFCCCCCC, false);
+
+                            // Version (Instant/Instance)
+                            String versionKey = burstEntry.version == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstVersion.INSTANT
+                                    ? "gui.xeb.enigma_bios.extreme_burst.instant"
+                                    : "gui.xeb.enigma_bios.extreme_burst.instance";
+                            g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.version") + ": " + translate(versionKey),
+                                    areaX + 12, detailY + 24, 0xFFCCCCCC, false);
+
+                            // Required weapon (if LIMITED)
+                            if (burstEntry.type == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType.LIMITED
+                                    && burstEntry.requiredWeaponName != null) {
+                                String weaponName = switch (burstEntry.requiredWeaponName) {
+                                    case "the_tears" -> translate("item.xeb.the_tears");
+                                    case "golden_flower" -> translate("item.xeb.golden_flower");
+                                    default -> burstEntry.requiredWeaponName;
+                                };
+                                g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.requires") + ": " + weaponName,
+                                        areaX + 12, detailY + 36, 0xFFFFAA00, false);
+                            }
+
+                            // Cooldown
+                            int cdSeconds = burstEntry.cooldownTicks / 20;
+                            g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.cooldown") + ": " + cdSeconds + "s",
+                                    areaX + 12, detailY + 48, 0xFFCCCCCC, false);
+
+                            // Duration (if Instance)
+                            if (burstEntry.version == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstVersion.INSTANCE
+                                    && burstEntry.durationTicks > 0) {
+                                int durSeconds = burstEntry.durationTicks / 20;
+                                g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.duration") + ": " + durSeconds + "s",
+                                        areaX + 12, detailY + 60, 0xFFCCCCCC, false);
+                            }
+                        } else {
+                            // No Extreme Burst equipped
+                            g.drawString(this.font, translate("gui.xeb.enigma_bios.btn.extreme_burst"), areaX + 12, detailY, 0xFF00FFCC, false);
+                            g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.none"), areaX + 12, detailY + 12, 0xFFFF5555, false);
+                        }
                     } else {
                         String abilityNameKey = "";
                         switch (idx) {

@@ -191,7 +191,6 @@
   "subtitles.xeb.absorbflowerclone": "Clon absorbido",
   "subtitles.xeb.flowerdance": "¡Flower Dance!",
   "subtitles.xeb.flowerdancefake": "¡Flower Dance...? No, fake.",
-  "curios.identifier.ultimate": "Ultimate",
   "key.xeb.flourish": "Flourish",
   "hud.xeb.beam_struggle.title": "DUELO DE RAYOS",
   "hud.xeb.beam_struggle.mash": "¡PULSA %s!",
@@ -432,8 +431,7 @@
   "gui.xeb.enigma_bios.btn.right_click": "Clic Der.",
   "gui.xeb.enigma_bios.btn.active1": "Activa 1",
   "gui.xeb.enigma_bios.btn.active2": "Activa 2",
-  "gui.xeb.enigma_bios.btn.ultimate": "Ultimate",
-  "gui.xeb.enigma_bios.ultimate_pending": "[BLOQUEADO / PROTOCOLO EN DESARROLLO]",
+  "gui.xeb.enigma_bios.btn.extreme_burst": "Estallido Extremo",
   "gui.xeb.enigma_bios.log1.title": "Bitácora #01: El Espacio de Capas",
   "gui.xeb.enigma_bios.log1.content": "La Caja... es difícil explicarla sin sonar desquiciado. No es solo madera y clavos, es un tejido. Al manipular las capas de esta celda dimensional, no solo me desplazo en el espacio, sino que la realidad a mi alrededor se desgarra. Hay una estática constante en mis oídos, el zumbido de un multiverso tratando de colapsar. Mis Ecos están allá afuera, viviendo mis errores del pasado.",
   "gui.xeb.enigma_bios.log2.title": "Bitácora #02: El Guantelete del Conflicto",
@@ -524,9 +522,7 @@
   "item.xeb.demon_core.enigma_effect": "Genera una fuga radiactiva letal que aplica Condena a todas las demás entidades cercanas.",
   "item.xeb.mob_energy.enigma_lore": "Una bebida energética cargada con la esencia cruda del combate.",
   "item.xeb.mob_energy.enigma_effect": "Otorga Fuerza II, Velocidad II y un estado temporal de Locura.",
-
   "curios.identifier.extreme_burst": "Ráfaga Extrema",
-
   "item.xeb.dogma": "Dogma",
   "item.xeb.dogma.desc1": "Un curio imbuido con el poder de la oscuridad absoluta.",
   "item.xeb.dogma.desc2": "Con Las Lágrimas en mano, presiona %s para activar.",
@@ -534,7 +530,6 @@
   "item.xeb.dogma.requires": "Requiere: %s",
   "item.xeb.dogma.enigma_lore": "La verdad absoluta, irrefutable. El Dogma no da espacio a la duda — solo a la obediencia.",
   "item.xeb.dogma.enigma_effect": "Dispara un rayo de Azufre creciente (9.99 daño/tick, 10 s). Gana automáticamente los duelos de rayos.",
-
   "item.xeb.omega_flowery": "Omega Flowery",
   "item.xeb.omega_flowery.desc1": "Una flor de florecimiento imposible, delgada como un pétalo y ancha como una galaxia.",
   "item.xeb.omega_flowery.desc2": "Con Golden Flower en mano, presiona %s para transformarte.",
@@ -542,10 +537,17 @@
   "item.xeb.omega_flowery.requires": "Requiere: %s",
   "item.xeb.omega_flowery.enigma_lore": "Una flor que no debería existir. Sus pétalos absorben todo el espectro de luz.",
   "item.xeb.omega_flowery.enigma_effect": "Entra en instancia Omega Flowery 20 s: sin gravedad, Final Jarona (×2), enfriamientos 50% más rápidos.",
-
   "chat.xeb.extreme_burst.requires_weapon": "Debes sostener el arma requerida para activar esta Ráfaga Extrema.",
   "chat.xeb.extreme_burst.already_active": "Una Ráfaga Extrema ya está activa.",
   "chat.xeb.extreme_burst.on_cooldown": "La Ráfaga Extrema está en tiempo de reutilización.",
-
-  "gui.xeb.enigma_bios.btn.extreme_burst": "Ráfaga Extrema"
+  "gui.xeb.enigma_bios.extreme_burst.none": "Sin Estallido Extremo equipado",
+  "gui.xeb.enigma_bios.extreme_burst.type": "Tipo",
+  "gui.xeb.enigma_bios.extreme_burst.version": "Versión",
+  "gui.xeb.enigma_bios.extreme_burst.requires": "Requiere",
+  "gui.xeb.enigma_bios.extreme_burst.cooldown": "Enfriamiento",
+  "gui.xeb.enigma_bios.extreme_burst.duration": "Duración",
+  "gui.xeb.enigma_bios.extreme_burst.universal": "Universal",
+  "gui.xeb.enigma_bios.extreme_burst.limited": "Limitado",
+  "gui.xeb.enigma_bios.extreme_burst.instant": "Instantánea",
+  "gui.xeb.enigma_bios.extreme_burst.instance": "Instancia"
 }

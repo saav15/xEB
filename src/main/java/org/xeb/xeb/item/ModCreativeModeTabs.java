@@ -81,6 +81,8 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.THE_TEARS.get());
                         output.accept(ModItems.BROKEN_DIAMOND.get());
                         output.accept(ModItems.QUANTUM_CAT_BARRAGE.get());
+                        output.accept(ModItems.DOGMA.get());
+                        output.accept(ModItems.OMEGA_FLOWERY.get());
                         output.accept(ModItems.MECHA_OVERDRIVE.get());
                         output.accept(ModItems.HOLY_DUALITY_BLADE.get());
                     })

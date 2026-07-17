@@ -345,9 +345,11 @@ public class OpticBlastHUDOverlay {
         renderAbilityBox(g, mc, xStart + boxW + spacing, yStart, key2, "GENE", spliceCD,
                 OpticBlastItem.GENE_SPLICE_COOLDOWN, spliceFiring, time);
 
-        // Ultimate Curio box
-        if (org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player)) {
-            DoomfistHUDOverlay.renderUltimateBox(g, mc, player, screenH);
+        // Extreme Burst curio box
+        org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry =
+                org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
+        if (burstEntry != null) {
+            DoomfistHUDOverlay.renderUltimateBox(g, mc, player, screenH, burstEntry);
         }
     }
 

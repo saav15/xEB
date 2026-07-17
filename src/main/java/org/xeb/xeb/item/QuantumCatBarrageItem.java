@@ -22,9 +22,6 @@ public class QuantumCatBarrageItem extends Item {
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.xeb.quantum_cat_barrage.desc1"));
         tooltip.add(Component.translatable("item.xeb.quantum_cat_barrage.desc2", Component.keybind("key.xeb.activa_3")));
-        tooltip.add(Component.translatable("item.xeb.quantum_cat_barrage.desc3"));
-        tooltip.add(Component.translatable("item.xeb.quantum_cat_barrage.desc4"));
-        tooltip.add(Component.translatable("item.xeb.quantum_cat_barrage.desc5"));
         super.appendHoverText(stack, level, tooltip, flag);
     }
 

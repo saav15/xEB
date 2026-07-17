@@ -33,37 +33,40 @@ public class DoomfistHUDOverlay {
             boolean holdsTears = mainHand.is(org.xeb.xeb.item.ModItems.THE_TEARS.get()) || offHand.is(org.xeb.xeb.item.ModItems.THE_TEARS.get());
             boolean holdsMecha = mainHand.getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem || offHand.getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem;
             boolean holdsHoly = mainHand.getItem() instanceof org.xeb.xeb.item.HolyDualityBladeItem || offHand.getItem() instanceof org.xeb.xeb.item.HolyDualityBladeItem;
-            boolean hasUltimate = org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player);
+            // Find equipped Extreme Burst (works regardless of Curios presence)
+            org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry =
+                    org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
+            boolean hasUltimate = burstEntry != null;
             
             if (holdsV1 || holdsV2) {
                 renderAbilityCooldowns(event, mc, player, holdsV2);
                 renderDamageMitigationFlash(event, mc, player);
                 if (hasUltimate) {
-                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
             } else if (holdsCD) {
                 renderCrazyDiamondAbilityCooldowns(event, mc, player);
                 renderCrazyDiamondFistCharges(event, mc, player);
                 if (hasUltimate) {
-                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
             } else if (holdsTears) {
                 renderTheTearsAbilityCooldowns(event, mc, player);
                 if (hasUltimate) {
-                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
             } else if (holdsMecha) {
                 renderMechaAbilityCooldowns(event, mc, player);
                 if (hasUltimate) {
-                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
             } else if (holdsHoly) {
                 renderHolyAbilityCooldowns(event, mc, player);
                 if (hasUltimate) {
-                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                    renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
             } else if (!holdsOptic && !holdsFlower && !holdsCD && !holdsTears && !holdsMecha && !holdsHoly && hasUltimate) {
-                renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight());
+                renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
             }
 
             // Render height-based extra damage indicator during active Seismic Slam (V1)
@@ -294,7 +297,8 @@ public class DoomfistHUDOverlay {
         }
     }
 
-    public static void renderUltimateBox(GuiGraphics g, Minecraft mc, Player player, int screenH) {
+    public static void renderUltimateBox(GuiGraphics g, Minecraft mc, Player player, int screenH,
+                                         org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry entry) {
         int x = org.xeb.xeb.Config.opticBlastHudX + 60;
         int y = screenH - org.xeb.xeb.Config.opticBlastHudY;
         
@@ -304,15 +308,18 @@ public class DoomfistHUDOverlay {
         g.fill(x - 1, y - 1, x + boxW + 1, y + boxH + 1, 0xFF000000);
         g.fill(x, y, x + boxW, y + boxH, 0x44000000);
         
-        ItemStack curioStack = new ItemStack(org.xeb.xeb.item.ModItems.QUANTUM_CAT_BARRAGE.get());
+        // Show the actual equipped burst item icon
+        ItemStack curioStack = new ItemStack(entry.curioItem);
         g.renderItem(curioStack, x + 4, y + 4);
         
-        float cdPercent = player.getCooldowns().getCooldownPercent(org.xeb.xeb.item.ModItems.QUANTUM_CAT_BARRAGE.get(), 0.0f);
+        // Read cooldown from the actual equipped burst item
+        float cdPercent = player.getCooldowns().getCooldownPercent(entry.curioItem, 0.0f);
         if (cdPercent > 0.0f) {
             int overlayH = (int) (boxH * cdPercent);
             g.fill(x, y + boxH - overlayH, x + boxW, y + boxH, 0x99555555);
             
-            float secondsLeft = cdPercent * 180.0F;
+            // Use the entry's actual cooldown duration instead of hardcoded 180s
+            float secondsLeft = cdPercent * (entry.cooldownTicks / 20.0F);
             String timerText = String.format("%d", (int) Math.ceil(secondsLeft));
             int textW = mc.font.width(timerText);
             g.drawString(mc.font, timerText, x + (boxW - textW) / 2, y + (boxH - mc.font.lineHeight) / 2, 0xFFFF5555, true);

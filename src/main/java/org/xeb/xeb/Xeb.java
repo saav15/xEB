@@ -162,17 +162,30 @@ public class Xeb {
     }
 
     private void enqueueIMC(final net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent event) {
-        // NOTE: Curios slot registration via IMC+Reflection is deprecated and fragile in 1.20.1.
-        // The 'extreme_burst' slot is registered via a Curios Datapack
-        // (data/curios/slots/extreme_burst.json) included in the mod resources.
-        // Example JSON for data/curios/slots/extreme_burst.json:
-        // { "size": 1, "operation": "SET", "icon": "curios:slot/empty_charm_slot" }
-        //
-        // If Curios API is on the classpath at compile time, use:
-        //   top.theillusivec4.curios.api.CuriosApi.enqueueSlotType(event, SlotTypePreset.CHARM.getIdentifier());
-        // For a custom slot, use their SlotTypeMessage builder directly (no reflection needed).
         if (net.minecraftforge.fml.ModList.get().isLoaded("curios")) {
-            LOGGER.info("xEB: Curios detected. Register the 'extreme_burst' slot via Datapack (data/curios/slots/extreme_burst.json).");
+            try {
+                // Register the 'extreme_burst' slot type via IMC
+                Class<?> slotTypeMessageBuilderClass = Class.forName("top.theillusivec4.curios.api.SlotTypeMessage$Builder");
+                Object builder = slotTypeMessageBuilderClass.getConstructor(String.class).newInstance("extreme_burst");
+
+                // .size(1)
+                slotTypeMessageBuilderClass.getMethod("size", int.class).invoke(builder, 1);
+
+                // .icon(ResourceLocation)
+                slotTypeMessageBuilderClass.getMethod("icon", net.minecraft.resources.ResourceLocation.class)
+                        .invoke(builder, new net.minecraft.resources.ResourceLocation("curios", "slot/empty_charm_slot"));
+
+                // .build()
+                Object slotTypeMessage = slotTypeMessageBuilderClass.getMethod("build").invoke(builder);
+
+                // InterModComms.sendTo("curios", "register_type", () -> slotTypeMessage)
+                net.minecraftforge.fml.InterModComms.sendTo("curios", "register_type",
+                        () -> slotTypeMessage);
+
+                LOGGER.info("xEB: Registered 'extreme_burst' Curios slot via IMC.");
+            } catch (Exception e) {
+                LOGGER.error("xEB: Failed to register Curios slot via IMC", e);
+            }
         }
     }
 
