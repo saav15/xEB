@@ -523,5 +523,29 @@
   "item.xeb.demon_core.enigma_lore": "Una masa de plutonium inestable. Mantén el destornillador en su lugar.",
   "item.xeb.demon_core.enigma_effect": "Genera una fuga radiactiva letal que aplica Condena a todas las demás entidades cercanas.",
   "item.xeb.mob_energy.enigma_lore": "Una bebida energética cargada con la esencia cruda del combate.",
-  "item.xeb.mob_energy.enigma_effect": "Otorga Fuerza II, Velocidad II y un estado temporal de Locura."
+  "item.xeb.mob_energy.enigma_effect": "Otorga Fuerza II, Velocidad II y un estado temporal de Locura.",
+
+  "curios.identifier.extreme_burst": "Ráfaga Extrema",
+
+  "item.xeb.dogma": "Dogma",
+  "item.xeb.dogma.desc1": "Un curio imbuido con el poder de la oscuridad absoluta.",
+  "item.xeb.dogma.desc2": "Con Las Lágrimas en mano, presiona %s para activar.",
+  "item.xeb.dogma.desc3": "Dispara un rayo de Azufre masivo que se amplía durante 10 segundos.",
+  "item.xeb.dogma.requires": "Requiere: %s",
+  "item.xeb.dogma.enigma_lore": "La verdad absoluta, irrefutable. El Dogma no deja lugar a la duda — solo a la obediencia.",
+  "item.xeb.dogma.enigma_effect": "Dispara un rayo de Azufre creciente (9.99 daño/tick, 10 s). Gana automáticamente los duelos de rayos.",
+
+  "item.xeb.omega_flowery": "Omega Flowery",
+  "item.xeb.omega_flowery.desc1": "Una flor de florecimiento imposible, delgada como un pétalo y ancha como una galaxia.",
+  "item.xeb.omega_flowery.desc2": "Con Golden Flower en mano, presiona %s para transformarte.",
+  "item.xeb.omega_flowery.desc3": "Entra en instancia sin gravedad 20 s. Duplica el daño de Jarona. La Danza cura 20% de vida.",
+  "item.xeb.omega_flowery.requires": "Requiere: %s",
+  "item.xeb.omega_flowery.enigma_lore": "Una flor que no debería existir. Sus pétalos absorben todo el espectro de luz.",
+  "item.xeb.omega_flowery.enigma_effect": "Entra en instancia Omega Flowery 20 s: sin gravedad, Final Jarona (×2), enfriamientos 50% más rápidos.",
+
+  "chat.xeb.extreme_burst.requires_weapon": "Debes sostener el arma requerida para activar esta Ráfaga Extrema.",
+  "chat.xeb.extreme_burst.already_active": "Una Ráfaga Extrema ya está activa.",
+  "chat.xeb.extreme_burst.on_cooldown": "La Ráfaga Extrema está en tiempo de reutilización.",
+
+  "gui.xeb.enigma_bios.btn.extreme_burst": "Ráfaga Extrema"
 }

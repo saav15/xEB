@@ -278,4 +278,15 @@ public class ClientPacketHandler {
             }
         }
     }
+
+    public static void handleOmegaFlowerySync(OmegaFlowerySyncPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            net.minecraft.world.entity.Entity entity = mc.level.getEntity(msg.getEntityId());
+            if (entity instanceof net.minecraft.world.entity.player.Player player) {
+                player.getPersistentData().putBoolean("xebOmegaFloweryActive", msg.isActive());
+                player.getPersistentData().putInt("xebOmegaFloweryTicks", msg.getTicksRemaining());
+            }
+        }
+    }
 }

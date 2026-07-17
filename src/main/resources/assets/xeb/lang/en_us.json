@@ -526,5 +526,29 @@
   "item.xeb.demon_core.enigma_lore": "A subcritical mass of plutonium. Keep the screwdriver in place.",
   "item.xeb.demon_core.enigma_effect": "Generates a deadly radiation leak that applies the Doomed status to all nearby entities.",
   "item.xeb.mob_energy.enigma_lore": "A hyper-charged energy drink loaded with raw combat essence.",
-  "item.xeb.mob_energy.enigma_effect": "Grants Strength II, Speed II, and a temporary state of madness."
+  "item.xeb.mob_energy.enigma_effect": "Grants Strength II, Speed II, and a temporary state of madness.",
+
+  "curios.identifier.extreme_burst": "Extreme Burst",
+
+  "item.xeb.dogma": "Dogma",
+  "item.xeb.dogma.desc1": "A curio imbued with the power of absolute darkness.",
+  "item.xeb.dogma.desc2": "While holding The Tears, press %s to activate.",
+  "item.xeb.dogma.desc3": "Fires a massive Brimstone beam that grows wider over 10 seconds.",
+  "item.xeb.dogma.requires": "Requires: %s",
+  "item.xeb.dogma.enigma_lore": "The absolute, unchallengeable truth. Dogma gives no room for doubt — only obedience.",
+  "item.xeb.dogma.enigma_effect": "Fires a growing Brimstone beam (9.99 dmg/tick, 10 s). Auto-wins beam struggles.",
+
+  "item.xeb.omega_flowery": "Omega Flowery",
+  "item.xeb.omega_flowery.desc1": "A flower of impossible blooming, petal-thin and galaxy-wide.",
+  "item.xeb.omega_flowery.desc2": "While holding Golden Flower, press %s to transform.",
+  "item.xeb.omega_flowery.desc3": "Enters a 20 s zero-gravity instance. Doubles Jarona damage. Flower Dance heals 20% HP.",
+  "item.xeb.omega_flowery.requires": "Requires: %s",
+  "item.xeb.omega_flowery.enigma_lore": "A flower beyond normal blooming — its petals absorb all light in the spectrum. It was never meant to be held.",
+  "item.xeb.omega_flowery.enigma_effect": "Enters Omega Flowery instance for 20 s: zero gravity, Final Jarona (×2), 50% faster cooldowns.",
+
+  "chat.xeb.extreme_burst.requires_weapon": "You need to hold the required weapon to activate this Extreme Burst.",
+  "chat.xeb.extreme_burst.already_active": "An Extreme Burst is already active.",
+  "chat.xeb.extreme_burst.on_cooldown": "Extreme Burst is on cooldown.",
+
+  "gui.xeb.enigma_bios.btn.extreme_burst": "Extreme Burst"
 }

@@ -3,6 +3,7 @@ package org.xeb.xeb.compat.adapter;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
+import net.minecraftforge.common.util.LazyOptional;
 import org.xeb.xeb.compat.ModCompatAdapter;
 import org.xeb.xeb.compat.CuriosQueryContext;
 import org.xeb.xeb.weapon.WeaponClass;
@@ -24,7 +25,12 @@ import java.util.Optional;
  * references directly, reducing reflection overhead to a single
  * {@code Method.invoke} per slot.</p>
  *
- * <p>Also wraps the call site with {@link EnchantmentHelperMixin#INSIDE_CURIOS_QUERY}
+ * <p><b>LazyOptional fix:</b> In Curios 1.20.1, {@code getCuriosHandler()}
+ * returns {@code LazyOptional<ICuriosItemHandler>} (a Forge wrapper), NOT
+ * {@code Optional<?>}. We cache {@code LazyOptional#resolve()} which unwraps
+ * it to {@code Optional<T>} that we can then call {@code .get()} on.</p>
+ *
+ * <p>Also wraps the call site with {@link CuriosQueryContext#INSIDE_CURIOS_QUERY}
  * so the TinfoilHat mixin can detect Curios queries in O(1) instead of
  * scanning the call stack.</p>
  */
@@ -35,7 +41,8 @@ public class CuriosAdapter implements ModCompatAdapter {
     // ── Cached reflection handles resolved once at startup ────────────────────
     private final Method getCuriosHelper;
     private final Method getCuriosHandler;
-    private final Method orElse;
+    /** LazyOptional#resolve() → returns Optional<T> */
+    private final Method resolve;
     private final Method getCurios;
     private final Method getStacks;
     private final Method getSlots;
@@ -49,7 +56,7 @@ public class CuriosAdapter implements ModCompatAdapter {
         this.loaded = modLoaded;
 
         // Resolve all reflection handles now — fail fast at startup rather than per call
-        Method mGetCuriosHelper = null, mGetCuriosHandler = null, mOrElse = null;
+        Method mGetCuriosHelper = null, mGetCuriosHandler = null, mResolve = null;
         Method mGetCurios = null, mGetStacks = null, mGetSlots = null, mGetStackInSlot = null;
         Object helperObj = null;
 
@@ -62,8 +69,9 @@ public class CuriosAdapter implements ModCompatAdapter {
                 if (helperObj != null) {
                     mGetCuriosHandler = helperObj.getClass().getMethod("getCuriosHandler", LivingEntity.class);
 
-                    // orElse lives on Optional<ICuriosItemHandler>
-                    mOrElse           = Optional.class.getMethod("orElse", Object.class);
+                    // In Curios 1.20.1, getCuriosHandler() returns LazyOptional<ICuriosItemHandler>.
+                    // LazyOptional.resolve() returns Optional<T>, which has .isPresent() / .get().
+                    mResolve          = LazyOptional.class.getMethod("resolve");
 
                     // Resolve handler/stacks methods via a dummy invocation path once
                     // (we resolve the class names directly to avoid needing a live entity)
@@ -85,7 +93,7 @@ public class CuriosAdapter implements ModCompatAdapter {
 
         this.getCuriosHelper  = mGetCuriosHelper;
         this.getCuriosHandler = mGetCuriosHandler;
-        this.orElse           = mOrElse;
+        this.resolve          = mResolve;
         this.getCurios        = mGetCurios;
         this.getStacks        = mGetStacks;
         this.getSlots         = mGetSlots;
@@ -105,19 +113,29 @@ public class CuriosAdapter implements ModCompatAdapter {
      * Uses pre-cached {@link Method} handles — no {@code Class.forName} on the hot path.
      * Sets {@link CuriosQueryContext#INSIDE_CURIOS_QUERY} so the TinfoilHat mixin
      * can detect this context in O(1).
+     *
+     * <p><b>LazyOptional fix:</b> {@code getCuriosHandler()} returns
+     * {@code LazyOptional<ICuriosItemHandler>} in 1.20.1, NOT {@code Optional<?>}.
+     * We call {@code resolve()} on the LazyOptional to get the inner {@code Optional<T>}.</p>
      */
     @SuppressWarnings("unchecked")
     public List<ItemStack> getCuriosItems(LivingEntity entity) {
         List<ItemStack> list = new ArrayList<>();
         if (!loaded || entity == null || helperInstance == null
-                || getCuriosHandler == null || getCurios == null) {
+                || getCuriosHandler == null || getCurios == null || resolve == null) {
             return list;
         }
         CuriosQueryContext.INSIDE_CURIOS_QUERY.set(true);
         try {
-            Optional<?> lazyOpt = (Optional<?>) getCuriosHandler.invoke(helperInstance, entity);
-            if (lazyOpt == null || !lazyOpt.isPresent()) return list;
-            Object handlerObj = lazyOpt.get();
+            // getCuriosHandler returns LazyOptional<ICuriosItemHandler>, NOT Optional
+            Object lazyOpt = getCuriosHandler.invoke(helperInstance, entity);
+            if (lazyOpt == null) return list;
+
+            // LazyOptional.resolve() returns Optional<T>
+            Optional<?> resolved = (Optional<?>) resolve.invoke(lazyOpt);
+            if (resolved == null || !resolved.isPresent()) return list;
+
+            Object handlerObj = resolved.get();
             if (handlerObj == null) return list;
 
             java.util.Map<String, Object> curiosMap =

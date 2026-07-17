@@ -67,50 +67,53 @@ public class ActuarKeyPacket {
                         || player.getItemInHand(InteractionHand.OFF_HAND).getItem() instanceof MechaOverdriveItem;
                 boolean holdsHoly = player.getItemInHand(InteractionHand.MAIN_HAND).getItem() instanceof HolyDualityBladeItem
                         || player.getItemInHand(InteractionHand.OFF_HAND).getItem() instanceof HolyDualityBladeItem;
-                boolean hasUltimate = org.xeb.xeb.item.QuantumCatBarrageItem.hasUltimateCurio(player);
+                // Check if any registered Extreme Burst curio is equipped (replaces old hasUltimate)
+                org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry =
+                        org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
+                boolean hasBurst = burstEntry != null;
 
-                if (!holdsV1 && !holdsV2 && !holdsOpticBlast && !holdsGoldenFlower && !holdsCD && !holdsTears && !holdsMecha && !holdsHoly && !hasUltimate) return;
+                if (!holdsV1 && !holdsV2 && !holdsOpticBlast && !holdsGoldenFlower && !holdsCD && !holdsTears && !holdsMecha && !holdsHoly && !hasBurst) return;
 
                 long time = player.level().getGameTime();
 
-                // Handle Ultimate Curio Activa 3 Key Press (Global, compatible with any weapon status)
-                if (msg.button == 3 && msg.press && hasUltimate) {
-                    if (!player.getCooldowns().isOnCooldown(ModItems.QUANTUM_CAT_BARRAGE.get())) {
-                        float totalDamage = org.xeb.xeb.item.QuantumCatBarrageItem.getDamageDealtLast60Seconds(player);
-                        AABB area = player.getBoundingBox().inflate(10.0D);
-                        List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, area,
-                                e -> e != player && e.isAlive() && !e.isAlliedTo(player));
-
-                        if (!targets.isEmpty()) {
-                            float damagePerTarget = totalDamage / targets.size();
-                            for (LivingEntity target : targets) {
-                                float finalDmg = Math.max(2.0F, damagePerTarget);
-                                target.hurt(player.damageSources().playerAttack(player), finalDmg);
-                                target.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                                        org.xeb.xeb.effect.ModEffects.NO_HEALTH_REGEN.get(), 200, 0
-                                ));
-
-                                if (player.level() instanceof ServerLevel serverLevel) {
-                                    for (int i = 0; i < 4; i++) {
-                                        double ox = (player.getRandom().nextDouble() - 0.5D) * 1.2D;
-                                        double oy = player.getRandom().nextDouble() * target.getBbHeight();
-                                        double oz = (player.getRandom().nextDouble() - 0.5D) * 1.2D;
-                                        serverLevel.sendParticles(ParticleTypes.SWEEP_ATTACK,
-                                                target.getX() + ox, target.getY() + oy, target.getZ() + oz,
-                                                1, 0.0D, 0.0D, 0.0D, 0.0D);
-                                    }
-                                    serverLevel.sendParticles(ParticleTypes.CRIT,
-                                            target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(),
-                                            8, 0.3D, 0.3D, 0.3D, 0.2D);
-                                }
-                            }
-
-                            player.level().playSound(null, player, SoundEvents.CAT_HISS, SoundSource.PLAYERS, 1.2F, 1.2F);
-                            player.level().playSound(null, player, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 0.8F);
-
-                            player.getCooldowns().addCooldown(ModItems.QUANTUM_CAT_BARRAGE.get(), 3600); // 180 seconds cooldown
-                        }
+                // ── Extreme Burst (Activa 3 / tecla N) ─────────────────────────────────
+                // Same pattern as the old Quantum Cat Barrage: check curio equipped,
+                // check cooldown, execute via ExtremeBurstHandler, apply cooldown.
+                if (msg.button == 3 && msg.press && hasBurst) {
+                    // Verify weapon requirement (UNIVERSAL always passes; LIMITED needs specific weapon)
+                    if (!org.xeb.xeb.extremeburst.ExtremeBurstRegistry.canActivate(player, burstEntry)) {
+                        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                                "chat.xeb.extreme_burst.requires_weapon"));
+                        return;
                     }
+
+                    // Cooldown check (keyed on the curio item itself, like QCB)
+                    if (player.getCooldowns().isOnCooldown(burstEntry.curioItem)) return;
+
+                    // Prevent stacking two bursts simultaneously
+                    if (player.getPersistentData().getBoolean("xebExtremeBurstActive")) {
+                        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                                "chat.xeb.extreme_burst.already_active"));
+                        return;
+                    }
+                    // Also block if an Instance is still running
+                    if (player.getPersistentData().getInt("xebExtremeBurstInstanceTicks") > 0) return;
+
+                    // Mark as active
+                    player.getPersistentData().putBoolean("xebExtremeBurstActive", true);
+                    player.getPersistentData().putString("xebExtremeBurstId", burstEntry.curioItem.toString());
+
+                    // For Instance bursts, set the duration timer
+                    if (burstEntry.version == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstVersion.INSTANCE) {
+                        player.getPersistentData().putInt("xebExtremeBurstInstanceTicks", burstEntry.durationTicks);
+                        player.getPersistentData().putInt("xebExtremeBurstInstanceMaxTicks", burstEntry.durationTicks);
+                    }
+
+                    // Execute the item-specific burst logic
+                    org.xeb.xeb.extremeburst.ExtremeBurstHandler.handleActivation(player, burstEntry);
+
+                    // Apply cooldown (keyed on the curio item)
+                    player.getCooldowns().addCooldown(burstEntry.curioItem, burstEntry.cooldownTicks);
                     return;
                 }
 
@@ -124,6 +127,14 @@ public class ActuarKeyPacket {
                     if (msg.button == 1) {
                         // --- Flower Dance (Activa 1) ---
                         if (msg.press) {
+                            // Omega Flowery: Flower Dance heals 20% HP instead of spawning clones
+                            if (player.getPersistentData().getBoolean("xebOmegaFloweryActive")) {
+                                float healAmount = player.getMaxHealth() * org.xeb.xeb.extremeburst.OmegaFloweryHandler.FLOWER_DANCE_HEAL_PERCENT;
+                                player.heal(healAmount);
+                                player.level().playSound(null, player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.5F);
+                                return;
+                            }
+
                             int danceCD = player.getPersistentData().getInt("xebGoldenFlowerDanceCooldown");
                             if (danceCD > 0) return; // 20s cooldown
 

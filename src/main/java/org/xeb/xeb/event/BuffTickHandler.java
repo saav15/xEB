@@ -159,6 +159,11 @@ public class BuffTickHandler {
             int oldJaronaCharges = jaronaCharges;
             int oldDanceCD = danceCD;
 
+            // Omega Flowery active: cooldowns tick down 2× per tick (50% shorter)
+            int cdDecrement = pData.getBoolean("xebOmegaFloweryActive")
+                    ? org.xeb.xeb.extremeburst.OmegaFloweryHandler.COOLDOWN_TICKS_PER_TICK_OMEGA
+                    : org.xeb.xeb.extremeburst.OmegaFloweryHandler.COOLDOWN_TICKS_PER_TICK_NORMAL;
+
             // Tick Dance active state
             if (danceActive) {
                 danceTicks--;
@@ -169,7 +174,7 @@ public class BuffTickHandler {
                 }
             }
             if (danceCD > 0) {
-                danceCD--;
+                danceCD = Math.max(0, danceCD - cdDecrement);
                 pData.putInt("xebGoldenFlowerDanceCooldown", danceCD);
             }
 
@@ -185,10 +190,13 @@ public class BuffTickHandler {
                 player.removeEffect(ModEffects.KINETIC_SPIKES.get());
             }
 
-            // Passive flower recharge (every 1.5 seconds / 30 ticks) - runs in background
+            // Passive flower recharge (every 1.5 s / 30 ticks; 50% faster = 20 ticks with Omega Flowery)
+            int rechargeInterval = pData.getBoolean("xebOmegaFloweryActive")
+                    ? org.xeb.xeb.extremeburst.OmegaFloweryHandler.CHARGE_RECHARGE_INTERVAL_OMEGA
+                    : org.xeb.xeb.extremeburst.OmegaFloweryHandler.CHARGE_RECHARGE_INTERVAL_NORMAL;
             if (charges < 6) {
                 rechargeTimer++;
-                if (rechargeTimer >= 30) {
+                if (rechargeTimer >= rechargeInterval) {
                     charges++;
                     rechargeTimer = 0;
                 }
@@ -196,7 +204,7 @@ public class BuffTickHandler {
                 pData.putInt("xebGoldenFlowerRechargeTimer", rechargeTimer);
             }
 
-            // Passive Jarona recharge (every 6 seconds / 120 ticks) - runs in background
+            // Passive Jarona recharge (every 6 s / 120 ticks) — runs in background
             if (jaronaCharges < 3) {
                 jaronaTimer++;
                 if (jaronaTimer >= 120) {
@@ -216,6 +224,11 @@ public class BuffTickHandler {
                 float damage = 8.0F;
                 if (comboStep == 2) damage = 14.0F;
                 else if (comboStep == 3) damage = 20.0F;
+
+                // Omega Flowery: Final Jarona — apply to each target hit below
+                final boolean finalJaronaActive = player instanceof net.minecraft.server.level.ServerPlayer sp
+                        && org.xeb.xeb.extremeburst.OmegaFloweryHandler.isOmegaFloweryActive(sp);
+                final float finalJaronaBaseDmg = damage;
 
                 // AABB sweep in front of player
                 Vec3 eye = player.getEyePosition(1.0F);
@@ -237,9 +250,16 @@ public class BuffTickHandler {
                         if (!hitList.contains(idStr)) {
                             pData.putString(hitKey, hitList + "," + idStr);
 
+                            // Apply Final Jarona multiplier if Omega Flowery is active
+                            float effectiveDamage = finalJaronaBaseDmg;
+                            if (finalJaronaActive && player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                                effectiveDamage = org.xeb.xeb.extremeburst.OmegaFloweryHandler
+                                        .applyFinalJaronaDamage(sp, target, finalJaronaBaseDmg);
+                            }
+
                             // Deal damage
                             net.minecraft.world.damagesource.DamageSource src = player.damageSources().mobAttack(player);
-                            target.hurt(src, damage);
+                            target.hurt(src, effectiveDamage);
 
                             // Knockback
                             target.knockback(0.4D + (comboStep * 0.2D), -look.x, -look.z);
@@ -271,6 +291,28 @@ public class BuffTickHandler {
                                 jaronaTimer,
                                 danceCD
                         ));
+            }
+        }
+
+        // ── Extreme Burst ticking ─────────────────────────────────────────────
+        if (entity instanceof ServerPlayer serverPlayer) {
+            // Dogma brimstone beam
+            if (serverPlayer.getPersistentData().getInt("xebDogmaBrimstoneTicks") > 0) {
+                org.xeb.xeb.extremeburst.DogmaBurstHandler.tick(serverPlayer);
+            }
+
+            // Omega Flowery instance
+            if (serverPlayer.getPersistentData().getInt("xebOmegaFloweryTicks") > 0) {
+                org.xeb.xeb.extremeburst.OmegaFloweryHandler.tick(serverPlayer);
+            }
+
+            // General Instance duration countdown
+            int instanceTicks = serverPlayer.getPersistentData().getInt("xebExtremeBurstInstanceTicks");
+            if (instanceTicks > 0) {
+                serverPlayer.getPersistentData().putInt("xebExtremeBurstInstanceTicks", instanceTicks - 1);
+                if (instanceTicks <= 1) {
+                    serverPlayer.getPersistentData().putBoolean("xebExtremeBurstActive", false);
+                }
             }
         }
 
