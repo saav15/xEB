@@ -341,9 +341,14 @@ public class ShatteredRiftEntity extends Entity {
     }
 
     private void assignRiftBossMedallions(Mob boss, int targetLevel, ServerLevel level) {
-        // Determine medallion count based on target level
+        // Determine medallion count based on target level, scaling past 4 up to 9
         int count = 1;
-        if (targetLevel >= 10) count = 4;
+        if (targetLevel >= 25) count = 9;
+        else if (targetLevel >= 22) count = 8;
+        else if (targetLevel >= 19) count = 7;
+        else if (targetLevel >= 16) count = 6;
+        else if (targetLevel >= 13) count = 5;
+        else if (targetLevel >= 10) count = 4;
         else if (targetLevel >= 7) count = 3;
         else if (targetLevel >= 4) count = 2;
 
