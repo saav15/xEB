@@ -66,6 +66,26 @@ public class MechaOverdriveItem extends Item implements GeoItem {
     }
 
     @Override
+    public boolean isFoil(ItemStack stack) {
+        return super.isFoil(stack) || stack.isEnchanted();
+    }
+
+    @Override
+    public boolean isEnchantable(ItemStack stack) {
+        return true;
+    }
+
+    @Override
+    public int getEnchantmentValue() {
+        return 15;
+    }
+
+    @Override
+    public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
+        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() || super.canApplyAtEnchantingTable(stack, enchantment);
+    }
+
+    @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc1"));
         tooltip.add(Component.translatable("item.xeb.mecha_overdrive.desc2"));

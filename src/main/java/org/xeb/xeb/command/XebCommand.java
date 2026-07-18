@@ -102,7 +102,82 @@ public class XebCommand {
                 return 1;
             });
 
-        devCommand.then(cooldownsCommand).then(curiosCommand);
+        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> loggCommand = Commands.literal("logg")
+            .then(
+                Commands.literal("add")
+                    .then(
+                        Commands.argument("logNumber", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 5))
+                            .then(
+                                Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                                    .executes(ctx -> {
+                                        net.minecraft.server.level.ServerPlayer targetPlayer = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+                                        int num = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "logNumber");
+                                        boolean alreadyUnlocked = targetPlayer.getPersistentData().getBoolean("xebUnlockedBitacora" + num);
+                                        if (!alreadyUnlocked) {
+                                            targetPlayer.getPersistentData().putBoolean("xebUnlockedBitacora" + num, true);
+                                            org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, num);
+                                        } else {
+                                            org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, -1);
+                                        }
+                                        ctx.getSource().sendSuccess(() -> Component.literal("Successfully unlocked Log #" + num + " for " + targetPlayer.getScoreboardName()), true);
+                                        return 1;
+                                    })
+                            )
+                    )
+            )
+            .then(
+                Commands.literal("revoke")
+                    .then(
+                        Commands.argument("logNumber", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 5))
+                            .then(
+                                Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                                    .executes(ctx -> {
+                                        net.minecraft.server.level.ServerPlayer targetPlayer = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+                                        int num = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "logNumber");
+                                        targetPlayer.getPersistentData().putBoolean("xebUnlockedBitacora" + num, false);
+                                        org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, -1);
+                                        ctx.getSource().sendSuccess(() -> Component.literal("Successfully revoked Log #" + num + " for " + targetPlayer.getScoreboardName()), true);
+                                        return 1;
+                                    })
+                            )
+                    )
+            )
+            .then(
+                Commands.literal("clear")
+                    .then(
+                        Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                            .executes(ctx -> {
+                                net.minecraft.server.level.ServerPlayer targetPlayer = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+                                for (int i = 1; i <= 5; i++) {
+                                    targetPlayer.getPersistentData().putBoolean("xebUnlockedBitacora" + i, false);
+                                }
+                                org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, -1);
+                                ctx.getSource().sendSuccess(() -> Component.literal("Successfully cleared all Enigma Bios logs for " + targetPlayer.getScoreboardName()), true);
+                                return 1;
+                            })
+                    )
+            )
+            .then(
+                Commands.literal("addall")
+                    .then(
+                        Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                            .executes(ctx -> {
+                                 net.minecraft.server.level.ServerPlayer targetPlayer = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+                                 for (int i = 1; i <= 5; i++) {
+                                     boolean already = targetPlayer.getPersistentData().getBoolean("xebUnlockedBitacora" + i);
+                                     if (!already) {
+                                         targetPlayer.getPersistentData().putBoolean("xebUnlockedBitacora" + i, true);
+                                         org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, i);
+                                     }
+                                 }
+                                 org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, -1);
+                                 ctx.getSource().sendSuccess(() -> Component.literal("Successfully unlocked all Enigma Bios logs for " + targetPlayer.getScoreboardName()), true);
+                                 return 1;
+                            })
+                    )
+            );
+
+        devCommand.then(cooldownsCommand).then(curiosCommand).then(loggCommand);
 
         dispatcher.register(
             Commands.literal("xeb")

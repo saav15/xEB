@@ -28,6 +28,20 @@ public class EnigmaBiosScreen extends Screen {
     // Lore Logs
     private final List<LogEntry> logs = new ArrayList<>();
 
+    // Scrolling states
+    private float tabScrollAmount = 0.0F;
+    private float contentScrollAmount = 0.0F;
+    private float analyzerScrollAmount = 0.0F;
+
+    private boolean isDraggingTabScroll = false;
+    private boolean isDraggingContentScroll = false;
+    private boolean isDraggingAnalyzerScroll = false;
+
+    // Unknown item warning flash states
+    private boolean lastAnalyzedUnknown = false;
+    private long lastAnalyzedTime = 0L;
+    private int unknownTextIndex = 0;
+
     public EnigmaBiosScreen() {
         super(Component.literal("Enigma Bios"));
         initLogs();
@@ -73,12 +87,10 @@ public class EnigmaBiosScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        // Dynamic scaling and layout calculation happens in render/mouseClicked
     }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // Render blur background at original display scale
         this.renderBackground(g);
 
         float scale = getScaleFactor();
@@ -96,129 +108,188 @@ public class EnigmaBiosScreen extends Screen {
         // Glass tablet background (translucent dark blue)
         g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, 0xCE08111E);
 
-        // Futuristic neon cyan borders
-        g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + 1, 0xFF00FFCC);
-        g.fill(this.leftPos, this.topPos + this.guiHeight - 1, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, 0xFF00FFCC);
-        g.fill(this.leftPos, this.topPos, this.leftPos + 1, this.topPos + this.guiHeight, 0xFF00FFCC);
-        g.fill(this.leftPos + this.guiWidth - 1, this.topPos, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, 0xFF00FFCC);
+        // Border colors logic (flashes red when scanning unknown specimen)
+        int frameBorderColor = 0xFF00FFCC; // default cyan
+        long elapsed = System.currentTimeMillis() - this.lastAnalyzedTime;
+        boolean flashing = this.lastAnalyzedUnknown && elapsed < 800L;
+        if (flashing) {
+            float flash = 1.0F - (float) elapsed / 800.0F;
+            int red = (int) (0x00 + (0xFF - 0x00) * flash);
+            int green = (int) (0xFF + (0x33 - 0xFF) * flash);
+            int blue = (int) (0xCC + (0x33 - 0xCC) * flash);
+            frameBorderColor = 0xFF000000 | (red << 16) | (green << 8) | blue;
+        }
+
+        // Futuristic borders
+        g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + 1, frameBorderColor);
+        g.fill(this.leftPos, this.topPos + this.guiHeight - 1, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, frameBorderColor);
+        g.fill(this.leftPos, this.topPos, this.leftPos + 1, this.topPos + this.guiHeight, frameBorderColor);
+        g.fill(this.leftPos + this.guiWidth - 1, this.topPos, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, frameBorderColor);
 
         // Neon corners brackets
-        // Top-left
-        g.fill(this.leftPos - 2, this.topPos - 2, this.leftPos + 8, this.topPos + 1, 0xFF00FFCC);
-        g.fill(this.leftPos - 2, this.topPos - 2, this.leftPos + 1, this.topPos + 8, 0xFF00FFCC);
-        // Top-right
-        g.fill(this.leftPos + this.guiWidth - 8, this.topPos - 2, this.leftPos + this.guiWidth + 2, this.topPos + 1, 0xFF00FFCC);
-        g.fill(this.leftPos + this.guiWidth - 1, this.topPos - 2, this.leftPos + this.guiWidth + 2, this.topPos + 8, 0xFF00FFCC);
-        // Bottom-left
-        g.fill(this.leftPos - 2, this.topPos + this.guiHeight - 1, this.leftPos + 8, this.topPos + this.guiHeight + 2, 0xFF00FFCC);
-        g.fill(this.leftPos - 2, this.topPos + this.guiHeight - 8, this.leftPos + 1, this.topPos + this.guiHeight + 2, 0xFF00FFCC);
-        // Bottom-right
-        g.fill(this.leftPos + this.guiWidth - 8, this.topPos + this.guiHeight - 1, this.leftPos + this.guiWidth + 2, this.topPos + this.guiHeight + 2, 0xFF00FFCC);
-        g.fill(this.leftPos + this.guiWidth - 1, this.topPos + this.guiHeight - 8, this.leftPos + this.guiWidth + 2, this.topPos + this.guiHeight + 2, 0xFF00FFCC);
+        g.fill(this.leftPos - 2, this.topPos - 2, this.leftPos + 8, this.topPos + 1, frameBorderColor);
+        g.fill(this.leftPos - 2, this.topPos - 2, this.leftPos + 1, this.topPos + 8, frameBorderColor);
+        g.fill(this.leftPos + this.guiWidth - 8, this.topPos - 2, this.leftPos + this.guiWidth + 2, this.topPos + 1, frameBorderColor);
+        g.fill(this.leftPos + this.guiWidth - 1, this.topPos - 2, this.leftPos + this.guiWidth + 2, this.topPos + 8, frameBorderColor);
+        g.fill(this.leftPos - 2, this.topPos + this.guiHeight - 1, this.leftPos + 8, this.topPos + this.guiHeight + 2, frameBorderColor);
+        g.fill(this.leftPos - 2, this.topPos + this.guiHeight - 8, this.leftPos + 1, this.topPos + this.guiHeight + 2, frameBorderColor);
+        g.fill(this.leftPos + this.guiWidth - 8, this.topPos + this.guiHeight - 1, this.leftPos + this.guiWidth + 2, this.topPos + this.guiHeight + 2, frameBorderColor);
+        g.fill(this.leftPos + this.guiWidth - 1, this.topPos + this.guiHeight - 8, this.leftPos + this.guiWidth + 2, this.topPos + this.guiHeight + 2, frameBorderColor);
 
         // Scanline effect
         long time = Minecraft.getInstance().level != null ? Minecraft.getInstance().level.getGameTime() : 0;
         int scanY = (int) ((time * 1.5) % (this.guiHeight - 20)) + this.topPos + 10;
-        g.fill(this.leftPos + 2, scanY, this.leftPos + this.guiWidth - 2, scanY + 1, 0x1A00FFCC);
+        g.fill(this.leftPos + 2, scanY, this.leftPos + this.guiWidth - 2, scanY + 1, flashing ? 0x1AFF3333 : 0x1A00FFCC);
 
         // Divider between content and inventory
-        g.fill(this.leftPos + 6, this.topPos + 155, this.leftPos + this.guiWidth - 6, this.topPos + 156, 0x3300FFCC);
+        g.fill(this.leftPos + 6, this.topPos + 155, this.leftPos + this.guiWidth - 6, this.topPos + 156, flashing ? 0x33FF3333 : 0x3300FFCC);
 
-        // Title and decorative texts (Localized)
-        g.drawString(this.font, translate("gui.xeb.enigma_bios.title"), this.leftPos + 10, this.topPos + 5, 0xFF00FFCC, false);
-        g.drawString(this.font, translate("gui.xeb.enigma_bios.status"), this.leftPos + this.guiWidth - 90, this.topPos + 5, 0x8800FFCC, false);
+        // Title and status (statusText aligned to the right to prevent HUD overflow)
+        g.drawString(this.font, translate("gui.xeb.enigma_bios.title"), this.leftPos + 10, this.topPos + 5, flashing ? 0xFFFF3333 : 0xFF00FFCC, false);
+        
+        String statusText = translate(flashing ? "gui.xeb.enigma_bios.status.warning" : "gui.xeb.enigma_bios.status");
+        int statusW = this.font.width(statusText);
+        g.drawString(this.font, statusText, this.leftPos + this.guiWidth - 10 - statusW, this.topPos + 5, flashing ? 0x88FF3333 : 0x8800FFCC, false);
 
-        // Render Tabs (Left side)
+        // Render sections
         renderTabs(g, scaledMouseX, scaledMouseY);
-
-        // Render Content Area
-        renderContent(g, scaledMouseX, scaledMouseY);
-
-        // Render Player Inventory
+        renderContent(g, scaledMouseX, scaledMouseY, frameBorderColor, flashing, elapsed);
         renderInventory(g, scaledMouseX, scaledMouseY);
 
-        // Tooltip rendering for inventory items (within scaled space)
+        // Tooltip rendering
         ItemStack hoveredStack = getStackAtMouse(scaledMouseX, scaledMouseY);
         if (!hoveredStack.isEmpty()) {
             g.renderTooltip(this.font, hoveredStack, scaledMouseX, scaledMouseY);
         }
 
         super.render(g, scaledMouseX, scaledMouseY, partialTick);
-
         g.pose().popPose();
     }
 
     private void renderTabs(GuiGraphics g, int mouseX, int mouseY) {
         int startX = this.leftPos + 6;
-        for (int i = 0; i < 6; i++) {
-            int y = this.topPos + 18 + i * 22;
+        int viewportY = this.topPos + 18;
+        int viewportH = 130;
+
+        int totalTabs = 6;
+        int contentHeight = totalTabs * 22;
+        int maxTabScroll = Math.max(0, contentHeight - viewportH);
+
+        // Draw tab scrollbar if content overflows viewport
+        if (maxTabScroll > 0) {
+            int scrollbarX = startX + 61;
+            g.fill(scrollbarX, viewportY, scrollbarX + 3, viewportY + viewportH, 0x3300FFCC);
+            int thumbH = Math.max(10, (int) ((float) viewportH * viewportH / contentHeight));
+            int thumbY = viewportY + (int) ((float) tabScrollAmount * (viewportH - thumbH) / maxTabScroll);
+            thumbY = net.minecraft.util.Mth.clamp(thumbY, viewportY, viewportY + viewportH - thumbH);
+            g.fill(scrollbarX, thumbY, scrollbarX + 3, thumbY + thumbH, 0xFF00FFCC);
+        }
+
+        // Draw scissored tabs
+        g.enableScissor(startX, viewportY, startX + 65, viewportY + viewportH);
+        for (int i = 0; i < totalTabs; i++) {
+            int y = viewportY + i * 22 - (int) tabScrollAmount;
+            if (y + 20 < viewportY || y > viewportY + viewportH) {
+                continue;
+            }
+
             boolean active = (this.activeTab == i);
-            boolean hovered = mouseX >= startX && mouseX < startX + 60 && mouseY >= y && mouseY < y + 20;
+            boolean hovered = mouseX >= startX && mouseX < startX + 60 && mouseY >= y && mouseY < y + 20
+                    && y >= viewportY && y + 20 <= viewportY + viewportH;
 
-            int bgColor = active ? 0xCC00FFCC : (hovered ? 0x4400FFCC : 0x1A00FFCC);
-            int textColor = active ? 0xFF08111E : (hovered ? 0xFFFFFFFF : 0xFF888888);
+            boolean isUnlocked = true;
+            if (i >= 1 && i <= 5 && this.minecraft != null && this.minecraft.player != null) {
+                isUnlocked = this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + i);
+            }
 
-            // Tab Box
+            int bgColor;
+            int textColor;
+            int borderColor;
+
+            if (!isUnlocked) {
+                bgColor = active ? 0xCC550000 : (hovered ? 0x44550000 : 0x1A550000);
+                textColor = active ? 0xFFFFFFFF : (hovered ? 0xFFFF7777 : 0xFF884444);
+                borderColor = 0x33FF5555;
+            } else {
+                bgColor = active ? 0xCC00FFCC : (hovered ? 0x4400FFCC : 0x1A00FFCC);
+                textColor = active ? 0xFF08111E : (hovered ? 0xFFFFFFFF : 0xFF888888);
+                borderColor = 0x3300FFCC;
+            }
+
             g.fill(startX, y, startX + 60, y + 20, bgColor);
-            // Tab Border
-            g.fill(startX, y, startX + 60, y + 1, 0x3300FFCC);
-            g.fill(startX, y + 19, startX + 60, y + 20, 0x3300FFCC);
-            g.fill(startX, y, startX + 1, y + 20, 0x3300FFCC);
-            g.fill(startX + 59, y, startX + 60, y + 20, 0x3300FFCC);
+            g.fill(startX, y, startX + 60, y + 1, borderColor);
+            g.fill(startX, y + 19, startX + 60, y + 20, borderColor);
+            g.fill(startX, y, startX + 1, y + 20, borderColor);
+            g.fill(startX + 59, y, startX + 60, y + 20, borderColor);
 
             String title = (i == 0) ? translate("gui.xeb.enigma_bios.tab.analyze") : "BIT. #" + i;
             int textW = this.font.width(title);
             g.drawString(this.font, title, startX + (60 - textW) / 2, y + 6, textColor, false);
         }
+        g.disableScissor();
     }
 
-    private void renderContent(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderContent(GuiGraphics g, int mouseX, int mouseY, int borderColor, boolean flashing, long elapsed) {
         int areaX = this.leftPos + 72;
         int areaY = this.topPos + 18;
         int areaW = 280;
         int areaH = 130;
 
-        // Content panel frame
+        // Content box base
         g.fill(areaX, areaY, areaX + areaW, areaY + areaH, 0x1A000000);
-        g.fill(areaX, areaY, areaX + areaW, areaY + 1, 0x4400FFCC);
-        g.fill(areaX, areaY + areaH - 1, areaX + areaW, areaY + areaH, 0x4400FFCC);
-        g.fill(areaX, areaY, areaX + 1, areaY + areaH, 0x4400FFCC);
-        g.fill(areaX + areaW - 1, areaY, areaX + areaW, areaY + areaH, 0x4400FFCC);
+        g.fill(areaX, areaY, areaX + areaW, areaY + 1, borderColor);
+        g.fill(areaX, areaY + areaH - 1, areaX + areaW, areaY + areaH, borderColor);
+        g.fill(areaX, areaY, areaX + 1, areaY + areaH, borderColor);
+        g.fill(areaX + areaW - 1, areaY, areaX + areaW, areaY + areaH, borderColor);
+
+        // Flash red overlay on unknown scan
+        if (flashing) {
+            float flash = 1.0F - (float) elapsed / 800.0F;
+            int alpha = (int) (flash * 50);
+            g.fill(areaX + 1, areaY + 1, areaX + areaW - 1, areaY + areaH - 1, (alpha << 24) | 0xFF0000);
+        }
 
         if (this.activeTab == 0) {
-            // Render Analyzer Tab
+            // RENDER ANALYZER
             int slotX = areaX + 12;
             int slotY = areaY + 8;
 
-            // Slot Background frame
-            g.fill(slotX - 1, slotY - 1, slotX + 21, slotY + 21, 0x3300FFCC);
+            g.fill(slotX - 1, slotY - 1, slotX + 21, slotY + 21, borderColor);
             g.fill(slotX, slotY, slotX + 20, slotY + 20, 0xFF08111E);
-
-            // Inner cyan outline
-            g.fill(slotX, slotY, slotX + 20, slotY + 1, 0xAA00FFCC);
-            g.fill(slotX, slotY + 19, slotX + 20, slotY + 20, 0xAA00FFCC);
-            g.fill(slotX, slotY, slotX + 1, slotY + 20, 0xAA00FFCC);
-            g.fill(slotX + 19, slotY, slotX + 20, slotY + 20, 0xAA00FFCC);
+            g.fill(slotX, slotY, slotX + 20, slotY + 1, borderColor);
+            g.fill(slotX, slotY + 19, slotX + 20, slotY + 20, borderColor);
+            g.fill(slotX, slotY, slotX + 1, slotY + 20, borderColor);
+            g.fill(slotX + 19, slotY, slotX + 20, slotY + 20, borderColor);
 
             if (this.analyzedStack.isEmpty()) {
-                // Empty analyzer text
                 String placeText = translate("gui.xeb.enigma_bios.empty.1");
                 String belowText = translate("gui.xeb.enigma_bios.empty.2");
                 g.drawCenteredString(this.font, placeText, areaX + areaW / 2, areaY + 50, 0xFF888888);
                 g.drawCenteredString(this.font, belowText, areaX + areaW / 2, areaY + 64, 0xFF666666);
             } else {
-                // Render the analyzed item in the slot
                 g.renderFakeItem(this.analyzedStack, slotX + 2, slotY + 2);
                 g.renderItemDecorations(this.font, this.analyzedStack, slotX + 2, slotY + 2);
 
-                // Fetch analyzed details
                 AnalyzedInfo info = analyzeItem(this.analyzedStack);
 
-                // Print Name aligned next to slot
-                g.drawString(this.font, translate("gui.xeb.enigma_bios.label.name") + info.name, areaX + 38, areaY + 14, 0xFF00FFCC, false);
+                if (info.hasAbilities && info.isAbilityDisabled(this.selectedAbilityIndex)) {
+                    for (int k = 0; k < 5; k++) {
+                        if (!info.isAbilityDisabled(k)) {
+                            this.selectedAbilityIndex = k;
+                            this.analyzerScrollAmount = 0.0F;
+                            break;
+                        }
+                    }
+                }
 
-                // Print Extended Lore (starting lower, 3 lines limit)
-                String loreText = translate(info.translationKey + ".enigma_lore");
+                int textColor = flashing ? 0xFFFF3333 : 0xFF00FFCC;
+                g.drawString(this.font, translate("gui.xeb.enigma_bios.label.name") + info.name, areaX + 38, areaY + 14, textColor, false);
+
+                // Print Lore (top section) - Random variant index if unknown
+                String loreText = info.translationKey.equals("item.unknown")
+                        ? translate("item.unknown.enigma_lore." + this.unknownTextIndex)
+                        : translate(info.translationKey + ".enigma_lore");
+                
                 int textY = areaY + 32;
                 List<FormattedText> loreLines = this.font.getSplitter().splitLines(loreText, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
                 for (FormattedText line : loreLines) {
@@ -229,7 +300,7 @@ public class EnigmaBiosScreen extends Screen {
                 }
 
                 if (info.hasAbilities) {
-                    // Render Ability Buttons
+                    // Ability Buttons
                     int btnY = areaY + 66;
                     int btnStartX = areaX + 12;
                     int btnW = 48;
@@ -237,11 +308,11 @@ public class EnigmaBiosScreen extends Screen {
                     int btnSpacing = 6;
 
                     String[] btnKeys = {
-                        "gui.xeb.enigma_bios.btn.left_click",
-                        "gui.xeb.enigma_bios.btn.right_click",
-                        "gui.xeb.enigma_bios.btn.active1",
-                        "gui.xeb.enigma_bios.btn.active2",
-                        "gui.xeb.enigma_bios.btn.extreme_burst"
+                            "gui.xeb.enigma_bios.btn.left_click",
+                            "gui.xeb.enigma_bios.btn.right_click",
+                            "gui.xeb.enigma_bios.btn.active1",
+                            "gui.xeb.enigma_bios.btn.active2",
+                            "gui.xeb.enigma_bios.btn.extreme_burst"
                     };
 
                     for (int k = 0; k < 5; k++) {
@@ -250,187 +321,249 @@ public class EnigmaBiosScreen extends Screen {
                         boolean active = (this.selectedAbilityIndex == k) && !disabled;
                         boolean hovered = mouseX >= bx && mouseX < bx + btnW && mouseY >= btnY && mouseY < btnY + btnH && !disabled;
 
-                        int bgColor;
-                        int textColor;
-                        int borderColor = disabled ? 0x22888888 : 0x3300FFCC;
+                        int btnBg;
+                        int btnTextCol;
+                        int btnBorder = disabled ? 0x22888888 : (flashing ? 0x33FF3333 : 0x3300FFCC);
 
                         if (disabled) {
-                            bgColor = 0x1A444444;
-                            textColor = 0xFF555555;
+                            btnBg = 0x1A444444;
+                            btnTextCol = 0xFF555555;
                         } else if (active) {
-                            bgColor = 0xCC00FFCC;
-                            textColor = 0xFF08111E;
+                            btnBg = flashing ? 0xCCFF3333 : 0xCC00FFCC;
+                            btnTextCol = 0xFF08111E;
                         } else if (hovered) {
-                            bgColor = 0x4400FFCC;
-                            textColor = 0xFFFFFFFF;
+                            btnBg = flashing ? 0x44FF3333 : 0x4400FFCC;
+                            btnTextCol = 0xFFFFFFFF;
                         } else {
-                            bgColor = 0x1A00FFCC;
-                            textColor = 0xFF888888;
+                            btnBg = flashing ? 0x1AFF3333 : 0x1A00FFCC;
+                            btnTextCol = flashing ? 0xFF884444 : 0xFF888888;
                         }
 
-                        // Draw Button Box
-                        g.fill(bx, btnY, bx + btnW, btnY + btnH, bgColor);
-                        // Draw Button Border
-                        g.fill(bx, btnY, bx + btnW, btnY + 1, borderColor);
-                        g.fill(bx, btnY + btnH - 1, bx + btnW, btnY + btnH, borderColor);
-                        g.fill(bx, btnY, bx + 1, btnY + btnH, borderColor);
-                        g.fill(bx + btnW - 1, btnY, bx + btnW, btnY + btnH, borderColor);
+                        g.fill(bx, btnY, bx + btnW, btnY + btnH, btnBg);
+                        g.fill(bx, btnY, bx + btnW, btnY + 1, btnBorder);
+                        g.fill(bx, btnY + btnH - 1, bx + btnW, btnY + btnH, btnBorder);
+                        g.fill(bx, btnY, bx + 1, btnY + btnH, btnBorder);
+                        g.fill(bx + btnW - 1, btnY, bx + btnW, btnY + btnH, btnBorder);
 
                         String btnText = translate(btnKeys[k]);
-                        int textW = this.font.width(btnText);
-                        int textPad = 4; // px de margen lateral
-                        int available = btnW - textPad * 2;
-                        if (textW <= available) {
-                            // Normal render: centered
-                            g.drawString(this.font, btnText, bx + (btnW - textW) / 2, btnY + 3, textColor, false);
+                        int btnTextW = this.font.width(btnText);
+                        int pad = 4;
+                        int avail = btnW - pad * 2;
+                        if (btnTextW <= avail) {
+                            g.drawString(this.font, btnText, bx + (btnW - btnTextW) / 2, btnY + 3, btnTextCol, false);
                         } else {
-                            // Scale down text to fit: pivot at center of button
-                            float scale = (float) available / (float) textW;
-                            com.mojang.blaze3d.vertex.PoseStack ps = g.pose();
-                            ps.pushPose();
+                            float btnScale = (float) avail / (float) btnTextW;
+                            g.pose().pushPose();
                             float cx = bx + btnW / 2.0f;
                             float cy = btnY + 3 + this.font.lineHeight / 2.0f;
-                            ps.translate(cx, cy, 0);
-                            ps.scale(scale, scale, 1.0f);
-                            ps.translate(-cx, -cy, 0);
-                            g.drawString(this.font, btnText, bx + (btnW - textW) / 2, btnY + 3, textColor, false);
-                            ps.popPose();
+                            g.pose().translate(cx, cy, 0);
+                            g.pose().scale(btnScale, btnScale, 1.0f);
+                            g.pose().translate(-cx, -cy, 0);
+                            g.drawString(this.font, btnText, bx + (btnW - btnTextW) / 2, btnY + 3, btnTextCol, false);
+                            g.pose().popPose();
                         }
                     }
 
-                    // Render selected ability details
+                    // Render Selected Ability Details (Scrollable viewport)
                     int detailY = areaY + 86;
                     int idx = this.selectedAbilityIndex;
-                    
+
                     if (idx == 4) {
-                        // Extreme Burst details: detect equipped burst and show info
-                        net.minecraft.world.entity.player.Player mcPlayer = net.minecraft.client.Minecraft.getInstance().player;
+                        // Extreme Burst
                         org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry = null;
-                        if (mcPlayer != null) {
-                            burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(mcPlayer);
+                        net.minecraft.world.item.Item item = this.analyzedStack.getItem();
+                        if (item == ModItems.GOLDEN_FLOWER.get()) {
+                            burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.getEntry(ModItems.OMEGA_FLOWERY.get());
+                        } else if (item == ModItems.THE_TEARS.get()) {
+                            burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.getEntry(ModItems.DOGMA.get());
                         }
 
                         if (burstEntry != null) {
-                            // Get item name
-                            net.minecraft.resources.ResourceKey<net.minecraft.world.item.Item> rk =
+                            net.minecraft.resources.ResourceKey<Item> rk =
                                     net.minecraftforge.registries.ForgeRegistries.ITEMS.getResourceKey(burstEntry.curioItem).orElse(null);
-                            String itemName = rk != null
-                                    ? new net.minecraft.world.item.ItemStack(burstEntry.curioItem).getHoverName().getString()
-                                    : burstEntry.curioItem.toString();
+                            String itemName = rk != null ? new ItemStack(burstEntry.curioItem).getHoverName().getString() : burstEntry.curioItem.toString();
 
-                            // Draw Extreme Burst name
                             g.drawString(this.font, itemName, areaX + 12, detailY, 0xFF00FFCC, false);
 
-                            // Type (Universal/Limited)
+                            // Scrollable list for specs
+                            int listY = detailY + 12;
+                            int listH = areaY + areaH - 4 - listY;
+
+                            List<String> specs = new ArrayList<>();
                             String typeKey = burstEntry.type == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType.UNIVERSAL
-                                    ? "gui.xeb.enigma_bios.extreme_burst.universal"
-                                    : "gui.xeb.enigma_bios.extreme_burst.limited";
-                            g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.type") + ": " + translate(typeKey),
-                                    areaX + 12, detailY + 12, 0xFFCCCCCC, false);
+                                    ? "gui.xeb.enigma_bios.extreme_burst.universal" : "gui.xeb.enigma_bios.extreme_burst.limited";
+                            specs.add(translate("gui.xeb.enigma_bios.extreme_burst.type") + ": " + translate(typeKey));
 
-                            // Version (Instant/Instance)
                             String versionKey = burstEntry.version == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstVersion.INSTANT
-                                    ? "gui.xeb.enigma_bios.extreme_burst.instant"
-                                    : "gui.xeb.enigma_bios.extreme_burst.instance";
-                            g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.version") + ": " + translate(versionKey),
-                                    areaX + 12, detailY + 24, 0xFFCCCCCC, false);
+                                    ? "gui.xeb.enigma_bios.extreme_burst.instant" : "gui.xeb.enigma_bios.extreme_burst.instance";
+                            specs.add(translate("gui.xeb.enigma_bios.extreme_burst.version") + ": " + translate(versionKey));
 
-                            // Required weapon (if LIMITED)
-                            if (burstEntry.type == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType.LIMITED
-                                    && burstEntry.requiredWeaponName != null) {
+                            if (burstEntry.type == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType.LIMITED && burstEntry.requiredWeaponName != null) {
                                 String weaponName = switch (burstEntry.requiredWeaponName) {
                                     case "the_tears" -> translate("item.xeb.the_tears");
                                     case "golden_flower" -> translate("item.xeb.golden_flower");
                                     default -> burstEntry.requiredWeaponName;
                                 };
-                                g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.requires") + ": " + weaponName,
-                                        areaX + 12, detailY + 36, 0xFFFFAA00, false);
+                                specs.add(translate("gui.xeb.enigma_bios.extreme_burst.requires") + ": " + weaponName);
                             }
 
-                            // Cooldown
-                            int cdSeconds = burstEntry.cooldownTicks / 20;
-                            g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.cooldown") + ": " + cdSeconds + "s",
-                                    areaX + 12, detailY + 48, 0xFFCCCCCC, false);
+                            specs.add(translate("gui.xeb.enigma_bios.extreme_burst.cooldown") + ": " + (burstEntry.cooldownTicks / 20) + "s");
 
-                            // Duration (if Instance)
-                            if (burstEntry.version == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstVersion.INSTANCE
-                                    && burstEntry.durationTicks > 0) {
-                                int durSeconds = burstEntry.durationTicks / 20;
-                                g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.duration") + ": " + durSeconds + "s",
-                                        areaX + 12, detailY + 60, 0xFFCCCCCC, false);
+                            if (burstEntry.version == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstVersion.INSTANCE && burstEntry.durationTicks > 0) {
+                                specs.add(translate("gui.xeb.enigma_bios.extreme_burst.duration") + ": " + (burstEntry.durationTicks / 20) + "s");
                             }
+
+                            int totalHeight = specs.size() * 10;
+                            int maxScroll = Math.max(0, totalHeight - listH);
+
+                            if (maxScroll > 0) {
+                                int scrollX = areaX + areaW - 6;
+                                g.fill(scrollX, listY, scrollX + 3, listY + listH, 0x3300FFCC);
+                                int thumbH = Math.max(8, (int) ((float) listH * listH / totalHeight));
+                                int thumbY = listY + (int) ((float) analyzerScrollAmount * (listH - thumbH) / maxScroll);
+                                thumbY = net.minecraft.util.Mth.clamp(thumbY, listY, listY + listH - thumbH);
+                                g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, 0xFF00FFCC);
+                            }
+
+                            g.enableScissor(areaX + 12, listY, areaX + areaW - 12, areaY + areaH - 4);
+                            int dy = listY - (int) analyzerScrollAmount;
+                            for (String spec : specs) {
+                                g.drawString(this.font, spec, areaX + 12, dy, 0xFFCCCCCC, false);
+                                dy += 10;
+                            }
+                            g.disableScissor();
+
                         } else {
-                            // No Extreme Burst equipped
                             g.drawString(this.font, translate("gui.xeb.enigma_bios.btn.extreme_burst"), areaX + 12, detailY, 0xFF00FFCC, false);
                             g.drawString(this.font, translate("gui.xeb.enigma_bios.extreme_burst.none"), areaX + 12, detailY + 12, 0xFFFF5555, false);
                         }
                     } else {
-                        String abilityNameKey = "";
-                        switch (idx) {
-                            case 0: abilityNameKey = "left_click"; break;
-                            case 1: abilityNameKey = "right_click"; break;
-                            case 2: abilityNameKey = "active1"; break;
-                            case 3: abilityNameKey = "active2"; break;
-                        }
+                        String abilityNameKey = switch (idx) {
+                            case 0 -> "left_click";
+                            case 1 -> "right_click";
+                            case 2 -> "active1";
+                            case 3 -> "active2";
+                            default -> "";
+                        };
 
                         String abName = translate(info.translationKey + ".ability." + abilityNameKey + ".name");
                         String abDesc = translate(info.translationKey + ".ability." + abilityNameKey + ".desc");
                         String dmg = info.damages[idx];
                         String cd = info.cooldowns[idx];
 
-                        // Draw Ability Name
                         g.drawString(this.font, abName, areaX + 12, detailY, 0xFF00FFCC, false);
 
-                        // Draw Stats: Daño | CD
                         String statsStr = translate("gui.xeb.enigma_bios.label.damage") + dmg + " | " + translate("gui.xeb.enigma_bios.label.cooldown") + cd;
                         g.drawString(this.font, statsStr, areaX + 12, detailY + 11, 0xFFFFFF55, false);
 
-                        // Draw Description
+                        // Scrollable description box
                         int descY = detailY + 22;
+                        int descH = areaY + areaH - 4 - descY;
+
                         List<FormattedText> descLines = this.font.getSplitter().splitLines(abDesc, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
-                        for (FormattedText line : descLines) {
-                            if (descY < areaY + areaH - 4) {
-                                g.drawString(this.font, line.getString(), areaX + 12, descY, 0xFFB0B0B0, false);
-                                descY += 9;
-                            }
+                        int totalHeight = descLines.size() * 9;
+                        int maxScroll = Math.max(0, totalHeight - descH);
+
+                        if (maxScroll > 0) {
+                            int scrollX = areaX + areaW - 6;
+                            g.fill(scrollX, descY, scrollX + 3, descY + descH, 0x3300FFCC);
+                            int thumbH = Math.max(8, (int) ((float) descH * descH / totalHeight));
+                            int thumbY = descY + (int) ((float) analyzerScrollAmount * (descH - thumbH) / maxScroll);
+                            thumbY = net.minecraft.util.Mth.clamp(thumbY, descY, descY + descH - thumbH);
+                            g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, 0xFF00FFCC);
                         }
+
+                        g.enableScissor(areaX + 12, descY, areaX + areaW - 12, areaY + areaH - 4);
+                        int dy = descY - (int) analyzerScrollAmount;
+                        for (FormattedText line : descLines) {
+                            g.drawString(this.font, line.getString(), areaX + 12, dy, 0xFFB0B0B0, false);
+                            dy += 9;
+                        }
+                        g.disableScissor();
                     }
                 } else {
-                    // Render Common Item effect
+                    // Common item effect (Scrollable description viewport)
                     int effectY = areaY + 68;
-                    String effectKey = info.translationKey + ".enigma_effect";
-                    String effectText = translate(effectKey);
-
                     g.drawString(this.font, translate("gui.xeb.enigma_bios.label.effect"), areaX + 12, effectY, 0xFFFFFF55, false);
 
                     int descY = effectY + 12;
+                    int descH = areaY + areaH - 4 - descY;
+
+                    String effectKey = info.translationKey.equals("item.unknown")
+                            ? "item.unknown.enigma_effect." + this.unknownTextIndex
+                            : info.translationKey + ".enigma_effect";
+                    String effectText = translate(effectKey);
                     List<FormattedText> effectLines = this.font.getSplitter().splitLines(effectText, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
-                    for (FormattedText line : effectLines) {
-                        if (descY < areaY + areaH - 4) {
-                            g.drawString(this.font, line.getString(), areaX + 12, descY, 0xFFB0B0B0, false);
-                            descY += 10;
-                        }
+
+                    int totalHeight = effectLines.size() * 10;
+                    int maxScroll = Math.max(0, totalHeight - descH);
+
+                    if (maxScroll > 0) {
+                        int scrollX = areaX + areaW - 6;
+                        g.fill(scrollX, descY, scrollX + 3, descY + descH, 0x3300FFCC);
+                        int thumbH = Math.max(8, (int) ((float) descH * descH / totalHeight));
+                        int thumbY = descY + (int) ((float) analyzerScrollAmount * (descH - thumbH) / maxScroll);
+                        thumbY = net.minecraft.util.Mth.clamp(thumbY, descY, descY + descH - thumbH);
+                        g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, 0xFF00FFCC);
                     }
+
+                    g.enableScissor(areaX + 12, descY, areaX + areaW - 12, areaY + areaH - 4);
+                    int dy = descY - (int) analyzerScrollAmount;
+                    for (FormattedText line : effectLines) {
+                        g.drawString(this.font, line.getString(), areaX + 12, dy, 0xFFB0B0B0, false);
+                        dy += 10;
+                    }
+                    g.disableScissor();
                 }
             }
         } else {
-            // Render Log tab (Bitácoras 1-5)
+            // RENDER LOG (Bitácoras 1-5)
             int index = this.activeTab - 1;
             if (index >= 0 && index < logs.size()) {
-                LogEntry log = logs.get(index);
-                
-                // Draw Title (Localized)
-                g.drawString(this.font, translate(log.titleKey), areaX + 12, areaY + 8, 0xFF00FFCC, false);
-                g.fill(areaX + 12, areaY + 19, areaX + areaW - 12, areaY + 20, 0x4400FFCC);
+                boolean isUnlocked = this.minecraft != null && this.minecraft.player != null &&
+                        this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + (index + 1));
 
-                // Draw wrapped log content (Localized)
-                int textY = areaY + 26;
-                List<FormattedText> lines = this.font.getSplitter().splitLines(translate(log.contentKey), areaW - 24, net.minecraft.network.chat.Style.EMPTY);
-                for (FormattedText line : lines) {
-                    if (textY < areaY + areaH - 8) {
-                        g.drawString(this.font, line.getString(), areaX + 12, textY, 0xFFE0E0E0, false);
+                if (!isUnlocked) {
+                    // LOCKED NOTICE
+                    g.drawString(this.font, translate("gui.xeb.enigma_bios.log.locked.title").formatted(index + 1), areaX + 12, areaY + 8, 0xFFFF3333, false);
+                    g.fill(areaX + 12, areaY + 19, areaX + areaW - 12, areaY + 20, 0x44FF3333);
+
+                    int textY = areaY + 26;
+                    String lockedDesc = translate("gui.xeb.enigma_bios.log.locked.desc");
+                    List<FormattedText> lines = this.font.getSplitter().splitLines(lockedDesc, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                    for (FormattedText line : lines) {
+                        g.drawString(this.font, line.getString(), areaX + 12, textY, 0xFF777777, false);
                         textY += 10;
                     }
+                } else {
+                    // UNLOCKED CONTENT (Scrollable viewport)
+                    LogEntry log = logs.get(index);
+                    g.drawString(this.font, translate(log.titleKey), areaX + 12, areaY + 8, 0xFF00FFCC, false);
+                    g.fill(areaX + 12, areaY + 19, areaX + areaW - 12, areaY + 20, 0x4400FFCC);
+
+                    int textY = areaY + 26;
+                    int textH = areaY + areaH - 8 - textY;
+
+                    List<FormattedText> lines = this.font.getSplitter().splitLines(translate(log.contentKey), areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                    int totalHeight = lines.size() * 10;
+                    int maxScroll = Math.max(0, totalHeight - textH);
+
+                    if (maxScroll > 0) {
+                        int scrollX = areaX + areaW - 6;
+                        g.fill(scrollX, textY, scrollX + 3, textY + textH, 0x3300FFCC);
+                        int thumbH = Math.max(10, (int) ((float) textH * textH / totalHeight));
+                        int thumbY = textY + (int) ((float) contentScrollAmount * (textH - thumbH) / maxScroll);
+                        thumbY = net.minecraft.util.Mth.clamp(thumbY, textY, textY + textH - thumbH);
+                        g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, 0xFF00FFCC);
+                    }
+
+                    g.enableScissor(areaX + 12, textY, areaX + areaW - 12, areaY + areaH - 8);
+                    int dy = textY - (int) contentScrollAmount;
+                    for (FormattedText line : lines) {
+                        g.drawString(this.font, line.getString(), areaX + 12, dy, 0xFFE0E0E0, false);
+                        dy += 10;
+                    }
+                    g.disableScissor();
                 }
             }
         }
@@ -443,16 +576,13 @@ public class EnigmaBiosScreen extends Screen {
         int invLeft = this.leftPos + 99;
         int invTop = this.topPos + 165;
 
-        // Draw slots for inventory (3 rows of 9)
+        // Draw slots (3 rows of 9)
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 int x = invLeft + col * 18;
                 int y = invTop + row * 18;
-
-                // Render Slot Frame
                 renderSlotBackground(g, x, y, mouseX, mouseY);
 
-                // Render Item
                 int slotIndex = 9 + row * 9 + col;
                 ItemStack stack = mc.player.getInventory().getItem(slotIndex);
                 if (!stack.isEmpty()) {
@@ -462,15 +592,12 @@ public class EnigmaBiosScreen extends Screen {
             }
         }
 
-        // Draw slots for hotbar (1 row of 9)
+        // Draw hotbar (1 row of 9)
         for (int col = 0; col < 9; col++) {
             int x = invLeft + col * 18;
             int y = invTop + 58;
-
-            // Render Slot Frame
             renderSlotBackground(g, x, y, mouseX, mouseY);
 
-            // Render Item
             ItemStack stack = mc.player.getInventory().getItem(col);
             if (!stack.isEmpty()) {
                 g.renderFakeItem(stack, x + 1, y + 1);
@@ -484,8 +611,6 @@ public class EnigmaBiosScreen extends Screen {
         int color = hovered ? 0x6600FFCC : 0x2200FFCC;
 
         g.fill(x, y, x + 18, y + 18, 0x9908111E);
-        
-        // Slot Outline
         g.fill(x, y, x + 18, y + 1, color);
         g.fill(x, y + 17, x + 18, y + 18, color);
         g.fill(x, y, x + 1, y + 18, color);
@@ -499,7 +624,6 @@ public class EnigmaBiosScreen extends Screen {
         int invLeft = this.leftPos + 99;
         int invTop = this.topPos + 165;
 
-        // Inventory lookup
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 int x = invLeft + col * 18;
@@ -510,16 +634,118 @@ public class EnigmaBiosScreen extends Screen {
             }
         }
 
-        // Hotbar lookup
         for (int col = 0; col < 9; col++) {
             int x = invLeft + col * 18;
             int y = invTop + 58;
             if (mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18) {
-                return mc.player.getInventory().getItem(col);
+                    return mc.player.getInventory().getItem(col);
             }
         }
 
         return ItemStack.EMPTY;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        float scale = getScaleFactor();
+        double scaledMouseX = mouseX / scale;
+        double scaledMouseY = mouseY / scale;
+
+        int startX = this.leftPos + 6;
+        int viewportY = this.topPos + 18;
+        int viewportH = 130;
+
+        int areaX = this.leftPos + 72;
+        int areaY = this.topPos + 18;
+        int areaW = 280;
+        int areaH = 130;
+
+        // Hover left tabs
+        if (scaledMouseX >= startX && scaledMouseX < startX + 65 && scaledMouseY >= viewportY && scaledMouseY < viewportY + viewportH) {
+            int maxTabScroll = Math.max(0, 6 * 22 - viewportH);
+            if (maxTabScroll > 0) {
+                this.tabScrollAmount = net.minecraft.util.Mth.clamp(this.tabScrollAmount - (float) delta * 11.0F, 0.0F, maxTabScroll);
+                return true;
+            }
+        }
+
+        // Hover content area
+        if (scaledMouseX >= areaX && scaledMouseX < areaX + areaW && scaledMouseY >= areaY && scaledMouseY < areaY + areaH) {
+            if (this.activeTab == 0) {
+                // Analyzer scrolling
+                if (!this.analyzedStack.isEmpty()) {
+                    AnalyzedInfo info = analyzeItem(this.analyzedStack);
+                    int maxScroll = 0;
+                    if (info.hasAbilities) {
+                        int descY = areaY + 86 + 22;
+                        int descH = areaY + areaH - 4 - descY;
+                        int totalHeight = 0;
+                        if (this.selectedAbilityIndex == 4) {
+                            // Extreme Burst specs
+                            org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry = null;
+                            net.minecraft.world.item.Item item = this.analyzedStack.getItem();
+                            if (item == ModItems.GOLDEN_FLOWER.get()) {
+                                burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.getEntry(ModItems.OMEGA_FLOWERY.get());
+                            } else if (item == ModItems.THE_TEARS.get()) {
+                                burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.getEntry(ModItems.DOGMA.get());
+                            }
+                            if (burstEntry != null) {
+                                int size = 4 + (burstEntry.type == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType.LIMITED ? 1 : 0) +
+                                        (burstEntry.version == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstVersion.INSTANCE && burstEntry.durationTicks > 0 ? 1 : 0);
+                                totalHeight = size * 10;
+                            }
+                        } else {
+                            String abilityNameKey = switch (this.selectedAbilityIndex) {
+                                case 0 -> "left_click";
+                                case 1 -> "right_click";
+                                case 2 -> "active1";
+                                case 3 -> "active2";
+                                default -> "";
+                            };
+                            String abDesc = translate(info.translationKey + ".ability." + abilityNameKey + ".desc");
+                            List<FormattedText> descLines = this.font.getSplitter().splitLines(abDesc, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                            totalHeight = descLines.size() * 9;
+                        }
+                        maxScroll = Math.max(0, totalHeight - descH);
+                    } else {
+                        // Common item effect
+                        int descY = areaY + 68 + 12;
+                        int descH = areaY + areaH - 4 - descY;
+                        String effectKey = info.translationKey.equals("item.unknown")
+                                ? "item.unknown.enigma_effect." + this.unknownTextIndex
+                                : info.translationKey + ".enigma_effect";
+                        String effectText = translate(effectKey);
+                        List<FormattedText> effectLines = this.font.getSplitter().splitLines(effectText, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                        maxScroll = Math.max(0, effectLines.size() * 10 - descH);
+                    }
+
+                    if (maxScroll > 0) {
+                        this.analyzerScrollAmount = net.minecraft.util.Mth.clamp(this.analyzerScrollAmount - (float) delta * 9.0F, 0.0F, maxScroll);
+                        return true;
+                    }
+                }
+            } else {
+                // Log content scrolling
+                int index = this.activeTab - 1;
+                if (index >= 0 && index < logs.size()) {
+                    boolean isUnlocked = this.minecraft != null && this.minecraft.player != null &&
+                            this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + (index + 1));
+                    if (isUnlocked) {
+                        LogEntry log = logs.get(index);
+                        int textY = areaY + 26;
+                        int textH = areaY + areaH - 8 - textY;
+                        List<FormattedText> lines = this.font.getSplitter().splitLines(translate(log.contentKey), areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                        int maxScroll = Math.max(0, lines.size() * 10 - textH);
+                        if (maxScroll > 0) {
+                            this.contentScrollAmount = net.minecraft.util.Mth.clamp(this.contentScrollAmount - (float) delta * 10.0F, 0.0F, maxScroll);
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     @Override
@@ -528,17 +754,30 @@ public class EnigmaBiosScreen extends Screen {
         double scaledMouseX = mouseX / scale;
         double scaledMouseY = mouseY / scale;
 
-        int scaledWidth = (int) (this.width / scale);
-        int scaledHeight = (int) (this.height / scale);
-        this.leftPos = (scaledWidth - this.guiWidth) / 2;
-        this.topPos = (scaledHeight - this.guiHeight) / 2;
+        int startX = this.leftPos + 6;
+        int viewportY = this.topPos + 18;
+        int viewportH = 130;
 
-        // Tab clicks
-        int tabX = this.leftPos + 6;
+        int areaX = this.leftPos + 72;
+        int areaY = this.topPos + 18;
+        int areaW = 280;
+        int areaH = 130;
+
+        // Check if tab scrollbar was clicked
+        int maxTabScroll = Math.max(0, 6 * 22 - viewportH);
+        if (maxTabScroll > 0 && scaledMouseX >= startX + 61 && scaledMouseX < startX + 64 && scaledMouseY >= viewportY && scaledMouseY < viewportY + viewportH) {
+            this.isDraggingTabScroll = true;
+            return true;
+        }
+
+        // Tab item clicks
         for (int i = 0; i < 6; i++) {
-            int y = this.topPos + 18 + i * 22;
-            if (scaledMouseX >= tabX && scaledMouseX < tabX + 60 && scaledMouseY >= y && scaledMouseY < y + 20) {
+            int y = viewportY + i * 22 - (int) tabScrollAmount;
+            if (scaledMouseX >= startX && scaledMouseX < startX + 60 && scaledMouseY >= y && scaledMouseY < y + 20
+                    && y >= viewportY && y + 20 <= viewportY + viewportH) {
                 this.activeTab = i;
+                this.contentScrollAmount = 0.0F;
+                this.analyzerScrollAmount = 0.0F;
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 }
@@ -546,12 +785,62 @@ public class EnigmaBiosScreen extends Screen {
             }
         }
 
-        int areaX = this.leftPos + 72;
-        int areaY = this.topPos + 18;
-
-        // Ability button clicks (if analyzed item has abilities and activeTab is Analyzer)
+        // Analyzer ability clicks
         if (this.activeTab == 0 && !this.analyzedStack.isEmpty()) {
             AnalyzedInfo info = analyzeItem(this.analyzedStack);
+
+            // Click details scrollbar check
+            if (info.hasAbilities) {
+                int descY = areaY + 86 + 22;
+                int descH = areaY + areaH - 4 - descY;
+                int totalHeight = 0;
+                if (this.selectedAbilityIndex == 4) {
+                    org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry = null;
+                    net.minecraft.world.item.Item item = this.analyzedStack.getItem();
+                    if (item == ModItems.GOLDEN_FLOWER.get()) {
+                        burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.getEntry(ModItems.OMEGA_FLOWERY.get());
+                    } else if (item == ModItems.THE_TEARS.get()) {
+                        burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.getEntry(ModItems.DOGMA.get());
+                    }
+                    if (burstEntry != null) {
+                        int size = 4 + (burstEntry.type == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType.LIMITED ? 1 : 0) +
+                                (burstEntry.version == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstVersion.INSTANCE && burstEntry.durationTicks > 0 ? 1 : 0);
+                        totalHeight = size * 10;
+                    }
+                } else {
+                    String abilityNameKey = switch (this.selectedAbilityIndex) {
+                        case 0 -> "left_click";
+                        case 1 -> "right_click";
+                        case 2 -> "active1";
+                        case 3 -> "active2";
+                        default -> "";
+                    };
+                    String abDesc = translate(info.translationKey + ".ability." + abilityNameKey + ".desc");
+                    List<FormattedText> descLines = this.font.getSplitter().splitLines(abDesc, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                    totalHeight = descLines.size() * 9;
+                }
+
+                int maxScroll = Math.max(0, totalHeight - descH);
+                if (maxScroll > 0 && scaledMouseX >= areaX + areaW - 6 && scaledMouseX < areaX + areaW - 3 && scaledMouseY >= descY && scaledMouseY < areaY + areaH - 4) {
+                    this.isDraggingAnalyzerScroll = true;
+                    return true;
+                }
+            } else {
+                // Common item effect scrollbar check
+                int descY = areaY + 68 + 12;
+                int descH = areaY + areaH - 4 - descY;
+                String effectKey = info.translationKey.equals("item.unknown")
+                        ? "item.unknown.enigma_effect." + this.unknownTextIndex
+                        : info.translationKey + ".enigma_effect";
+                String effectText = translate(effectKey);
+                List<FormattedText> effectLines = this.font.getSplitter().splitLines(effectText, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                int maxScroll = Math.max(0, effectLines.size() * 10 - descH);
+                if (maxScroll > 0 && scaledMouseX >= areaX + areaW - 6 && scaledMouseX < areaX + areaW - 3 && scaledMouseY >= descY && scaledMouseY < areaY + areaH - 4) {
+                    this.isDraggingAnalyzerScroll = true;
+                    return true;
+                }
+            }
+
             if (info.hasAbilities) {
                 int btnY = areaY + 66;
                 int btnStartX = areaX + 12;
@@ -564,6 +853,7 @@ public class EnigmaBiosScreen extends Screen {
                     if (scaledMouseX >= bx && scaledMouseX < bx + btnW && scaledMouseY >= btnY && scaledMouseY < btnY + btnH) {
                         if (!info.isAbilityDisabled(k)) {
                             this.selectedAbilityIndex = k;
+                            this.analyzerScrollAmount = 0.0F;
                             if (this.minecraft != null) {
                                 this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                             }
@@ -574,27 +864,59 @@ public class EnigmaBiosScreen extends Screen {
             }
         }
 
-        // Slot/Inventory clicks
+        // Active log scrollbar check
+        if (this.activeTab >= 1 && this.activeTab <= 5) {
+            int index = this.activeTab - 1;
+            boolean isUnlocked = this.minecraft != null && this.minecraft.player != null &&
+                    this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + (index + 1));
+            if (isUnlocked) {
+                LogEntry log = logs.get(index);
+                int textY = areaY + 26;
+                int textH = areaY + areaH - 8 - textY;
+                List<FormattedText> lines = this.font.getSplitter().splitLines(translate(log.contentKey), areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                int maxScroll = Math.max(0, lines.size() * 10 - textH);
+                if (maxScroll > 0 && scaledMouseX >= areaX + areaW - 6 && scaledMouseX < areaX + areaW - 3 && scaledMouseY >= textY && scaledMouseY < areaY + areaH - 8) {
+                    this.isDraggingContentScroll = true;
+                    return true;
+                }
+            }
+        }
+
+        // Inventory click handler
         ItemStack clickedStack = getStackAtMouse(scaledMouseX, scaledMouseY);
         if (!clickedStack.isEmpty()) {
             this.analyzedStack = clickedStack.copy();
             AnalyzedInfo info = analyzeItem(this.analyzedStack);
-            // Default to Right Click (index 1) if Left Click is disabled
             this.selectedAbilityIndex = (info.hasAbilities && info.isAbilityDisabled(0)) ? 1 : 0;
-            this.activeTab = 0; // Switch to analyzer tab
-            if (this.minecraft != null) {
-                this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BEACON_ACTIVATE, 1.5F));
+            this.activeTab = 0;
+            this.analyzerScrollAmount = 0.0F;
+
+            // Trigger unknown item warn flash and sound
+            if (info.translationKey.equals("item.unknown")) {
+                this.lastAnalyzedUnknown = true;
+                this.lastAnalyzedTime = System.currentTimeMillis();
+                this.unknownTextIndex = new java.util.Random().nextInt(5);
+                if (this.minecraft != null) {
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_BASS.value(), 0.6F));
+                }
+            } else {
+                this.lastAnalyzedUnknown = false;
+                if (this.minecraft != null) {
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BEACON_ACTIVATE, 1.5F));
+                }
             }
             return true;
         }
 
-        // Clear analyzer slot click
+        // Clear slot click
         int slotX = areaX + 12;
         int slotY = areaY + 8;
         if (this.activeTab == 0 && scaledMouseX >= slotX && scaledMouseX < slotX + 20 && scaledMouseY >= slotY && scaledMouseY < slotY + 20) {
             if (!this.analyzedStack.isEmpty()) {
                 this.analyzedStack = ItemStack.EMPTY;
                 this.selectedAbilityIndex = 0;
+                this.analyzerScrollAmount = 0.0F;
+                this.lastAnalyzedUnknown = false;
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 0.8F));
                 }
@@ -606,6 +928,108 @@ public class EnigmaBiosScreen extends Screen {
     }
 
     @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        this.isDraggingTabScroll = false;
+        this.isDraggingContentScroll = false;
+        this.isDraggingAnalyzerScroll = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        float scale = getScaleFactor();
+        double scaledDragY = dragY / scale;
+
+        int viewportH = 130;
+        int areaH = 130;
+
+        if (this.isDraggingTabScroll) {
+            int maxTabScroll = Math.max(0, 6 * 22 - viewportH);
+            int thumbH = Math.max(10, (int) ((float) viewportH * viewportH / (6 * 22)));
+            int trackH = viewportH - thumbH;
+            if (trackH > 0) {
+                float change = (float) (scaledDragY * maxTabScroll / trackH);
+                this.tabScrollAmount = net.minecraft.util.Mth.clamp(this.tabScrollAmount + change, 0.0F, maxTabScroll);
+            }
+            return true;
+        }
+
+        if (this.isDraggingContentScroll && this.activeTab >= 1 && this.activeTab <= 5) {
+            int index = this.activeTab - 1;
+            LogEntry log = logs.get(index);
+            int textY = this.topPos + 18 + 26;
+            int textH = this.topPos + 18 + areaH - 8 - textY;
+            List<FormattedText> lines = this.font.getSplitter().splitLines(translate(log.contentKey), 280 - 24, net.minecraft.network.chat.Style.EMPTY);
+            int totalHeight = lines.size() * 10;
+            int maxScroll = Math.max(0, totalHeight - textH);
+            int thumbH = Math.max(10, (int) ((float) textH * textH / totalHeight));
+            int trackH = textH - thumbH;
+            if (trackH > 0) {
+                float change = (float) (scaledDragY * maxScroll / trackH);
+                this.contentScrollAmount = net.minecraft.util.Mth.clamp(this.contentScrollAmount + change, 0.0F, maxScroll);
+            }
+            return true;
+        }
+
+        if (this.isDraggingAnalyzerScroll && this.activeTab == 0 && !this.analyzedStack.isEmpty()) {
+            AnalyzedInfo info = analyzeItem(this.analyzedStack);
+            int descY;
+            int descH;
+            int totalHeight = 0;
+
+            if (info.hasAbilities) {
+                descY = this.topPos + 18 + 86 + 22;
+                descH = this.topPos + 18 + areaH - 4 - descY;
+                if (this.selectedAbilityIndex == 4) {
+                    org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry = null;
+                    net.minecraft.world.item.Item item = this.analyzedStack.getItem();
+                    if (item == ModItems.GOLDEN_FLOWER.get()) {
+                        burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.getEntry(ModItems.OMEGA_FLOWERY.get());
+                    } else if (item == ModItems.THE_TEARS.get()) {
+                        burstEntry = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.getEntry(ModItems.DOGMA.get());
+                    }
+                    if (burstEntry != null) {
+                        int size = 4 + (burstEntry.type == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType.LIMITED ? 1 : 0) +
+                                (burstEntry.version == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstVersion.INSTANCE && burstEntry.durationTicks > 0 ? 1 : 0);
+                        totalHeight = size * 10;
+                    }
+                } else {
+                    String abilityNameKey = switch (this.selectedAbilityIndex) {
+                        case 0 -> "left_click";
+                        case 1 -> "right_click";
+                        case 2 -> "active1";
+                        case 3 -> "active2";
+                        default -> "";
+                    };
+                    String abDesc = translate(info.translationKey + ".ability." + abilityNameKey + ".desc");
+                    List<FormattedText> descLines = this.font.getSplitter().splitLines(abDesc, 280 - 24, net.minecraft.network.chat.Style.EMPTY);
+                    totalHeight = descLines.size() * 9;
+                }
+            } else {
+                descY = this.topPos + 18 + 68 + 12;
+                descH = this.topPos + 18 + areaH - 4 - descY;
+                String effectKey = info.translationKey.equals("item.unknown")
+                        ? "item.unknown.enigma_effect." + this.unknownTextIndex
+                        : info.translationKey + ".enigma_effect";
+                String effectText = translate(effectKey);
+                List<FormattedText> effectLines = this.font.getSplitter().splitLines(effectText, 280 - 24, net.minecraft.network.chat.Style.EMPTY);
+                totalHeight = effectLines.size() * 10;
+            }
+
+            int maxScroll = Math.max(0, totalHeight - descH);
+            int thumbH = Math.max(8, (int) ((float) descH * descH / totalHeight));
+            int trackH = descH - thumbH;
+            if (trackH > 0) {
+                float change = (float) (scaledDragY * maxScroll / trackH);
+                this.analyzerScrollAmount = net.minecraft.util.Mth.clamp(this.analyzerScrollAmount + change, 0.0F, (float) maxScroll);
+            }
+            return true;
+        }
+
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
     public boolean isPauseScreen() {
         return false;
     }
@@ -614,7 +1038,6 @@ public class EnigmaBiosScreen extends Screen {
         Item item = stack.getItem();
         String name = stack.getHoverName().getString();
 
-        // Check if it is a weapon/weird item with active abilities
         if (item == ModItems.GOLDEN_FLOWER.get()) {
             return new AnalyzedInfo(name, "item.xeb.golden_flower", true,
                     new String[]{"2", "6", "4", "5", ""},
@@ -623,34 +1046,38 @@ public class EnigmaBiosScreen extends Screen {
         if (item == ModItems.DOOMFIST_V2.get()) {
             return new AnalyzedInfo(name, "item.xeb.doomfist_v2", true,
                     new String[]{"8", "8-15", "6", "0", ""},
-                    new String[]{"0.5s", "3s", "6s", "8s", ""});
+                    new String[]{"0.5s", "3s", "6s", "8s", ""},
+                    new boolean[]{false, false, false, false, true});
         }
         if (item == ModItems.DOOMFIST.get()) {
             return new AnalyzedInfo(name, "item.xeb.doomfist", true,
                     new String[]{"10", "6-12", "5", "5", ""},
-                    new String[]{"0.5s", "3s", "5s", "6s", ""});
+                    new String[]{"0.5s", "3s", "5s", "6s", ""},
+                    new boolean[]{false, false, false, false, true});
         }
         if (item == ModItems.OPTIC_BLAST.get()) {
             return new AnalyzedInfo(name, "item.xeb.optic_blast", true,
                     new String[]{"3", "5 / tick", "4", "6", ""},
-                    new String[]{"0.5s", "Energy", "10s", "8s", ""});
+                    new String[]{"0.5s", "Energy", "10s", "8s", ""},
+                    new boolean[]{false, false, false, false, true});
         }
         if (item == ModItems.HOLY_DUALITY_BLADE.get()) {
             return new AnalyzedInfo(name, "item.xeb.holy_duality_blade", true,
                     new String[]{"8", "18", "10", "12", ""},
-                    new String[]{"Standard", "20s", "10s", "15s", ""});
+                    new String[]{"Standard", "20s", "10s", "15s", ""},
+                    new boolean[]{false, false, false, false, true});
         }
         if (item == ModItems.MECHA_OVERDRIVE.get()) {
             return new AnalyzedInfo(name, "item.xeb.mecha_overdrive", true,
                     new String[]{"", "2", "8", "7", ""},
                     new String[]{"", "0s", "4s", "8s", ""},
-                    new boolean[]{true, false, false, false, false}); // Left Click disabled
+                    new boolean[]{true, false, false, false, true});
         }
         if (item == ModItems.BROKEN_DIAMOND.get()) {
             return new AnalyzedInfo(name, "item.xeb.broken_diamond", true,
                     new String[]{"", "8", "8", "0", ""},
                     new String[]{"", "Variable", "5s", "15s", ""},
-                    new boolean[]{true, false, false, false, false}); // Left Click disabled
+                    new boolean[]{true, false, false, false, true});
         }
         if (item == ModItems.THE_TEARS.get()) {
             return new AnalyzedInfo(name, "item.xeb.the_tears", true,
@@ -658,7 +1085,6 @@ public class EnigmaBiosScreen extends Screen {
                     new String[]{"0.4s", "2s", "10s", "15s", ""});
         }
 
-        // Common items (hasAbilities = false)
         if (item == ModItems.MOON_TEAR.get()) {
             return new AnalyzedInfo(name, "item.xeb.moon_tear", false, null, null);
         }
@@ -678,7 +1104,7 @@ public class EnigmaBiosScreen extends Screen {
             return new AnalyzedInfo(name, "item.xeb.mob_energy", false, null, null);
         }
 
-        // Default fallback for any other items
+        // Unknown fallback
         return new AnalyzedInfo(name, "item.unknown", false, null, null);
     }
 

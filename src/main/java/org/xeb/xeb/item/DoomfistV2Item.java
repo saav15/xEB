@@ -38,6 +38,26 @@ public class DoomfistV2Item extends Item implements software.bernie.geckolib.ani
     }
 
     @Override
+    public boolean isFoil(ItemStack stack) {
+        return super.isFoil(stack) || stack.isEnchanted();
+    }
+
+    @Override
+    public boolean isEnchantable(ItemStack stack) {
+        return true;
+    }
+
+    @Override
+    public int getEnchantmentValue() {
+        return 15;
+    }
+
+    @Override
+    public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
+        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() || super.canApplyAtEnchantingTable(stack, enchantment);
+    }
+
+    @Override
     public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
         consumer.accept(new net.minecraftforge.client.extensions.common.IClientItemExtensions() {
             private org.xeb.xeb.client.renderer.DoomfistV2GeoRenderer renderer;

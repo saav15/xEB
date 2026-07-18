@@ -25,6 +25,26 @@ public class BrokenDiamondItem extends Item {
     }
 
     @Override
+    public boolean isFoil(ItemStack stack) {
+        return super.isFoil(stack) || stack.isEnchanted();
+    }
+
+    @Override
+    public boolean isEnchantable(ItemStack stack) {
+        return true;
+    }
+
+    @Override
+    public int getEnchantmentValue() {
+        return 15;
+    }
+
+    @Override
+    public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
+        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() || super.canApplyAtEnchantingTable(stack, enchantment);
+    }
+
+    @Override
     public int getUseDuration(ItemStack stack) {
         return 0;
     }

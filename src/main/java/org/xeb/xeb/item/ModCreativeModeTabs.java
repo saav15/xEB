@@ -27,6 +27,13 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.HOT_POTATO.get());
                         output.accept(ModItems.ENIGMA_BIOS.get());
                         output.accept(ModItems.HOT_POKER_SPAWN_EGG.get());
+
+                        // Add Medallero III Enchanted Book
+                        ItemStack book = net.minecraft.world.item.Items.ENCHANTED_BOOK.getDefaultInstance();
+                        net.minecraft.world.item.enchantment.EnchantmentInstance inst =
+                                new net.minecraft.world.item.enchantment.EnchantmentInstance(org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get(), 3);
+                        net.minecraft.world.item.EnchantedBookItem.addEnchantment(book, inst);
+                        output.accept(book);
                     })
                     .build()
     );

@@ -45,6 +45,26 @@ public class TheTearsItem extends Item {
     }
 
     @Override
+    public boolean isFoil(ItemStack stack) {
+        return super.isFoil(stack) || stack.isEnchanted();
+    }
+
+    @Override
+    public boolean isEnchantable(ItemStack stack) {
+        return true;
+    }
+
+    @Override
+    public int getEnchantmentValue() {
+        return 15;
+    }
+
+    @Override
+    public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
+        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() || super.canApplyAtEnchantingTable(stack, enchantment);
+    }
+
+    @Override
     public Component getName(ItemStack stack) {
         return Component.translatable(this.getDescriptionId(stack)).withStyle(ChatFormatting.RED);
     }

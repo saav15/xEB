@@ -54,6 +54,7 @@ public class Xeb {
         ModAttributes.register(modEventBus);
         ModEffects.register(modEventBus);
         ModEntities.register(modEventBus);
+        org.xeb.xeb.enchantment.ModEnchantments.register(modEventBus);
         org.xeb.xeb.sound.ModSounds.register(modEventBus);
         org.xeb.xeb.item.ModItems.register(modEventBus);
         org.xeb.xeb.item.ModCreativeModeTabs.register(modEventBus);
