@@ -24,6 +24,7 @@ public class TearsProjectileEntity extends ThrowableProjectile {
     public static final int IMBUE_WHITE = 2;
     public static final int IMBUE_DARK = 3;
     public static final int IMBUE_COLD = 4;
+    public static final int IMBUE_DOGMA = 5;
 
     private static final EntityDataAccessor<Integer> IMBUE_TYPE = SynchedEntityData.defineId(TearsProjectileEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> IS_BACKSTAB = SynchedEntityData.defineId(TearsProjectileEntity.class, EntityDataSerializers.BOOLEAN);

@@ -67,30 +67,64 @@ public class ExtremeBurstRegistry {
     }
 
     /**
-     * Scans the player's extreme_burst Curios slot and returns the first registered burst entry.
-     * Returns {@code null} if no registered curio is equipped.
+     * Finds the active Extreme Burst entry for the given entity.
+     *
+     * <p>Search order:
+     * <ol>
+     *   <li><b>Curios slots</b> (primary) — equipping the item here is the intended use.</li>
+     *   <li><b>Offhand</b> (fallback) — allows the HUD to show even if Curios reflection
+     *       fails transiently on the client.</li>
+     *   <li><b>Full inventory</b> (fallback) — same reason; keeps the HUD visible so the
+     *       player knows they own the item.</li>
+     * </ol>
+     *
+     * <p><b>Important:</b> a non-null return does NOT mean the item is equippable.
+     * Use {@link #isInCurioSlot(LivingEntity, ExtremeBurstEntry)} on the server to
+     * verify the item is actually in a Curios slot before allowing activation.</p>
      */
     public static ExtremeBurstEntry findActiveBurst(LivingEntity entity) {
-        // 1. Primary: scan all Curios slots
+        // 1. Primary: Curios slots
         for (net.minecraft.world.item.ItemStack stack : org.xeb.xeb.compat.ModCompatManager.getCuriosItems(entity)) {
             ExtremeBurstEntry entry = REGISTRY.get(stack.getItem());
             if (entry != null) return entry;
         }
-        // 2. Fallback: if Curios is absent/not resolved yet, check offhand and armor slots
-        // This allows the HUD and key input to work even before the Curios handler is ready.
-        if (entity instanceof net.minecraft.world.entity.player.Player player) {
-            // Check offhand
-            ExtremeBurstEntry e = REGISTRY.get(player.getOffhandItem().getItem());
-            if (e != null) return e;
-            // Check full inventory (hotbar + main inventory)
-            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-                net.minecraft.world.item.ItemStack s = player.getInventory().getItem(i);
-                ExtremeBurstEntry ie = REGISTRY.get(s.getItem());
-                if (ie != null) return ie;
-            }
-        }
         return null;
     }
+
+    /**
+     * Returns {@code true} if the burst item ({@code entry.curioItem}) is currently
+     * equipped in a Curios slot on the given entity.
+     *
+     * <p>Used server-side by {@code ActuarKeyPacket} to enforce that activation
+     * requires the item to be properly equipped — not just sitting in the inventory.</p>
+     */
+    public static boolean isInCurioSlot(LivingEntity entity, ExtremeBurstEntry entry) {
+        for (net.minecraft.world.item.ItemStack stack : org.xeb.xeb.compat.ModCompatManager.getCuriosItems(entity)) {
+            if (stack.is(entry.curioItem)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the player has a registered burst item in their inventory or offhand
+     * but NOT in a Curios slot. Used to show a helpful "equip in curio" message.
+     */
+    public static boolean hasBurstOnlyInInventory(Player player) {
+        // If it's in a curio slot, it's NOT "only in inventory"
+        ExtremeBurstEntry curio = null;
+        for (net.minecraft.world.item.ItemStack stack : org.xeb.xeb.compat.ModCompatManager.getCuriosItems(player)) {
+            if (REGISTRY.containsKey(stack.getItem())) { curio = REGISTRY.get(stack.getItem()); break; }
+        }
+        if (curio != null) return false;
+        // Check offhand and inventory
+        if (REGISTRY.containsKey(player.getOffhandItem().getItem())) return true;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            net.minecraft.world.item.ItemStack s = player.getInventory().getItem(i);
+            if (REGISTRY.containsKey(s.getItem())) return true;
+        }
+        return false;
+    }
+
 
     /**
      * Returns {@code true} if the player satisfies the weapon requirement for this burst.

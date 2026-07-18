@@ -57,11 +57,6 @@ public class OmegaFloweryHandler {
         ServerLevel level = player.serverLevel();
 
         // ── Zero gravity ─────────────────────────────────────────────────────
-        Vec3 motion = player.getDeltaMovement();
-        if (motion.y < 0) {
-            player.setDeltaMovement(motion.x, 0, motion.z);
-            player.hurtMarked = true;
-        }
         player.fallDistance = 0.0F;
 
         // ── Refresh buffs every 40 ticks (2 s) ──────────────────────────────
@@ -100,13 +95,18 @@ public class OmegaFloweryHandler {
     // ─────────────────────────────────────────────────────────────────────────
 
     private static void cleanupOmegaFlowery(ServerPlayer player) {
+        // ── Clear all Omega Flowery state ─────────────────────────────────────
         player.getPersistentData().remove("xebOmegaFloweryTicks");
         player.getPersistentData().remove("xebOmegaFloweryMaxTicks");
         player.getPersistentData().putBoolean("xebOmegaFloweryActive", false);
+
+        // ── Clear shared ExtremeBurst state so other bursts can activate ──────
         player.getPersistentData().putBoolean("xebExtremeBurstActive", false);
+        player.getPersistentData().remove("xebExtremeBurstId");
         player.getPersistentData().remove("xebExtremeBurstInstanceTicks");
         player.getPersistentData().remove("xebExtremeBurstInstanceMaxTicks");
 
+        // ── Remove Omega Flowery buffs ────────────────────────────────────────
         player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
         player.removeEffect(ModEffects.ALL_STATS_UP.get());
 

@@ -345,10 +345,11 @@ public class OpticBlastHUDOverlay {
         renderAbilityBox(g, mc, xStart + boxW + spacing, yStart, key2, "GENE", spliceCD,
                 OpticBlastItem.GENE_SPLICE_COOLDOWN, spliceFiring, time);
 
-        // Extreme Burst curio box
+        // Extreme Burst curio box — only show when properly equipped and weapon condition met
         org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry =
                 org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
-        if (burstEntry != null) {
+        if (DoomfistHUDOverlay.shouldShowBurstHUD(player, burstEntry,
+                player.getMainHandItem(), player.getOffhandItem())) {
             DoomfistHUDOverlay.renderUltimateBox(g, mc, player, screenH, burstEntry);
         }
     }

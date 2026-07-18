@@ -25,9 +25,9 @@ public class BrimstoneBeamRenderer {
     public static final Map<Integer, ClientBrimstoneData> CLIENT_BRIMSTONES = new ConcurrentHashMap<>();
     private static final BeamStyle BEAM_STYLE = new BeamStyle();
 
-    public static void handleBeamPacket(int ownerEntityId, boolean active, int imbueType, List<Vec3> points) {
+    public static void handleBeamPacket(int ownerEntityId, boolean active, int imbueType, List<Vec3> points, float beamWidth) {
         if (active && points.size() >= 2) {
-            CLIENT_BRIMSTONES.put(ownerEntityId, new ClientBrimstoneData(points, imbueType, System.currentTimeMillis()));
+            CLIENT_BRIMSTONES.put(ownerEntityId, new ClientBrimstoneData(points, imbueType, beamWidth, System.currentTimeMillis()));
         } else {
             CLIENT_BRIMSTONES.remove(ownerEntityId);
         }
@@ -82,10 +82,20 @@ public class BrimstoneBeamRenderer {
 
             BEAM_STYLE.coreR = coreR; BEAM_STYLE.coreG = coreG; BEAM_STYLE.coreB = coreB;
             BEAM_STYLE.auraR = r; BEAM_STYLE.auraG = g; BEAM_STYLE.auraB = b;
-            BEAM_STYLE.auraWidth = 0.75F;
-            BEAM_STYLE.glowWidth = 0.50F;
-            BEAM_STYLE.coreWidth = 0.30F;
-            BEAM_STYLE.innerWidth = 0.10F;
+            
+            if (imbue == TearsProjectileEntity.IMBUE_DOGMA) {
+                BEAM_STYLE.tvStatic = true;
+                BEAM_STYLE.auraWidth = beam.beamWidth * 0.5F;
+                BEAM_STYLE.glowWidth = beam.beamWidth * 0.35F;
+                BEAM_STYLE.coreWidth = beam.beamWidth * 0.20F;
+                BEAM_STYLE.innerWidth = beam.beamWidth * 0.08F;
+            } else {
+                BEAM_STYLE.tvStatic = false;
+                BEAM_STYLE.auraWidth = 0.75F;
+                BEAM_STYLE.glowWidth = 0.50F;
+                BEAM_STYLE.coreWidth = 0.30F;
+                BEAM_STYLE.innerWidth = 0.10F;
+            }
             BEAM_STYLE.heatHaze = true;
 
             // Render wavy organic segments
@@ -171,11 +181,13 @@ public class BrimstoneBeamRenderer {
     private static class ClientBrimstoneData {
         final List<Vec3> points;
         final int imbueType;
+        final float beamWidth;
         long lastUpdate;
 
-        ClientBrimstoneData(List<Vec3> points, int imbueType, long lastUpdate) {
+        ClientBrimstoneData(List<Vec3> points, int imbueType, float beamWidth, long lastUpdate) {
             this.points = points;
             this.imbueType = imbueType;
+            this.beamWidth = beamWidth;
             this.lastUpdate = lastUpdate;
         }
     }

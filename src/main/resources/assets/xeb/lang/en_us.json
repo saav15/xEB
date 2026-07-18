@@ -552,5 +552,6 @@
   "gui.xeb.enigma_bios.extreme_burst.universal": "Universal",
   "gui.xeb.enigma_bios.extreme_burst.limited": "Limited",
   "gui.xeb.enigma_bios.extreme_burst.instant": "Instantaneous",
-  "gui.xeb.enigma_bios.extreme_burst.instance": "Instance"
+  "gui.xeb.enigma_bios.extreme_burst.instance": "Instance",
+  "chat.xeb.extreme_burst.equip_curio": "Extreme Burst item must be equipped in a Curio slot to be used."
 }

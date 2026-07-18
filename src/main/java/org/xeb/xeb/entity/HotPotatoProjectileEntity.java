@@ -41,7 +41,8 @@ public class HotPotatoProjectileEntity extends ThrowableItemProjectile {
                 Method getHelper = apiClass.getMethod("getCuriosHelper");
                 Object helper = getHelper.invoke(null);
                 if (helper != null) {
-                    Method getCuriosHandler = helper.getClass().getMethod("getCuriosHandler", LivingEntity.class);
+                    Class<?> helperInterface = Class.forName("top.theillusivec4.curios.api.ICuriosHelper");
+                    Method getCuriosHandler = helperInterface.getMethod("getCuriosHandler", LivingEntity.class);
                     Object lazyOpt = getCuriosHandler.invoke(helper, target);
                     if (lazyOpt != null) {
                         Method isPresent = lazyOpt.getClass().getMethod("isPresent");
@@ -49,17 +50,26 @@ public class HotPotatoProjectileEntity extends ThrowableItemProjectile {
                             Method get = lazyOpt.getClass().getMethod("orElseThrow");
                             Object handlerObj = get.invoke(lazyOpt);
                             if (handlerObj != null) {
-                                Method getCurios = handlerObj.getClass().getMethod("getCurios");
+                                Class<?> handlerInterface = Class.forName("top.theillusivec4.curios.api.type.capability.ICuriosItemHandler");
+                                Method getCurios = handlerInterface.getMethod("getCurios");
                                 java.util.Map<String, Object> curiosMap = (java.util.Map<String, Object>) getCurios.invoke(handlerObj);
                                 ItemStack potatoStack = new ItemStack(ModItems.HOT_POTATO.get());
+                                Class<?> stacksInterface = Class.forName("top.theillusivec4.curios.api.type.capability.ICurioStacksHandler");
+                                Method getStacks = stacksInterface.getMethod("getStacks");
                                 for (Object stacksHandler : curiosMap.values()) {
-                                    Method getStacks = stacksHandler.getClass().getMethod("getStacks");
                                     Object stacksObj = getStacks.invoke(stacksHandler);
                                     if (stacksObj != null) {
-                                        Method getSlots = stacksObj.getClass().getMethod("getSlots");
+                                        Class<?> iItemHandlerClass = Class.forName("net.minecraftforge.items.IItemHandler");
+                                        Method getSlots = iItemHandlerClass.getMethod("getSlots");
                                         int slotsCount = (Integer) getSlots.invoke(stacksObj);
-                                        Method getStackInSlot = stacksObj.getClass().getMethod("getStackInSlot", int.class);
-                                        Method insertItem = stacksObj.getClass().getMethod("insertItem", int.class, ItemStack.class, boolean.class);
+                                        Method getStackInSlot = iItemHandlerClass.getMethod("getStackInSlot", int.class);
+                                        Class<?> iItemHandlerModClass = Class.forName("net.minecraftforge.items.IItemHandlerModifiable");
+                                        Method insertItem = null;
+                                        try {
+                                            insertItem = stacksObj.getClass().getMethod("insertItem", int.class, ItemStack.class, boolean.class);
+                                        } catch (Exception ignored) {
+                                            insertItem = iItemHandlerModClass.getMethod("insertItem", int.class, ItemStack.class, boolean.class);
+                                        }
                                         for (int i = 0; i < slotsCount; i++) {
                                             ItemStack existing = (ItemStack) getStackInSlot.invoke(stacksObj, i);
                                             if (existing == null || existing.isEmpty()) {

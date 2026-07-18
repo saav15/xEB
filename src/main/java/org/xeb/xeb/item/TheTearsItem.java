@@ -419,7 +419,7 @@ public class TheTearsItem extends Item {
         // --- 1. Apply Damage & Special element ticks ---
         if (!org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(player.getUUID())) {
             for (LivingEntity target : hitEntities) {
-                float baseDmg = 10.0F; // Brimstone deals double Optic Blast damage (5.0F * 2)
+                float baseDmg = 5.0F; // Normal Brimstone deals same as Optic Blast (5.0F) per tick
                 boolean isBack = isBackstab(player, target);
                 if (isBack) {
                     baseDmg *= 1.05F; // +5% damage multiplier

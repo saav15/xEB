@@ -83,6 +83,19 @@ public class ModCompatManager {
         return list;
     }
 
+    public static boolean isCurioVisible(LivingEntity entity, net.minecraft.world.item.Item item) {
+        if (entity != null) {
+            for (ModCompatAdapter adapter : ADAPTERS) {
+                if (adapter instanceof org.xeb.xeb.compat.adapter.CuriosAdapter curiosAdapter) {
+                    if (curiosAdapter.isLoaded()) {
+                        return curiosAdapter.isCurioVisible(entity, item);
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     public static boolean hasHelmetOrCurio(LivingEntity entity, net.minecraft.world.item.Item item) {
         if (entity == null) return false;
         if (entity.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(item)) {

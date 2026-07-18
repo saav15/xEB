@@ -30,6 +30,7 @@ public class BeamStyle {
     public boolean heatHaze = true;
     public float pulseSpeed = 0.008F;
     public float pulseAmount = 0.1F;
+    public boolean tvStatic = false;
 
     /**
      * Renders a styled beam from start to end.
@@ -46,6 +47,19 @@ public class BeamStyle {
         Vec3 perp2 = dirN.cross(perp1).normalize();
 
         float pulse = 1.0F + pulseAmount * (float) Math.sin(timeMs * pulseSpeed);
+
+        if (tvStatic) {
+            Random staticRand = new Random(timeMs / 45 + (long)(start.x * 37));
+            // Layer 1: Aura Static
+            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, auraWidth * pulse, staticRand, 0.35F);
+            // Layer 2: Glow Static
+            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, glowWidth * pulse, staticRand, 0.65F);
+            // Layer 3: Core Static
+            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, coreWidth * pulse, staticRand, 0.85F);
+            // Layer 4: Inner Static
+            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, innerWidth * pulse, staticRand, 0.98F);
+            return;
+        }
 
         // Heat haze: small random offset
         Random rand = new Random((long) (start.x * 100 + timeMs / 100));
@@ -81,6 +95,17 @@ public class BeamStyle {
     public void renderImpact(VertexConsumer consumer, Matrix4f matrix, Vec3 center, long timeMs) {
         float pulse = 0.85F + 0.15F * (float) Math.sin(timeMs * 0.02);
         float size = 0.4F * pulse;
+
+        if (tvStatic) {
+            Random rand = new Random(timeMs / 45 + (long)(center.x * 37));
+            float g1 = rand.nextFloat();
+            float g2 = rand.nextFloat();
+            float g3 = rand.nextFloat();
+            drawCrossQuad(consumer, matrix, center, size * 2.0F, g1, g1, g1, 0.3F * pulse);
+            drawCrossQuad(consumer, matrix, center, size * 1.2F, g2, g2, g2, 0.6F * pulse);
+            drawCrossQuad(consumer, matrix, center, size * 0.6F, g3, g3, g3, 0.9F * pulse);
+            return;
+        }
 
         // Outer aura
         drawCrossQuad(consumer, matrix, center, size * 2.0F, auraR * 0.6F, auraG * 0.6F, auraB * 0.6F, 0.2F * pulse);
@@ -172,5 +197,33 @@ public class BeamStyle {
 
             drawCrossQuad(consumer, matrix, p1, 0.05F, r, g, b, a);
         }
+    }
+
+    private static void drawStaticBeamQuad(VertexConsumer consumer, Matrix4f matrix, Vec3 start, Vec3 end,
+                                           Vec3 perp1, Vec3 perp2, float halfWidth,
+                                           Random rand, float alpha) {
+        float g1 = rand.nextFloat();
+        float g2 = rand.nextFloat();
+        float g3 = rand.nextFloat();
+        float g4 = rand.nextFloat();
+
+        Vec3 p1 = start.add(perp1.scale(halfWidth));
+        Vec3 p2 = start.add(perp1.scale(-halfWidth));
+        Vec3 p3 = end.add(perp1.scale(-halfWidth));
+        Vec3 p4 = end.add(perp1.scale(halfWidth));
+        consumer.vertex(matrix, (float) p1.x, (float) p1.y, (float) p1.z).color(g1, g1, g1, alpha).endVertex();
+        consumer.vertex(matrix, (float) p2.x, (float) p2.y, (float) p2.z).color(g2, g2, g2, alpha).endVertex();
+        consumer.vertex(matrix, (float) p3.x, (float) p3.y, (float) p3.z).color(g3, g3, g3, alpha).endVertex();
+        consumer.vertex(matrix, (float) p4.x, (float) p4.y, (float) p4.z).color(g4, g4, g4, alpha).endVertex();
+
+        float g5 = rand.nextFloat(); float g6 = rand.nextFloat(); float g7 = rand.nextFloat(); float g8 = rand.nextFloat();
+        Vec3 p5 = start.add(perp2.scale(halfWidth));
+        Vec3 p6 = start.add(perp2.scale(-halfWidth));
+        Vec3 p7 = end.add(perp2.scale(-halfWidth));
+        Vec3 p8 = end.add(perp2.scale(halfWidth));
+        consumer.vertex(matrix, (float) p5.x, (float) p5.y, (float) p5.z).color(g5, g5, g5, alpha).endVertex();
+        consumer.vertex(matrix, (float) p6.x, (float) p6.y, (float) p6.z).color(g6, g6, g6, alpha).endVertex();
+        consumer.vertex(matrix, (float) p7.x, (float) p7.y, (float) p7.z).color(g7, g7, g7, alpha).endVertex();
+        consumer.vertex(matrix, (float) p8.x, (float) p8.y, (float) p8.z).color(g8, g8, g8, alpha).endVertex();
     }
 }

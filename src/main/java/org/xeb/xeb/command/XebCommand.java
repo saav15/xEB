@@ -28,6 +28,82 @@ import java.util.UUID;
 
 public class XebCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> devCommand = Commands.literal("dev")
+            .requires(source -> source.hasPermission(4));
+
+        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> cooldownsCommand = Commands.literal("cooldowns")
+            .then(
+                Commands.literal("on")
+                    .executes(ctx -> {
+                        net.minecraft.server.level.ServerPlayer player =
+                                ctx.getSource().getPlayerOrException();
+                        player.getPersistentData().putBoolean("xebDevCooldownsDisabled", true);
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                net.minecraft.ChatFormatting.GREEN + "[xEB Dev] " +
+                                net.minecraft.ChatFormatting.YELLOW + "Cooldowns DISABLED — abilities can be spammed freely."),
+                                false);
+                        return 1;
+                    })
+            )
+            .then(
+                Commands.literal("off")
+                    .executes(ctx -> {
+                        net.minecraft.server.level.ServerPlayer player =
+                                ctx.getSource().getPlayerOrException();
+                        player.getPersistentData().putBoolean("xebDevCooldownsDisabled", false);
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                net.minecraft.ChatFormatting.GREEN + "[xEB Dev] " +
+                                net.minecraft.ChatFormatting.GRAY + "Cooldowns RE-ENABLED — normal behavior restored."),
+                                false);
+                        return 1;
+                    })
+            );
+
+        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> curiosCommand = Commands.literal("curios")
+            .executes(ctx -> {
+                net.minecraft.server.level.ServerPlayer player =
+                        ctx.getSource().getPlayerOrException();
+                
+                boolean loaded = net.minecraftforge.fml.ModList.get().isLoaded("curios");
+                ctx.getSource().sendSuccess(() -> Component.literal(
+                        net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Curios mod loaded: " + loaded), false);
+                
+                java.util.List<net.minecraft.world.item.ItemStack> curios =
+                        org.xeb.xeb.compat.ModCompatManager.getCuriosItems(player);
+                ctx.getSource().sendSuccess(() -> Component.literal(
+                        net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Curios items count: " + curios.size()), false);
+                
+                for (net.minecraft.world.item.ItemStack stack : curios) {
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                            " - " + stack.getItem().toString() + " (x" + stack.getCount() + ")"), false);
+                }
+                
+                org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry active =
+                        org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
+                ctx.getSource().sendSuccess(() -> Component.literal(
+                        net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Active burst from findActiveBurst: " + (active != null ? active.curioItem.toString() : "null")), false);
+                        
+                if (active != null) {
+                    boolean inSlot = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.isInCurioSlot(player, active);
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                            net.minecraft.ChatFormatting.GREEN + "[xEB Dev] isInCurioSlot: " + inSlot), false);
+                }
+
+                for (org.xeb.xeb.compat.ModCompatAdapter adapter : org.xeb.xeb.compat.ModCompatManager.getAdapters()) {
+                    if (adapter instanceof org.xeb.xeb.compat.adapter.CuriosAdapter curiosAdapter) {
+                        String diag = curiosAdapter.getDiagnosticInfo(player);
+                        for (String line : diag.split("\n")) {
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                    net.minecraft.ChatFormatting.AQUA + "[xEB Curios Diag] " + line), false);
+                        }
+                    }
+                }
+                
+                return 1;
+            });
+
+        devCommand.then(cooldownsCommand).then(curiosCommand);
+
         dispatcher.register(
             Commands.literal("xeb")
                 // Root is public, specific sub-commands require permissions
@@ -197,6 +273,7 @@ public class XebCommand {
                             return lvl;
                         })
                 )
+                .then(devCommand)
         );
     }
 

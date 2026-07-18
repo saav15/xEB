@@ -119,7 +119,8 @@ public class GoldenFlowerHUDOverlay {
             // Extreme Burst curio box
             org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry =
                     org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
-            if (burstEntry != null) {
+            if (org.xeb.xeb.render.DoomfistHUDOverlay.shouldShowBurstHUD(player, burstEntry,
+                    player.getMainHandItem(), player.getOffhandItem())) {
                 org.xeb.xeb.render.DoomfistHUDOverlay.renderUltimateBox(g, mc, player, screenH, burstEntry);
             }
 
@@ -148,10 +149,29 @@ public class GoldenFlowerHUDOverlay {
         int boxW = 24;
         int boxH = 24;
 
+        Player player = mc.player;
+        boolean omegaActive = player != null && player.getPersistentData().getBoolean("xebOmegaFloweryActive");
+        float omegaRatio = 1.0F;
+        int rainbowColor = 0;
+        if (omegaActive) {
+            int omegaTicks = player.getPersistentData().getInt("xebOmegaFloweryTicks");
+            int maxTicks = player.getPersistentData().getInt("xebOmegaFloweryMaxTicks");
+            if (maxTicks <= 0) maxTicks = 400;
+            omegaRatio = Math.max(0.0F, Math.min(1.0F, (float) omegaTicks / maxTicks));
+
+            long time = mc.level.getGameTime();
+            float hue = (float) (((time * 3) % 360) / 360.0);
+            int rgbVal = hsbToRgb(hue, 0.9F, 0.9F);
+            int alphaVal = (int) (180 * omegaRatio);
+            rainbowColor = (alphaVal << 24) | (rgbVal & 0xFFFFFF);
+        }
+
         // Background
         g.fill(x - 1, y - 1, x + boxW + 1, y + boxH + 1, 0xFF000000);
 
-        if (isActive) {
+        if (omegaActive) {
+            g.fill(x, y, x + boxW, y + boxH, rainbowColor);
+        } else if (isActive) {
             float pulse = 0.5F + 0.5F * (float) Math.sin(mc.level.getGameTime() * 0.4D);
             int r = (int) (230 * pulse);
             int gVal = (int) (180 * pulse);
@@ -170,7 +190,15 @@ public class GoldenFlowerHUDOverlay {
 
         // Border
         int borderColor = (cd > 0 && !isActive) ? 0x44FFFFFF : 0xBBFFFFFF;
-        if (isActive) borderColor = 0xFFFFD700; // Gold border
+        if (omegaActive) {
+            int borderAlpha = (int) (220 * omegaRatio);
+            long time = mc.level.getGameTime();
+            float hue = (float) ((((time * 3) + 180) % 360) / 360.0);
+            int borderRgb = hsbToRgb(hue, 1.0F, 1.0F);
+            borderColor = (borderAlpha << 24) | (borderRgb & 0xFFFFFF);
+        } else if (isActive) {
+            borderColor = 0xFFFFD700; // Gold border
+        }
         g.fill(x, y, x + boxW, y + 1, borderColor);
         g.fill(x, y + boxH - 1, x + boxW, y + boxH, borderColor);
         g.fill(x, y, x + 1, y + boxH, borderColor);
@@ -210,10 +238,29 @@ public class GoldenFlowerHUDOverlay {
         int boxW = 24;
         int boxH = 24;
 
+        Player player = mc.player;
+        boolean omegaActive = player != null && player.getPersistentData().getBoolean("xebOmegaFloweryActive");
+        float omegaRatio = 1.0F;
+        int rainbowColor = 0;
+        if (omegaActive) {
+            int omegaTicks = player.getPersistentData().getInt("xebOmegaFloweryTicks");
+            int maxTicks = player.getPersistentData().getInt("xebOmegaFloweryMaxTicks");
+            if (maxTicks <= 0) maxTicks = 400;
+            omegaRatio = Math.max(0.0F, Math.min(1.0F, (float) omegaTicks / maxTicks));
+
+            long time = mc.level.getGameTime();
+            float hue = (float) (((time * 3) % 360) / 360.0);
+            int rgbVal = hsbToRgb(hue, 0.9F, 0.9F);
+            int alphaVal = (int) (180 * omegaRatio);
+            rainbowColor = (alphaVal << 24) | (rgbVal & 0xFFFFFF);
+        }
+
         // Background
         g.fill(x - 1, y - 1, x + boxW + 1, y + boxH + 1, 0xFF000000);
 
-        if (isActive) {
+        if (omegaActive) {
+            g.fill(x, y, x + boxW, y + boxH, rainbowColor);
+        } else if (isActive) {
             float pulse = 0.5F + 0.5F * (float) Math.sin(mc.level.getGameTime() * 0.4D);
             int b = (int) (240 * pulse);
             int color = (0xBB << 24) | (0 << 16) | ((int)(80 * pulse) << 8) | b; // glowing blue
@@ -231,7 +278,15 @@ public class GoldenFlowerHUDOverlay {
 
         // Border
         int borderColor = (charges == 0 && !isActive) ? 0x44FFFFFF : 0xBBFFFFFF;
-        if (isActive) borderColor = 0xFF3366FF; // Blue border
+        if (omegaActive) {
+            int borderAlpha = (int) (220 * omegaRatio);
+            long time = mc.level.getGameTime();
+            float hue = (float) ((((time * 3) + 180) % 360) / 360.0);
+            int borderRgb = hsbToRgb(hue, 1.0F, 1.0F);
+            borderColor = (borderAlpha << 24) | (borderRgb & 0xFFFFFF);
+        } else if (isActive) {
+            borderColor = 0xFF3366FF; // Blue border
+        }
         g.fill(x, y, x + boxW, y + 1, borderColor);
         g.fill(x, y + boxH - 1, x + boxW, y + boxH, borderColor);
         g.fill(x, y, x + 1, y + boxH, borderColor);
@@ -268,5 +323,29 @@ public class GoldenFlowerHUDOverlay {
             int timeX = x + (boxW - mc.font.width(timeText)) / 2;
             g.drawString(mc.font, timeText, timeX, y + boxH + 2, 0xFF3366FF, true);
         }
+    }
+
+    private static int hsbToRgb(float hue, float saturation, float brightness) {
+        if (saturation == 0) {
+            int v = (int) (brightness * 255);
+            return (v << 16) | (v << 8) | v;
+        }
+        float h = (hue - (float) Math.floor(hue)) * 6.0F;
+        float f = h - (float) Math.floor(h);
+        float p = brightness * (1.0F - saturation);
+        float q = brightness * (1.0F - saturation * f);
+        float t = brightness * (1.0F - saturation * (1.0F - f));
+        return switch ((int) h) {
+            case 0  -> rgb(brightness, t,          p);
+            case 1  -> rgb(q,          brightness, p);
+            case 2  -> rgb(p,          brightness, t);
+            case 3  -> rgb(p,          q,          brightness);
+            case 4  -> rgb(t,          p,          brightness);
+            default -> rgb(brightness, p,          q);
+        };
+    }
+
+    private static int rgb(float r, float g, float b) {
+        return (((int) (r * 255)) << 16) | (((int) (g * 255)) << 8) | ((int) (b * 255));
     }
 }

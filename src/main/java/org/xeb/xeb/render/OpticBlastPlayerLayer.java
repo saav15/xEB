@@ -58,12 +58,12 @@ public class OpticBlastPlayerLayer<T extends LivingEntity, M extends EntityModel
         boolean isHelmet = entity.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD)
                 .is(ModItems.TINFOIL_HAT.get());
         ItemStack tinfoilHatStack = isHelmet ? ItemStack.EMPTY : getCurioTinfoilHat(entity);
-        boolean isCurioTinfoil = !tinfoilHatStack.isEmpty();
+        boolean isCurioTinfoil = !tinfoilHatStack.isEmpty() && org.xeb.xeb.compat.ModCompatManager.isCurioVisible(entity, ModItems.TINFOIL_HAT.get());
 
         boolean isChestplate = entity.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST)
                 .is(ModItems.HOLY_MANTLE.get());
         ItemStack holyMantleStack = isChestplate ? ItemStack.EMPTY : getCurioHolyMantle(entity);
-        boolean isCurioMantle = !holyMantleStack.isEmpty();
+        boolean isCurioMantle = !holyMantleStack.isEmpty() && org.xeb.xeb.compat.ModCompatManager.isCurioVisible(entity, ModItems.HOLY_MANTLE.get());
 
         if (!hasMain && !hasOff && !isCurioTinfoil && !isCurioMantle)
             return;
@@ -77,6 +77,8 @@ public class OpticBlastPlayerLayer<T extends LivingEntity, M extends EntityModel
                     poseStack.pushPose();
                     // Align with player's body (chest/torso) rotation and translation
                     humanoidModel.body.translateAndRotate(poseStack);
+                    // Rotate Z by 180 degrees to flip right-side up
+                    poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(180.0F));
 
                     // Render the 3D model using ItemDisplayContext.NONE to avoid vanilla json head offsets
                     Minecraft.getInstance().getItemRenderer().renderStatic(
@@ -96,6 +98,10 @@ public class OpticBlastPlayerLayer<T extends LivingEntity, M extends EntityModel
                     poseStack.pushPose();
                     // Align with player's head rotation and translation
                     humanoidModel.head.translateAndRotate(poseStack);
+                    // Rotate Z by 180 degrees to flip right-side up
+                    poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(180.0F));
+                    // Translate UP to sit on top of the head (partially inside the top head model)
+                    poseStack.translate(0.0F, 0.56F, 0.0F);
 
                     // Render the 3D model on the head using ItemDisplayContext.NONE to avoid vanilla json head offsets
                     Minecraft.getInstance().getItemRenderer().renderStatic(

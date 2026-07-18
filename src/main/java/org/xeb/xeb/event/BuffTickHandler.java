@@ -297,12 +297,12 @@ public class BuffTickHandler {
         // ── Extreme Burst ticking ─────────────────────────────────────────────
         if (entity instanceof ServerPlayer serverPlayer) {
             // Dogma brimstone beam
-            if (serverPlayer.getPersistentData().getInt("xebDogmaBrimstoneTicks") > 0) {
+            if (serverPlayer.getPersistentData().contains("xebDogmaBrimstoneTicks")) {
                 org.xeb.xeb.extremeburst.DogmaBurstHandler.tick(serverPlayer);
             }
 
             // Omega Flowery instance
-            if (serverPlayer.getPersistentData().getInt("xebOmegaFloweryTicks") > 0) {
+            if (serverPlayer.getPersistentData().contains("xebOmegaFloweryTicks")) {
                 org.xeb.xeb.extremeburst.OmegaFloweryHandler.tick(serverPlayer);
             }
 

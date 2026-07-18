@@ -41,33 +41,35 @@ public class DoomfistHUDOverlay {
             if (holdsV1 || holdsV2) {
                 renderAbilityCooldowns(event, mc, player, holdsV2);
                 renderDamageMitigationFlash(event, mc, player);
-                if (hasUltimate) {
+                if (shouldShowBurstHUD(player, burstEntry, mainHand, offHand)) {
                     renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
             } else if (holdsCD) {
                 renderCrazyDiamondAbilityCooldowns(event, mc, player);
                 renderCrazyDiamondFistCharges(event, mc, player);
-                if (hasUltimate) {
+                if (shouldShowBurstHUD(player, burstEntry, mainHand, offHand)) {
                     renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
             } else if (holdsTears) {
                 renderTheTearsAbilityCooldowns(event, mc, player);
-                if (hasUltimate) {
+                if (shouldShowBurstHUD(player, burstEntry, mainHand, offHand)) {
                     renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
             } else if (holdsMecha) {
                 renderMechaAbilityCooldowns(event, mc, player);
-                if (hasUltimate) {
+                if (shouldShowBurstHUD(player, burstEntry, mainHand, offHand)) {
                     renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
             } else if (holdsHoly) {
                 renderHolyAbilityCooldowns(event, mc, player);
-                if (hasUltimate) {
+                if (shouldShowBurstHUD(player, burstEntry, mainHand, offHand)) {
                     renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
                 }
-            } else if (!holdsOptic && !holdsFlower && !holdsCD && !holdsTears && !holdsMecha && !holdsHoly && hasUltimate) {
+            } else if (!holdsOptic && !holdsFlower && !holdsCD && !holdsTears && !holdsMecha && !holdsHoly
+                    && shouldShowBurstHUD(player, burstEntry, mainHand, offHand)) {
                 renderUltimateBox(event.getGuiGraphics(), mc, player, event.getWindow().getGuiScaledHeight(), burstEntry);
             }
+
 
             // Render height-based extra damage indicator during active Seismic Slam (V1)
             if (holdsV1 && player.getPersistentData().getInt("xebSlamState") == 2 && player.getPersistentData().contains("xebSlamStartY")) {
@@ -295,6 +297,26 @@ public class DoomfistHUDOverlay {
                 tag.remove("xebBlockFlashTicks");
             }
         }
+    }
+
+    /**
+     * Returns true only when ALL conditions are met:
+     * 1. {@code entry} is non-null — a burst item was found.
+     * 2. The item is equipped in a Curios slot (not just in inventory/offhand).
+     * 3. For {@link org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType#UNIVERSAL}: always true.
+     *    For {@link org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType#LIMITED}: the player
+     *    must also be holding the required weapon in main or offhand.
+     */
+    public static boolean shouldShowBurstHUD(Player player,
+                                       org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry entry,
+                                       ItemStack mainHand, ItemStack offHand) {
+        if (entry == null) return false;
+        // Enforce curio slot — items only in inventory/offhand don't show the HUD
+        if (!org.xeb.xeb.extremeburst.ExtremeBurstRegistry.isInCurioSlot(player, entry)) return false;
+        // UNIVERSAL: show regardless of held weapon
+        if (entry.type == org.xeb.xeb.extremeburst.ExtremeBurstRegistry.BurstType.UNIVERSAL) return true;
+        // LIMITED: only show when holding the required weapon
+        return org.xeb.xeb.extremeburst.ExtremeBurstRegistry.canActivate(player, entry);
     }
 
     public static void renderUltimateBox(GuiGraphics g, Minecraft mc, Player player, int screenH,

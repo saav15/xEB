@@ -75,11 +75,28 @@ public class ActuarKeyPacket {
                 if (!holdsV1 && !holdsV2 && !holdsOpticBlast && !holdsGoldenFlower && !holdsCD && !holdsTears && !holdsMecha && !holdsHoly && !hasBurst) return;
 
                 long time = player.level().getGameTime();
+                // Dev mode: bypass all cooldown checks when xebDevCooldownsDisabled == true
+                boolean devBypass = player.getPersistentData().getBoolean("xebDevCooldownsDisabled");
 
                 // ── Extreme Burst (Activa 3 / tecla N) ─────────────────────────────────
-                // Same pattern as the old Quantum Cat Barrage: check curio equipped,
-                // check cooldown, execute via ExtremeBurstHandler, apply cooldown.
-                if (msg.button == 3 && msg.press && hasBurst) {
+                // burstEntry may be non-null from inventory fallback (for HUD display),
+                // so we verify via isInCurioSlot() before allowing activation.
+                if (msg.button == 3 && msg.press) {
+
+                    if (!hasBurst) {
+                        // No burst item at all — nothing to do
+                        return;
+                    }
+
+                    // Server-side enforcement: item must be in a Curios slot
+                    boolean inCurio = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.isInCurioSlot(player, burstEntry);
+                    if (!inCurio) {
+                        // Item is only in inventory/offhand — show guidance message
+                        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                                "chat.xeb.extreme_burst.equip_curio"));
+                        return;
+                    }
+
                     // Verify weapon requirement (UNIVERSAL always passes; LIMITED needs specific weapon)
                     if (!org.xeb.xeb.extremeburst.ExtremeBurstRegistry.canActivate(player, burstEntry)) {
                         player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
@@ -87,17 +104,19 @@ public class ActuarKeyPacket {
                         return;
                     }
 
-                    // Cooldown check (keyed on the curio item itself, like QCB)
-                    if (player.getCooldowns().isOnCooldown(burstEntry.curioItem)) return;
+                    if (!devBypass) {
+                        // Cooldown check (keyed on the curio item itself, like QCB)
+                        if (player.getCooldowns().isOnCooldown(burstEntry.curioItem)) return;
 
-                    // Prevent stacking two bursts simultaneously
-                    if (player.getPersistentData().getBoolean("xebExtremeBurstActive")) {
-                        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                                "chat.xeb.extreme_burst.already_active"));
-                        return;
+                        // Prevent stacking two bursts simultaneously
+                        if (player.getPersistentData().getBoolean("xebExtremeBurstActive")) {
+                            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                                    "chat.xeb.extreme_burst.already_active"));
+                            return;
+                        }
+                        // Also block if an Instance is still running
+                        if (player.getPersistentData().getInt("xebExtremeBurstInstanceTicks") > 0) return;
                     }
-                    // Also block if an Instance is still running
-                    if (player.getPersistentData().getInt("xebExtremeBurstInstanceTicks") > 0) return;
 
                     // Mark as active
                     player.getPersistentData().putBoolean("xebExtremeBurstActive", true);
@@ -112,10 +131,14 @@ public class ActuarKeyPacket {
                     // Execute the item-specific burst logic
                     org.xeb.xeb.extremeburst.ExtremeBurstHandler.handleActivation(player, burstEntry);
 
-                    // Apply cooldown (keyed on the curio item)
-                    player.getCooldowns().addCooldown(burstEntry.curioItem, burstEntry.cooldownTicks);
+                    // Apply cooldown (keyed on the curio item) — skipped in dev mode
+                    if (!devBypass) {
+                        player.getCooldowns().addCooldown(burstEntry.curioItem, burstEntry.cooldownTicks);
+                    }
                     return;
                 }
+
+
 
                 // ── Flourish (button 4) — incrementa el mash counter del Beam Struggle activo ──
                 if (msg.button == 4 && msg.press) {
@@ -136,7 +159,8 @@ public class ActuarKeyPacket {
                             }
 
                             int danceCD = player.getPersistentData().getInt("xebGoldenFlowerDanceCooldown");
-                            if (danceCD > 0) return; // 20s cooldown
+                            if (danceCD > 0 && !devBypass) return; // 20s cooldown (skipped in dev mode)
+
 
                             // Find target
                             LivingEntity target = null;
@@ -284,7 +308,7 @@ public class ActuarKeyPacket {
                         // --- Cyclone Push (Activa 1) ---
                         if (msg.press) {
                             long lastCyclone = player.getPersistentData().getLong("xebCyclonePushLastTime");
-                            if (time - lastCyclone < org.xeb.xeb.item.OpticBlastItem.CYCLONE_PUSH_COOLDOWN) return;
+                            if (time - lastCyclone < org.xeb.xeb.item.OpticBlastItem.CYCLONE_PUSH_COOLDOWN && !devBypass) return;
 
                             // Don't allow while already firing Gene Splice
                             if (player.getPersistentData().getBoolean("xebGeneSpliceFiring")) return;
@@ -303,7 +327,7 @@ public class ActuarKeyPacket {
                         // --- Gene Splice (Activa 2) ---
                         if (msg.press) {
                             long lastSplice = player.getPersistentData().getLong("xebGeneSpliceLastTime");
-                            if (time - lastSplice < org.xeb.xeb.item.OpticBlastItem.GENE_SPLICE_COOLDOWN) return;
+                            if (time - lastSplice < org.xeb.xeb.item.OpticBlastItem.GENE_SPLICE_COOLDOWN && !devBypass) return;
 
                             // Don't allow while already firing Cyclone Push
                             if (player.getPersistentData().getBoolean("xebCyclonePushFiring")) return;
@@ -324,7 +348,7 @@ public class ActuarKeyPacket {
                     if (msg.button == 1) {
                         // --- Rising Uppercut ---
                         long lastUppercut = player.getPersistentData().getLong("xebUppercutLastTime");
-                        if (time - lastUppercut < 100) return;
+                        if (time - lastUppercut < 100 && !devBypass) return;
                         player.getPersistentData().putLong("xebUppercutLastTime", time);
 
                         Vec3 look = player.getLookAngle();
@@ -372,7 +396,7 @@ public class ActuarKeyPacket {
                         if (player.onGround()) return;
 
                         long lastSlam = player.getPersistentData().getLong("xebSlamLastTime");
-                        if (time - lastSlam < 120) return;
+                        if (time - lastSlam < 120 && !devBypass) return;
                         player.getPersistentData().putLong("xebSlamLastTime", time);
 
                         player.getPersistentData().putInt("xebSlamState", 1);
@@ -392,7 +416,7 @@ public class ActuarKeyPacket {
                     if (msg.button == 1) {
                         // --- Earthquake Slam (V2) ---
                         long lastSlam2 = player.getPersistentData().getLong("xebSlam2LastTime");
-                        if (time - lastSlam2 < 140) return; // 7 seconds cooldown
+                        if (time - lastSlam2 < 140 && !devBypass) return; // 7 seconds cooldown
                         player.getPersistentData().putLong("xebSlam2LastTime", time);
 
                         player.getPersistentData().putInt("xebSlam2State", 1); // Rising/momentum phase
@@ -416,7 +440,7 @@ public class ActuarKeyPacket {
                         // --- Power Block (V2) ---
                          if (msg.press) {
                              long lastBlock = player.getPersistentData().getLong("xebBlockLastTime");
-                             if (time - lastBlock < 140) return; // 7 seconds cooldown
+                             if (time - lastBlock < 140 && !devBypass) return; // 7 seconds cooldown
 
                              // If blocking mid-Earthquake Slam, cancel slam and pop up with upward momentum
                              if (player.getPersistentData().contains("xebSlam2State")) {
@@ -477,7 +501,7 @@ public class ActuarKeyPacket {
                             return;
                         }
                         
-                        if (player.getPersistentData().getInt("xebCDA1CooldownTicks") > 0) return;
+                        if (player.getPersistentData().getInt("xebCDA1CooldownTicks") > 0 && !devBypass) return;
                         
                         player.getPersistentData().putInt("xebCDA1State", 1);
                         player.getPersistentData().putInt("xebCDA1Timer", 15); // dash duration (ticks)
@@ -521,7 +545,7 @@ public class ActuarKeyPacket {
                             }
                         }
                         
-                        if (player.getPersistentData().getInt("xebCDA2CooldownTicks") > 0) return;
+                        if (player.getPersistentData().getInt("xebCDA2CooldownTicks") > 0 && !devBypass) return;
                         
                         player.getPersistentData().putInt("xebCDA2CooldownTicks", 300); // 15s cooldown (300 ticks)
                         XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
@@ -545,8 +569,12 @@ public class ActuarKeyPacket {
                         
                     }
                 } else if (holdsTears) {
+                    if (player.getPersistentData().getInt("xebBrimstoneFiringTicks") > 0
+                            || player.getPersistentData().getInt("xebDogmaBrimstoneTicks") > 0) {
+                        return;
+                    }
                     if (msg.button == 1 && msg.press) {
-                            if (player.getPersistentData().getInt("xebTearsA1Cooldown") <= 0) {
+                            if (player.getPersistentData().getInt("xebTearsA1Cooldown") <= 0 || devBypass) {
                                 int element = 1 + player.getRandom().nextInt(4); // 1=Purple 2=White 3=Dark 4=Cold
                                 // Imbue es estado del item → se escribe en el ItemStack NBT
                                 net.minecraft.world.item.ItemStack tearsStack =
@@ -562,7 +590,7 @@ public class ActuarKeyPacket {
                                 player.level().playSound(null, player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
                             }
                         } else if (msg.button == 2 && msg.press) {
-                            if (player.getPersistentData().getInt("xebTearsA2Cooldown") <= 0) {
+                            if (player.getPersistentData().getInt("xebTearsA2Cooldown") <= 0 || devBypass) {
                                 player.getPersistentData().putInt("xebTearsA2Cooldown", 400); // 20s CD
                         player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 400, 0)); // 20s
                                 player.getPersistentData().putInt("xebTearsBurstCount", 6);
