@@ -160,19 +160,31 @@ public class ShatteredRiftEntity extends Entity {
             if (boss != null) {
                 boss.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
                 
-                // Set name based on color / difficulty
-                String namePrefix = switch (difficulty) {
-                    case 1 -> "§2[Elite +6] ";
-                    case 2 -> "§c[Elite +8] ";
-                    case 3 -> "§d[Elite +12] ";
-                    case 0 -> "§1[Elite +4] ";
-                    default -> "§7[Elite] ";
+                // Fetch player's actual Elite Meter level and scale boss target level
+                int playerLevel = org.xeb.xeb.medallion.MedallionManager.getEliteMeterLevel(player);
+                int bossTargetLevel = switch (difficulty) {
+                    case 1 -> playerLevel + 6;   // Green (+6)
+                    case 2 -> playerLevel + 8;   // Red (+8)
+                    case 3 -> playerLevel + 12;  // Rainbow (+12)
+                    case 0 -> playerLevel + 4;   // Blue (+4)
+                    default -> playerLevel + 4;
                 };
-                boss.setCustomName(Component.literal(namePrefix).append(boss.getType().getDescription()));
+
+                // Generate a randomized epic boss name matching the spawned entity type
+                String randomName = getEpicBossName(boss);
+                String colorCode = switch (difficulty) {
+                    case 1 -> "§2"; // Green
+                    case 2 -> "§c"; // Red
+                    case 3 -> "§d"; // Pink/Rainbow
+                    case 0 -> "§b"; // Cyan/Blue
+                    default -> "§7";
+                };
+                
+                boss.setCustomName(Component.literal(colorCode + "[Elite +" + bossTargetLevel + "] " + randomName));
                 boss.setCustomNameVisible(true);
 
-                // Apply attributes and gear
-                equipAndBuffBoss(boss, difficulty, serverLevel);
+                // Apply attributes, equipment and medallions based on calculated bossTargetLevel
+                equipAndBuffBoss(boss, bossTargetLevel, difficulty, serverLevel);
 
                 // Add to world
                 serverLevel.addFreshEntity(boss);
@@ -183,6 +195,33 @@ public class ShatteredRiftEntity extends Entity {
             return InteractionResult.SUCCESS;
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide());
+    }
+
+    private static final String[] EPIC_FIRST_NAMES = {
+        "Balthazar", "Ragnar", "Morgath", "Kalthor", "Malakar", 
+        "Vorn", "Tenebris", "Aethelgard", "Vulgard", "Ignis", 
+        "Xerxes", "Valerius", "Grom", "Zul'Gar", "Drakar",
+        "Krag'Maw", "Zephyrus", "Gorthaur", "Sarkon", "Ymir",
+        "Vorash", "Kaelen", "Grendel", "Vandor", "Thorgar"
+    };
+
+    private String getEpicBossName(Mob boss) {
+        String firstName = EPIC_FIRST_NAMES[boss.getRandom().nextInt(EPIC_FIRST_NAMES.length)];
+        net.minecraft.resources.ResourceLocation key = EntityType.getKey(boss.getType());
+        String typeId = key != null ? key.toString() : "";
+        
+        String title = switch (typeId) {
+            case "minecraft:wither_skeleton" -> ", the Decay Bringer";
+            case "minecraft:piglin_brute" -> ", the Golden Berserker";
+            case "minecraft:husk" -> ", the Desert Dread";
+            case "minecraft:stray" -> ", the Frozen Archer";
+            case "minecraft:spider", "minecraft:cave_spider" -> ", the Brood Mother";
+            case "minecraft:witch" -> ", the Cursed Alchemist";
+            case "minecraft:zombie" -> ", the Undying Fiend";
+            case "minecraft:skeleton" -> ", the Bone Warlord";
+            default -> ", the Shattered Sentinel";
+        };
+        return firstName + title;
     }
 
     private EntityType<? extends Mob> getBossMobType(Level level, BlockPos pos) {
@@ -208,21 +247,10 @@ public class ShatteredRiftEntity extends Entity {
         return EntityType.WITCH;
     }
 
-    private void equipAndBuffBoss(Mob boss, int difficulty, ServerLevel level) {
-        double hpMultiplier = switch (difficulty) {
-            case 1 -> 3.0D;
-            case 2 -> 4.0D;
-            case 3 -> 8.0D;
-            case 0 -> 2.0D;
-            default -> 1.0D;
-        };
-        double dmgMultiplier = switch (difficulty) {
-            case 1 -> 1.6D;
-            case 2 -> 2.0D;
-            case 3 -> 3.0D;
-            case 0 -> 1.3D;
-            default -> 1.0D;
-        };
+    private void equipAndBuffBoss(Mob boss, int bossTargetLevel, int difficulty, ServerLevel level) {
+        // Continuous multiplier scaling based on calculated boss target level
+        double hpMultiplier = 1.0D + (bossTargetLevel * 0.45D);   // +45% HP per level
+        double dmgMultiplier = 1.0D + (bossTargetLevel * 0.15D);  // +15% damage per level
 
         var maxHpAttr = boss.getAttribute(Attributes.MAX_HEALTH);
         if (maxHpAttr != null) {
@@ -244,11 +272,13 @@ public class ShatteredRiftEntity extends Entity {
 
         boss.getPersistentData().putBoolean("xebRiftBoss", true);
         boss.getPersistentData().putInt("xebRiftDifficulty", difficulty);
+        boss.getPersistentData().putInt("xebRiftTargetLevel", bossTargetLevel);
 
         EquipmentSlot[] armorSlots = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
         ItemStack[] armorPieces = new ItemStack[4];
 
-        if (difficulty == 3) {
+        if (bossTargetLevel >= 18) {
+            // High progression: Netherite
             armorPieces[0] = new ItemStack(net.minecraft.world.item.Items.NETHERITE_HELMET);
             armorPieces[1] = new ItemStack(net.minecraft.world.item.Items.NETHERITE_CHESTPLATE);
             armorPieces[2] = new ItemStack(net.minecraft.world.item.Items.NETHERITE_LEGGINGS);
@@ -257,7 +287,8 @@ public class ShatteredRiftEntity extends Entity {
                 piece.enchant(net.minecraft.world.item.enchantment.Enchantments.ALL_DAMAGE_PROTECTION, 4);
                 piece.enchant(net.minecraft.world.item.enchantment.Enchantments.UNBREAKING, 3);
             }
-        } else if (difficulty == 2) {
+        } else if (bossTargetLevel >= 12) {
+            // Mid-high progression: Diamond
             armorPieces[0] = new ItemStack(net.minecraft.world.item.Items.DIAMOND_HELMET);
             armorPieces[1] = new ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE);
             armorPieces[2] = new ItemStack(net.minecraft.world.item.Items.DIAMOND_LEGGINGS);
@@ -265,12 +296,14 @@ public class ShatteredRiftEntity extends Entity {
             for (ItemStack piece : armorPieces) {
                 piece.enchant(net.minecraft.world.item.enchantment.Enchantments.ALL_DAMAGE_PROTECTION, 3);
             }
-        } else if (difficulty == 1) {
+        } else if (bossTargetLevel >= 6) {
+            // Mid progression: Iron / Diamond chest
             armorPieces[0] = new ItemStack(net.minecraft.world.item.Items.IRON_HELMET);
             armorPieces[1] = new ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE);
             armorPieces[2] = new ItemStack(net.minecraft.world.item.Items.IRON_LEGGINGS);
             armorPieces[3] = new ItemStack(net.minecraft.world.item.Items.IRON_BOOTS);
         } else {
+            // Low progression: Iron
             armorPieces[0] = new ItemStack(net.minecraft.world.item.Items.IRON_HELMET);
             armorPieces[1] = new ItemStack(net.minecraft.world.item.Items.IRON_CHESTPLATE);
             armorPieces[2] = new ItemStack(net.minecraft.world.item.Items.IRON_LEGGINGS);
@@ -296,26 +329,18 @@ public class ShatteredRiftEntity extends Entity {
                 net.minecraft.world.item.Items.DIAMOND_AXE
             };
             weapon = new ItemStack(weapons[level.random.nextInt(weapons.length)]);
-            if (difficulty >= 2) {
-                weapon.enchant(net.minecraft.world.item.enchantment.Enchantments.SHARPNESS, difficulty + 1);
+            if (bossTargetLevel >= 10) {
+                weapon.enchant(net.minecraft.world.item.enchantment.Enchantments.SHARPNESS, 3);
             }
             boss.setItemSlot(EquipmentSlot.MAINHAND, weapon);
             boss.setDropChance(EquipmentSlot.MAINHAND, 0.085F);
         }
 
         // Attach actual Elite Medallions to the boss so they render, apply buffs, and trigger proper loot logic
-        assignRiftBossMedallions(boss, difficulty, level);
+        assignRiftBossMedallions(boss, bossTargetLevel, level);
     }
 
-    private void assignRiftBossMedallions(Mob boss, int difficulty, ServerLevel level) {
-        int targetLevel = switch (difficulty) {
-            case 1 -> 6;   // Green (+6)
-            case 2 -> 8;   // Red (+8)
-            case 3 -> 12;  // Rainbow (+12)
-            case 0 -> 4;   // Blue (+4)
-            default -> 4;
-        };
-
+    private void assignRiftBossMedallions(Mob boss, int targetLevel, ServerLevel level) {
         // Determine medallion count based on target level
         int count = 1;
         if (targetLevel >= 10) count = 4;

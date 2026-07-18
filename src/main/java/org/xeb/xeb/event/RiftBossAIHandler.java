@@ -93,44 +93,99 @@ public class RiftBossAIHandler {
         }
 
         // 2. Specialized Counter-AI logic
-        // Counter slow: Break out of movement slowdown instantly and gain burst speed
-        if (boss.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
-            boss.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
-            boss.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 40, 2, false, false, true));
-            boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
-                    SoundEvents.ENDERMAN_TELEPORT, SoundSource.HOSTILE, 1.0F, 0.6F);
-        }
-
-        // Counter beams: Dodge linear lasers by side-stepping perpendicular to player sightline
+        // Decrement cooldowns
         int dodgeCooldown = boss.getPersistentData().getInt("xebBossDodgeCooldown");
-        if (dodgeCooldown > 0) {
-            boss.getPersistentData().putInt("xebBossDodgeCooldown", dodgeCooldown - 1);
-        } else {
-            // Find nearby players looking at the boss while active/aiming
-            List<ServerPlayer> aimingPlayers = boss.level().getEntitiesOfClass(ServerPlayer.class, boss.getBoundingBox().inflate(20.0D),
-                    p -> p.isUsingItem() && p.getLookAngle().dot(boss.position().subtract(p.getEyePosition(1.0F)).normalize()) > 0.97D);
-            if (!aimingPlayers.isEmpty()) {
-                ServerPlayer threat = aimingPlayers.get(0);
-                Vec3 threatLook = threat.getLookAngle();
-                Vec3 perp = threatLook.cross(new Vec3(0, 1, 0)).normalize();
-                if (perp.lengthSqr() < 0.01) perp = threatLook.cross(new Vec3(1, 0, 0)).normalize();
-
-                // Side step velocity jump (random left or right)
-                double side = boss.getRandom().nextBoolean() ? 1.0D : -1.0D;
-                boss.setDeltaMovement(perp.scale(side * 0.85D).add(0.0D, 0.15D, 0.0D));
-                boss.getPersistentData().putInt("xebBossDodgeCooldown", 80); // 4 seconds CD
-
-                boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
-                        SoundEvents.ENDER_DRAGON_FLAP, SoundSource.HOSTILE, 1.0F, 1.5F);
-            }
-        }
-
-        // Spikes/Projectile rapid hit ticking cooldown
+        if (dodgeCooldown > 0) boss.getPersistentData().putInt("xebBossDodgeCooldown", dodgeCooldown - 1);
+        int halberdEvadeCD = boss.getPersistentData().getInt("xebHalberdEvadeCD");
+        if (halberdEvadeCD > 0) boss.getPersistentData().putInt("xebHalberdEvadeCD", halberdEvadeCD - 1);
+        int doomfistEvadeCD = boss.getPersistentData().getInt("xebDoomfistEvadeCD");
+        if (doomfistEvadeCD > 0) boss.getPersistentData().putInt("xebDoomfistEvadeCD", doomfistEvadeCD - 1);
         int projTimer = boss.getPersistentData().getInt("xebProjHitTimer");
-        if (projTimer > 0) {
-            boss.getPersistentData().putInt("xebProjHitTimer", projTimer - 1);
-        } else {
-            boss.getPersistentData().putInt("xebProjHits", 0);
+        if (projTimer > 0) boss.getPersistentData().putInt("xebProjHitTimer", projTimer - 1);
+        else boss.getPersistentData().putInt("xebProjHits", 0);
+
+        // Scan nearby threat players to execute counter strategy
+        for (ServerPlayer player : nearbyPlayers) {
+            boolean holdingFlower = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.GoldenFlowerItem ||
+                                    player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.GoldenFlowerItem;
+            boolean holdingHalberd = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.SmartHalberdItem ||
+                                     player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.SmartHalberdItem;
+            boolean holdingDoomfist = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.DoomfistItem ||
+                                      player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.DoomfistItem ||
+                                      player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.DoomfistV2Item ||
+                                      player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.DoomfistV2Item;
+
+            // A. Golden Flower counter: escape spore clouds / cleanse slowdown
+            if (holdingFlower) {
+                if (boss.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) || boss.distanceToSqr(player) < 36.0D) {
+                    boss.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+                    boss.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 60, 3, false, false, true)); // Speed IV
+                    
+                    // Force flee vector away from spored/flower-wielding player
+                    Vec3 flee = boss.position().subtract(player.position()).normalize().scale(0.35D);
+                    boss.setDeltaMovement(boss.getDeltaMovement().add(flee.x, 0.08D, flee.z));
+                    boss.hurtMarked = true;
+                    
+                    if (boss.tickCount % 20 == 0) {
+                        boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
+                                SoundEvents.ENDERMAN_TELEPORT, SoundSource.HOSTILE, 1.0F, 1.2F);
+                    }
+                }
+            }
+
+            // B. Smart Halberd counter: evade sweep reach by jumping back
+            if (holdingHalberd && halberdEvadeCD == 0 && boss.distanceToSqr(player) < 22.0D) {
+                boss.getPersistentData().putInt("xebHalberdEvadeCD", 45); // Cooldown: 2.25s
+                Vec3 jumpBack = boss.position().subtract(player.position()).normalize().scale(0.9D);
+                boss.setDeltaMovement(jumpBack.x, 0.35D, jumpBack.z);
+                boss.hurtMarked = true;
+                boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
+                        SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.2F, 0.7F);
+            }
+
+            // C. Doomfist counter: high dodge leap to avoid charged slam impact
+            if (holdingDoomfist && doomfistEvadeCD == 0) {
+                float chargeRatio = player.getPersistentData().getFloat("xebDoomfistChargeRatio");
+                if (chargeRatio > 0.15F && boss.distanceToSqr(player) < 225.0D) {
+                    // Check if player is facing boss
+                    Vec3 toBoss = boss.position().subtract(player.getEyePosition(1.0F)).normalize();
+                    if (player.getLookAngle().dot(toBoss) > 0.85D) {
+                        boss.getPersistentData().putInt("xebDoomfistEvadeCD", 80); // Cooldown: 4s
+                        Vec3 threatLook = player.getLookAngle();
+                        Vec3 perp = threatLook.cross(new Vec3(0, 1, 0)).normalize();
+                        if (perp.lengthSqr() < 0.01D) perp = threatLook.cross(new Vec3(1, 0, 0)).normalize();
+                        double side = boss.getRandom().nextBoolean() ? 1.0D : -1.0D;
+                        
+                        // Leap high and sideways
+                        boss.setDeltaMovement(perp.scale(side * 0.7D).add(0.0D, 0.68D, 0.0D));
+                        boss.hurtMarked = true;
+                        boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
+                                SoundEvents.ENDER_DRAGON_FLAP, SoundSource.HOSTILE, 1.2F, 1.4F);
+                    }
+                }
+            }
+
+            // D. Beams counter: weave laterally/zig-zag if threat is aiming linear beam at boss
+            double dot = player.getLookAngle().dot(boss.position().subtract(player.getEyePosition(1.0F)).normalize());
+            if (dot > 0.96D && player.isUsingItem() && boss.distanceToSqr(player) < 400.0D) {
+                Vec3 threatLook = player.getLookAngle();
+                Vec3 perp = threatLook.cross(new Vec3(0, 1, 0)).normalize();
+                if (perp.lengthSqr() < 0.01D) perp = threatLook.cross(new Vec3(1, 0, 0)).normalize();
+                
+                // Add lateral zig-zag weaving speed
+                double weave = Math.sin(boss.tickCount * 0.35D) * 0.28D;
+                boss.setDeltaMovement(boss.getDeltaMovement().add(perp.scale(weave)));
+                boss.hurtMarked = true;
+
+                // Immediate dash perpendicular if dodge is ready
+                if (dodgeCooldown == 0 && boss.getRandom().nextFloat() < 0.15F) {
+                    boss.getPersistentData().putInt("xebBossDodgeCooldown", 70);
+                    double side = boss.getRandom().nextBoolean() ? 1.0D : -1.0D;
+                    boss.setDeltaMovement(perp.scale(side * 0.88D).add(0.0D, 0.16D, 0.0D));
+                    boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
+                            SoundEvents.ENDER_DRAGON_FLAP, SoundSource.HOSTILE, 1.0F, 1.5F);
+                }
+            }
         }
     }
 
@@ -139,6 +194,22 @@ public class RiftBossAIHandler {
         LivingEntity entity = event.getEntity();
         if (entity.level().isClientSide() || !(entity instanceof Mob boss)) return;
         if (!boss.getPersistentData().getBoolean("xebRiftBoss")) return;
+
+        // Counter Smart Halberd sweep damage: parry shield & knockback shockwave
+        if (event.getSource().getEntity() instanceof LivingEntity attacker) {
+            ItemStack weapon = attacker.getMainHandItem();
+            if (weapon.getItem() instanceof org.xeb.xeb.item.SmartHalberdItem) {
+                boss.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, 2, false, false, true)); // Resistance III
+                boss.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 60, 1, false, false, true));      // Strength II
+                boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
+                        SoundEvents.SHIELD_BLOCK, SoundSource.HOSTILE, 1.2F, 0.8F);
+                
+                // Blast attacker away
+                Vec3 push = attacker.position().subtract(boss.position()).normalize().scale(1.2D);
+                attacker.setDeltaMovement(push.x, 0.38D, push.z);
+                attacker.hurtMarked = true;
+            }
+        }
 
         // Counter projectile barrages (e.g. flower pellets, halberd spikes)
         Entity directSource = event.getSource().getDirectEntity();
@@ -156,7 +227,7 @@ public class RiftBossAIHandler {
                 boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
                         SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 1.5F, 1.2F);
 
-                // Push back nearby players
+                // Push back nearby entities
                 List<LivingEntity> targets = boss.level().getEntitiesOfClass(LivingEntity.class, boss.getBoundingBox().inflate(6.0D));
                 for (LivingEntity target : targets) {
                     if (target != boss) {
