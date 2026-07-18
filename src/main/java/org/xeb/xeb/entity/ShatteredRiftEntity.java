@@ -302,6 +302,68 @@ public class ShatteredRiftEntity extends Entity {
             boss.setItemSlot(EquipmentSlot.MAINHAND, weapon);
             boss.setDropChance(EquipmentSlot.MAINHAND, 0.085F);
         }
+
+        // Attach actual Elite Medallions to the boss so they render, apply buffs, and trigger proper loot logic
+        assignRiftBossMedallions(boss, difficulty, level);
+    }
+
+    private void assignRiftBossMedallions(Mob boss, int difficulty, ServerLevel level) {
+        int targetLevel = switch (difficulty) {
+            case 1 -> 6;   // Green (+6)
+            case 2 -> 8;   // Red (+8)
+            case 3 -> 12;  // Rainbow (+12)
+            case 0 -> 4;   // Blue (+4)
+            default -> 4;
+        };
+
+        // Determine medallion count based on target level
+        int count = 1;
+        if (targetLevel >= 10) count = 4;
+        else if (targetLevel >= 7) count = 3;
+        else if (targetLevel >= 4) count = 2;
+
+        List<org.xeb.xeb.medallion.MedallionData> rolled = new java.util.ArrayList<>();
+        java.util.Set<String> excludeSet = new java.util.HashSet<>();
+        net.minecraft.util.RandomSource random = boss.getRandom();
+
+        for (int i = 0; i < count; i++) {
+            excludeSet.addAll(org.xeb.xeb.medallion.MedallionManager.getConflictingBuffSet(rolled));
+            
+            org.xeb.xeb.buff.EliteBuff buff = org.xeb.xeb.buff.EliteBuffRegistry.getRandomByWeight(
+                net.minecraft.util.RandomSource.create(random.nextLong()), true, new java.util.ArrayList<>(excludeSet)
+            );
+            
+            if (buff != null) {
+                org.xeb.xeb.medallion.MedallionType tier;
+                double roll = random.nextDouble();
+                if (targetLevel >= 8) {
+                    tier = roll < 0.85 ? org.xeb.xeb.medallion.MedallionType.LEGENDARY : org.xeb.xeb.medallion.MedallionType.RARE;
+                } else if (targetLevel >= 6) {
+                    tier = roll < 0.60 ? org.xeb.xeb.medallion.MedallionType.RARE : (roll < 0.85 ? org.xeb.xeb.medallion.MedallionType.LEGENDARY : org.xeb.xeb.medallion.MedallionType.COMMON);
+                } else {
+                    tier = roll < 0.65 ? org.xeb.xeb.medallion.MedallionType.COMMON : org.xeb.xeb.medallion.MedallionType.RARE;
+                }
+                
+                rolled.add(new org.xeb.xeb.medallion.MedallionData(buff, tier, java.util.UUID.randomUUID()));
+                if (!buff.isStackable()) {
+                    excludeSet.add(buff.getId());
+                }
+            }
+        }
+
+        if (!rolled.isEmpty()) {
+            org.xeb.xeb.medallion.MedallionManager.saveMedallions(boss, rolled);
+            for (org.xeb.xeb.medallion.MedallionData m : rolled) {
+                try {
+                    m.getBuff().onAttach(boss, m.getUniqueId());
+                } catch (Exception e) {
+                    System.err.println("Failed to attach rift boss medallion: " + m.getBuff().getId());
+                    e.printStackTrace();
+                }
+            }
+            org.xeb.xeb.medallion.MedallionManager.refreshDimensionsIfNeeded(boss, rolled);
+            org.xeb.xeb.medallion.MedallionManager.syncToTracking(boss);
+        }
     }
 
     @Override
