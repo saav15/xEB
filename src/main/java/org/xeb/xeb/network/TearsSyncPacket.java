@@ -15,8 +15,10 @@ public class TearsSyncPacket {
     public final int charge;
     public final int firing;
     public final boolean instant;
+    public final int animTicks;
+    public final String animName;
 
-    public TearsSyncPacket(int a1CD, int a2CD, int imbueType, int imbueDur, int charge, int firing, boolean instant) {
+    public TearsSyncPacket(int a1CD, int a2CD, int imbueType, int imbueDur, int charge, int firing, boolean instant, int animTicks, String animName) {
         this.a1CD = a1CD;
         this.a2CD = a2CD;
         this.imbueType = imbueType;
@@ -24,6 +26,8 @@ public class TearsSyncPacket {
         this.charge = charge;
         this.firing = firing;
         this.instant = instant;
+        this.animTicks = animTicks;
+        this.animName = animName != null ? animName : "";
     }
 
     public static void encode(TearsSyncPacket msg, FriendlyByteBuf buf) {
@@ -34,6 +38,8 @@ public class TearsSyncPacket {
         buf.writeInt(msg.charge);
         buf.writeInt(msg.firing);
         buf.writeBoolean(msg.instant);
+        buf.writeInt(msg.animTicks);
+        buf.writeUtf(msg.animName);
     }
 
     public static TearsSyncPacket decode(FriendlyByteBuf buf) {
@@ -44,7 +50,9 @@ public class TearsSyncPacket {
                 buf.readInt(),
                 buf.readInt(),
                 buf.readInt(),
-                buf.readBoolean()
+                buf.readBoolean(),
+                buf.readInt(),
+                buf.readUtf()
         );
     }
 
@@ -61,6 +69,8 @@ public class TearsSyncPacket {
                 tag.putInt("xebBrimstoneCharge", msg.charge);
                 tag.putInt("xebBrimstoneFiringTicks", msg.firing);
                 tag.putBoolean("xebNextBrimstoneInstant", msg.instant);
+                tag.putInt("xebTearsAbilityAnimTicks", msg.animTicks);
+                tag.putString("xebTearsAbilityAnimName", msg.animName);
             }
         });
         ctx.setPacketHandled(true);

@@ -92,6 +92,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.OMEGA_FLOWERY.get());
                         output.accept(ModItems.MECHA_OVERDRIVE.get());
                         output.accept(ModItems.HOLY_DUALITY_BLADE.get());
+                        output.accept(ModItems.SMART_HALBERD.get());
                     })
                     .build()
     );

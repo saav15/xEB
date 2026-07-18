@@ -32,7 +32,8 @@ public class ModTooltipHandler {
                 || item == ModItems.HOLY_DUALITY_BLADE.get()
                 || item == ModItems.MECHA_OVERDRIVE.get()
                 || item == ModItems.BROKEN_DIAMOND.get()
-                || item == ModItems.THE_TEARS.get();
+                || item == ModItems.THE_TEARS.get()
+                || item == ModItems.SMART_HALBERD.get();
     }
 
     private static class WeaponStats {
@@ -56,6 +57,7 @@ public class ModTooltipHandler {
         if (item == ModItems.MECHA_OVERDRIVE.get()) return new WeaponStats(10.0D, 1.4D, 2.0D);
         if (item == ModItems.BROKEN_DIAMOND.get()) return new WeaponStats(8.0D, 1.6D, 2.0D);
         if (item == ModItems.THE_TEARS.get()) return new WeaponStats(4.0D, 2.5D, 2.0D);
+        if (item == ModItems.SMART_HALBERD.get()) return new WeaponStats(9.0D, 1.0D, 4.5D);
         return new WeaponStats(0.0D, 0.0D, 0.0D);
     }
 
@@ -68,6 +70,7 @@ public class ModTooltipHandler {
         if (item == ModItems.MECHA_OVERDRIVE.get()) return 58;
         if (item == ModItems.BROKEN_DIAMOND.get()) return 50;
         if (item == ModItems.THE_TEARS.get()) return 36;
+        if (item == ModItems.SMART_HALBERD.get()) return 22;
         return 0;
     }
 
@@ -81,7 +84,11 @@ public class ModTooltipHandler {
         WeaponKeys(String name, boolean isSpecialKeys) {
             this.desc1 = "item.xeb." + name + ".desc1";
             this.desc2 = "item.xeb." + name + ".desc2";
-            if (isSpecialKeys) {
+            if (name.equals("smart_halberd")) {
+                this.desc4 = null;
+                this.desc5 = null;
+                this.lore = "item.xeb.smart_halberd.lore";
+            } else if (isSpecialKeys) {
                 this.desc4 = "item.xeb." + name + ".activa1";
                 this.desc5 = "item.xeb." + name + ".activa2";
                 this.lore = "item.xeb." + name + ".lore";
@@ -102,6 +109,7 @@ public class ModTooltipHandler {
         if (item == ModItems.MECHA_OVERDRIVE.get()) return new WeaponKeys("mecha_overdrive", false);
         if (item == ModItems.BROKEN_DIAMOND.get()) return new WeaponKeys("broken_diamond", true);
         if (item == ModItems.THE_TEARS.get()) return new WeaponKeys("the_tears", true);
+        if (item == ModItems.SMART_HALBERD.get()) return new WeaponKeys("smart_halberd", false);
         return null;
     }
 
@@ -123,6 +131,24 @@ public class ModTooltipHandler {
         return result;
     }
 
+    private static Component createAquaWaveName(String nameText) {
+        MutableComponent result = Component.empty();
+        long time = System.currentTimeMillis();
+        for (int i = 0; i < nameText.length(); i++) {
+            char c = nameText.charAt(i);
+            // Wave phase offset based on character index
+            double phase = ((time % 2000) / 2000.0 * 2.0 * Math.PI) - (i * 0.25);
+            // Cycle between bright aqua and soft mint-cyan
+            int r = (int) (10 + 10 * Math.sin(phase));
+            int g = (int) (225 + 30 * Math.sin(phase));
+            int b = (int) (195 + 30 * Math.sin(phase));
+            int rgb = (r << 16) | (g << 8) | b;
+            result.append(Component.literal(String.valueOf(c))
+                    .withStyle(style -> style.withColor(net.minecraft.network.chat.TextColor.fromRgb(rgb)).withBold(true)));
+        }
+        return result;
+    }
+
     @SubscribeEvent
     public static void onItemTooltip(ItemTooltipEvent event) {
         ItemStack stack = event.getItemStack();
@@ -132,7 +158,12 @@ public class ModTooltipHandler {
 
             // 1. Save and apply animated wave style to the weapon name
             Component originalName = tooltip.get(0);
-            Component customName = createWaveName(originalName.getString());
+            Component customName;
+            if (stack.is(ModItems.SMART_HALBERD.get())) {
+                customName = createAquaWaveName(originalName.getString());
+            } else {
+                customName = createWaveName(originalName.getString());
+            }
 
             tooltip.clear();
             tooltip.add(customName);
@@ -161,7 +192,7 @@ public class ModTooltipHandler {
                 tooltip.add(Component.translatable("gui.xeb.tooltip.attack_speed")
                         .append(Component.literal(String.valueOf(stats.speed))));
                 tooltip.add(Component.translatable("gui.xeb.tooltip.attack_range")
-                        .append(Component.literal(String.valueOf((int) stats.range))));
+                        .append(Component.literal(String.valueOf(stats.range))));
                 tooltip.add(Component.translatable("gui.xeb.tooltip.dps")
                         .append(Component.literal(String.valueOf(getEstimatedDps(stack.getItem())))));
 
@@ -173,9 +204,11 @@ public class ModTooltipHandler {
                 tooltip.add(Component.translatable("gui.xeb.tooltip.right_click_prefix")
                         .append(Component.translatable(keys.desc2).withStyle(ChatFormatting.GRAY)));
                 
-                // 2. Active Abilities (using desc4 and desc5, colored completely in yellow to fix split styling)
-                tooltip.add(Component.literal("  §b• ").append(Component.translatable(keys.desc4, Component.keybind("key.xeb.activa_1")).withStyle(ChatFormatting.YELLOW)));
-                tooltip.add(Component.literal("  §b• ").append(Component.translatable(keys.desc5, Component.keybind("key.xeb.activa_2")).withStyle(ChatFormatting.YELLOW)));
+                // 2. Active Abilities (if present, using desc4 and desc5)
+                if (keys.desc4 != null && keys.desc5 != null) {
+                    tooltip.add(Component.literal("  §b• ").append(Component.translatable(keys.desc4, Component.keybind("key.xeb.activa_1")).withStyle(ChatFormatting.YELLOW)));
+                    tooltip.add(Component.literal("  §b• ").append(Component.translatable(keys.desc5, Component.keybind("key.xeb.activa_2")).withStyle(ChatFormatting.YELLOW)));
+                }
 
                 // Enchantments (Better formatted, clean bullet points without stars)
                 Map<Enchantment, Integer> enchantments = EnchantmentHelper.getEnchantments(stack);
@@ -211,24 +244,41 @@ public class ModTooltipHandler {
     public static void onTooltipColor(RenderTooltipEvent.Color event) {
         ItemStack stack = event.getItemStack();
         if (isModWeapon(stack)) {
-            // Set dynamic animated mythic red border and dark red background glow
             long time = System.currentTimeMillis();
             double phaseStart = (time % 1500) / 1500.0 * 2.0 * Math.PI;
-            double phaseEnd = phaseStart + Math.PI; // 180 degrees shift
+            double phaseEnd = phaseStart + Math.PI;
 
-            int rStart = (int) (200 + 55 * Math.sin(phaseStart));
-            int gStart = (int) (20 + 20 * Math.sin(phaseStart));
-            int bStart = (int) (30 + 30 * Math.sin(phaseStart));
-            int borderStart = 0xFF000000 | (rStart << 16) | (gStart << 8) | bStart;
+            if (stack.is(ModItems.SMART_HALBERD.get())) {
+                // Set dynamic animated legendary aqua border and dark teal background glow
+                int rStart = (int) (10 + 10 * Math.sin(phaseStart));
+                int gStart = (int) (225 + 30 * Math.sin(phaseStart));
+                int bStart = (int) (195 + 30 * Math.sin(phaseStart));
+                int borderStart = 0xFF000000 | (rStart << 16) | (gStart << 8) | bStart;
 
-            int rEnd = (int) (200 + 55 * Math.sin(phaseEnd));
-            int gEnd = (int) (20 + 20 * Math.sin(phaseEnd));
-            int bEnd = (int) (30 + 30 * Math.sin(phaseEnd));
-            int borderEnd = 0xFF000000 | (rEnd << 16) | (gEnd << 8) | bEnd;
+                int rEnd = (int) (10 + 10 * Math.sin(phaseEnd));
+                int gEnd = (int) (150 + 30 * Math.sin(phaseEnd));
+                int bEnd = (int) (120 + 30 * Math.sin(phaseEnd));
+                int borderEnd = 0xFF000000 | (rEnd << 16) | (gEnd << 8) | bEnd;
 
-            event.setBorderStart(borderStart);
-            event.setBorderEnd(borderEnd);
-            event.setBackground(0xF2150505);
+                event.setBorderStart(borderStart);
+                event.setBorderEnd(borderEnd);
+                event.setBackground(0xF2001510);
+            } else {
+                // Set dynamic animated mythic red border and dark red background glow
+                int rStart = (int) (200 + 55 * Math.sin(phaseStart));
+                int gStart = (int) (20 + 20 * Math.sin(phaseStart));
+                int bStart = (int) (30 + 30 * Math.sin(phaseStart));
+                int borderStart = 0xFF000000 | (rStart << 16) | (gStart << 8) | bStart;
+
+                int rEnd = (int) (200 + 55 * Math.sin(phaseEnd));
+                int gEnd = (int) (20 + 20 * Math.sin(phaseEnd));
+                int bEnd = (int) (30 + 30 * Math.sin(phaseEnd));
+                int borderEnd = 0xFF000000 | (rEnd << 16) | (gEnd << 8) | bEnd;
+
+                event.setBorderStart(borderStart);
+                event.setBorderEnd(borderEnd);
+                event.setBackground(0xF2150505);
+            }
         }
     }
 }

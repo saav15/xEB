@@ -1084,6 +1084,12 @@ public class EnigmaBiosScreen extends Screen {
                     new String[]{"4", "8", "5", "0", ""},
                     new String[]{"0.4s", "2s", "10s", "15s", ""});
         }
+        if (item == ModItems.SMART_HALBERD.get()) {
+            return new AnalyzedInfo(name, "item.xeb.smart_halberd", true,
+                    new String[]{"9", "14", "", "", ""},
+                    new String[]{"1.0s", "0s", "", "", ""},
+                    new boolean[]{false, false, true, true, true});
+        }
 
         if (item == ModItems.MOON_TEAR.get()) {
             return new AnalyzedInfo(name, "item.xeb.moon_tear", false, null, null);

@@ -125,6 +125,13 @@ public class ModEntities {
                     .build("homing_missile")
     );
 
+    public static final RegistryObject<EntityType<SpikeProjectileEntity>> SPIKE_PROJECTILE = ENTITY_TYPES.register("spike_projectile",
+            () -> EntityType.Builder.<SpikeProjectileEntity>of(SpikeProjectileEntity::new, MobCategory.MISC)
+                    .sized(0.5F, 1.5F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("spike_projectile"));
+
     public static void register(IEventBus eventBus) {
         ENTITY_TYPES.register(eventBus);
     }

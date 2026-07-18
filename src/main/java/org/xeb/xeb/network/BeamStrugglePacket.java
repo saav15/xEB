@@ -26,10 +26,27 @@ public class BeamStrugglePacket {
     private final byte phase; // 0=PREP, 1=ACTIVE, 2=RESOLVED
     private final double initialDistance;
 
+    // Rhythm fields
+    private final byte rhythmCycleTick;
+    private final byte lastTimingA;
+    private final byte lastTimingB;
+    private final byte lastTimingDisplayTicksA;
+    private final byte lastTimingDisplayTicksB;
+
     public BeamStrugglePacket(boolean isStart, UUID struggleId, int a, int b,
                               Vec3 startA, Vec3 startB, Vec3 collision,
                               float pointsA, float pointsB, int ticks,
                               byte phase, double initialDistance) {
+        this(isStart, struggleId, a, b, startA, startB, collision, pointsA, pointsB, ticks, phase, initialDistance,
+             (byte) 0, (byte) -1, (byte) -1, (byte) 0, (byte) 0);
+    }
+
+    public BeamStrugglePacket(boolean isStart, UUID struggleId, int a, int b,
+                              Vec3 startA, Vec3 startB, Vec3 collision,
+                              float pointsA, float pointsB, int ticks,
+                              byte phase, double initialDistance,
+                              byte rhythmCycleTick, byte lastTimingA, byte lastTimingB,
+                              byte lastTimingDisplayTicksA, byte lastTimingDisplayTicksB) {
         this.isStart = isStart;
         this.struggleId = struggleId;
         this.ownerAEntityId = a;
@@ -42,6 +59,11 @@ public class BeamStrugglePacket {
         this.ticksElapsed = ticks;
         this.phase = phase;
         this.initialDistance = initialDistance;
+        this.rhythmCycleTick = rhythmCycleTick;
+        this.lastTimingA = lastTimingA;
+        this.lastTimingB = lastTimingB;
+        this.lastTimingDisplayTicksA = lastTimingDisplayTicksA;
+        this.lastTimingDisplayTicksB = lastTimingDisplayTicksB;
     }
 
     public static void encode(BeamStrugglePacket m, FriendlyByteBuf buf) {
@@ -57,6 +79,11 @@ public class BeamStrugglePacket {
         buf.writeInt(m.ticksElapsed);
         buf.writeByte(m.phase);
         buf.writeDouble(m.initialDistance);
+        buf.writeByte(m.rhythmCycleTick);
+        buf.writeByte(m.lastTimingA);
+        buf.writeByte(m.lastTimingB);
+        buf.writeByte(m.lastTimingDisplayTicksA);
+        buf.writeByte(m.lastTimingDisplayTicksB);
     }
 
     public static BeamStrugglePacket decode(FriendlyByteBuf buf) {
@@ -66,7 +93,9 @@ public class BeamStrugglePacket {
                 new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()),
                 new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()),
                 buf.readFloat(), buf.readFloat(), buf.readInt(),
-                buf.readByte(), buf.readDouble()
+                buf.readByte(), buf.readDouble(),
+                buf.readByte(), buf.readByte(), buf.readByte(),
+                buf.readByte(), buf.readByte()
         );
     }
 
@@ -89,4 +118,9 @@ public class BeamStrugglePacket {
     public int getTicksElapsed() { return ticksElapsed; }
     public byte getPhase() { return phase; }
     public double getInitialDistance() { return initialDistance; }
+    public byte getRhythmCycleTick() { return rhythmCycleTick; }
+    public byte getLastTimingA() { return lastTimingA; }
+    public byte getLastTimingB() { return lastTimingB; }
+    public byte getLastTimingDisplayTicksA() { return lastTimingDisplayTicksA; }
+    public byte getLastTimingDisplayTicksB() { return lastTimingDisplayTicksB; }
 }

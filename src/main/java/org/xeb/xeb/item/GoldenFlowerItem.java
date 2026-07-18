@@ -33,6 +33,14 @@ import java.util.function.Consumer;
 
 public class GoldenFlowerItem extends Item implements GeoItem {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+
+    // === Click Derecho Rework ===
+    public static final int FLOWER_CHARGE_TICKS = 10;       // ticks entre cada flor cargada
+    public static final int MAX_LOADED_FLOWERS = 6;
+    public static final float FLOWER_PROJECTILE_DAMAGE = 8.0F; // balanced damage
+    public static final float SPORE_DAMAGE_PER_TICK = 3.0F;   // balanced damage
+    public static final int SPORE_DURATION = 200;              // 10 segundos
+    public static final double SPORE_RADIUS = 4.0D;
     
     private long lastCheckTime = 0;
     private long faceAnimEndTime = 0;
@@ -222,22 +230,24 @@ public class GoldenFlowerItem extends Item implements GeoItem {
                     }
                 }
 
-                // Semicircle behind player
+                // Semicircle behind player — flores más grandes, halo horizontal
                 Vec3 right = new Vec3(-look.z, 0.0D, look.x).normalize();
                 for (int i = 0; i < loaded; i++) {
                     FlowerProjectileEntity proj = new FlowerProjectileEntity(level, player, i);
                     
-                    // Math to place them in an arc behind player shoulders
-                    double offsetMultiplier = (i - (loaded - 1) / 2.0D) * 0.45D;
-                    Vec3 spawnPos = eyePos.subtract(look.scale(0.8D))
+                    // Posición: detrás del player en línea horizontal
+                    double offsetMultiplier = (i - (loaded - 1) / 2.0D) * 0.6D;
+                    Vec3 spawnPos = eyePos.subtract(look.scale(0.5D))
                             .add(right.scale(offsetMultiplier))
-                            .subtract(0.0D, 0.25D, 0.0D); // slightly lower than eyes
+                            .add(0.0D, 0.3D, 0.0D); // ligeramente arriba
 
                     proj.moveTo(spawnPos.x, spawnPos.y, spawnPos.z, 0.0F, 0.0F);
-                    proj.setDeltaMovement(look.scale(0.2D)); // slow initial speed
+                    proj.setDeltaMovement(look.scale(0.3D)); // velocidad inicial lenta
                     if (target != null) {
                         proj.setTarget(target);
                     }
+                    // Set NBT para retorno de esporas
+                    proj.getPersistentData().putBoolean("xebCanReturnSpores", true);
                     level.addFreshEntity(proj);
                 }
 

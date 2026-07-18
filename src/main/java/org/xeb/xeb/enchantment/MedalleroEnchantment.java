@@ -37,7 +37,8 @@ public class MedalleroEnchantment extends Enchantment {
             || item == ModItems.HOLY_DUALITY_BLADE.get()
             || item == ModItems.MECHA_OVERDRIVE.get()
             || item == ModItems.BROKEN_DIAMOND.get()
-            || item == ModItems.THE_TEARS.get();
+            || item == ModItems.THE_TEARS.get()
+            || item == ModItems.SMART_HALBERD.get();
     }
 
     @Override

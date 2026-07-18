@@ -59,9 +59,10 @@ public class GoldenFlowerHUDOverlay {
                     0xFFFF40  // 5: Yellow
             };
 
+            long gameTime = player.level().getGameTime();
             double radius = 18.0D;
+
             for (int i = 0; i < 6; i++) {
-                // Curved arc over the top of the crosshair (from -145 to -35 degrees)
                 double angle = Math.toRadians(-145.0D + i * 22.0D);
                 int fx = centerX + (int) (Math.cos(angle) * radius);
                 int fy = centerY + (int) (Math.sin(angle) * radius);
@@ -69,20 +70,16 @@ public class GoldenFlowerHUDOverlay {
                 boolean isRecharged = charges >= (i + 1);
                 boolean isLoaded = i < loaded;
 
-                int color;
-                if (isRecharged) {
-                    color = flowerColors[i];
-                } else {
-                    color = 0x303030; // greyed out
-                }
-
-                // If loaded, draw glowing white outline with colored filled center
                 if (isLoaded) {
-                    drawTinyFlower(g, fx, fy, 0xFFFFFFFF);
-                    drawTinyCenter(g, fx, fy, color);
+                    // Flor cargada: glow + centro blanco
+                    drawLoadedFlowerHUD(g, fx, fy, flowerColors[i], gameTime);
+                } else if (isRecharged) {
+                    // Flor disponible: solo outline
+                    drawTinyFlower(g, fx, fy, flowerColors[i]);
+                    drawTinyCenter(g, fx, fy, 0xFFFFFFFF);
                 } else {
-                    // Empty sprite with outline of the flower
-                    drawTinyFlower(g, fx, fy, color);
+                    // Flor vacía: gris
+                    drawTinyFlower(g, fx, fy, 0x303030);
                 }
             }
 
@@ -128,19 +125,64 @@ public class GoldenFlowerHUDOverlay {
         }
     }
 
+    /**
+     * Dibuja una flor HUD detallada con 6 pétalos.
+     * Mucho más bonita que la versión anterior de pixeles simples.
+     */
     private static void drawTinyFlower(GuiGraphics g, int x, int y, int color) {
         int alpha = 0xFF000000;
         int finalColor = alpha | color;
-
-        // Simple pixel-art flower cross-shape
-        g.fill(x, y - 2, x + 1, y + 3, finalColor); // vertical line
-        g.fill(x - 2, y, x + 3, y + 1, finalColor); // horizontal line
+        
+        // 6 pétalos en forma de flor (cada pétalo es un pequeño óvalo de 2x3 pixeles)
+        for (int i = 0; i < 6; i++) {
+            double angle = Math.toRadians(i * 60);
+            int petalX = x + (int) (Math.cos(angle) * 3);
+            int petalY = y + (int) (Math.sin(angle) * 3);
+            
+            // Pétalo como pequeño óvalo
+            g.fill(petalX - 1, petalY - 1, petalX + 2, petalY + 2, finalColor);
+        }
     }
 
+    /**
+     * Dibuja el centro de la flor HUD.
+     */
     private static void drawTinyCenter(GuiGraphics g, int x, int y, int color) {
         int alpha = 0xFF000000;
         int finalColor = alpha | color;
+        
+        // Centro como 2x2 pixeles
         g.fill(x - 1, y - 1, x + 2, y + 2, finalColor);
+        
+        // Punto blanco brillante en el centro
+        g.fill(x, y, x + 1, y + 1, 0xFFFFFFFF);
+    }
+
+    /**
+     * Dibuja una flor HUD con efecto de glow cuando está cargada.
+     */
+    private static void drawLoadedFlowerHUD(GuiGraphics g, int x, int y, int color, long gameTime) {
+        int alpha = 0xFF000000;
+        int finalColor = alpha | color;
+        
+        // Glow pulsante
+        float pulse = 0.7F + 0.3F * (float) Math.sin(gameTime * 0.1);
+        int glowAlpha = (int) (255 * pulse * 0.3);
+        int glowColor = (glowAlpha << 24) | color;
+        
+        // Glow externo (más grande)
+        for (int i = 0; i < 6; i++) {
+            double angle = Math.toRadians(i * 60);
+            int petalX = x + (int) (Math.cos(angle) * 4);
+            int petalY = y + (int) (Math.sin(angle) * 4);
+            g.fill(petalX - 2, petalY - 2, petalX + 3, petalY + 3, glowColor);
+        }
+        
+        // Pétalos sólidos
+        drawTinyFlower(g, x, y, color);
+        
+        // Centro blanco brillante
+        g.fill(x - 1, y - 1, x + 2, y + 2, 0xFFFFFFFF);
     }
 
     private static void renderAbilityBox(GuiGraphics g, Minecraft mc, int x, int y,

@@ -173,7 +173,7 @@ public class GoldenFlowerClientHandler {
             }
         }
 
-        // 1.5. RENDER LOADED FLOWERS BEHIND ALL PLAYERS (Synchronized properly in 3D world space)
+        // 1.5. RENDER LOADED FLOWERS AS HALO BEHIND PLAYER
         for (Player p : mc.level.players()) {
             boolean holdsFlower = p.getItemInHand(InteractionHand.MAIN_HAND).is(ModItems.GOLDEN_FLOWER.get())
                     || p.getItemInHand(InteractionHand.OFF_HAND).is(ModItems.GOLDEN_FLOWER.get());
@@ -185,7 +185,7 @@ public class GoldenFlowerClientHandler {
             if (holdsFlower && loaded > 0 && !skipLocalFP) {
                 RenderType renderType = RenderType.entityTranslucent(WHITE_TEX);
                 VertexConsumer consumer = bufferSource.getBuffer(renderType);
-                float spinAngle = (p.tickCount + partialTicks) * 8.0F;
+                float spinAngle = (p.tickCount + partialTicks) * 4.0F;
 
                 // Interpolated body yaw and position
                 float bodyYaw = Mth.lerp(partialTicks, p.yBodyRotO, p.yBodyRot);
@@ -198,66 +198,86 @@ public class GoldenFlowerClientHandler {
                 for (int i = 0; i < loaded; i++) {
                     poseStack.pushPose();
 
-                    // Calculate backward vector relative to player body yaw
+                    // Halo vertical en la espalda del player
                     float yawRad = (float) Math.toRadians(bodyYaw);
-                    double backX = Math.sin(yawRad) * 0.45D;
-                    double backZ = -Math.cos(yawRad) * 0.45D;
-                    double backY = 0.95D; // Upper back / spine level
+                    double backX = Math.sin(yawRad) * 0.40D;
+                    double backZ = -Math.cos(yawRad) * 0.40D;
+                    double backY = 1.05D; // A la altura de la espalda/pecho
 
-                    // Calculate local right vector
+                    // Ejes local derecho (rx, ry, rz) y local arriba (ux, uy, uz)
                     double rx = Math.cos(yawRad);
                     double rz = Math.sin(yawRad);
-                    double uy = 1.0D; // local up vector
+                    double uy = 1.0D;
 
-                    // Distribute loaded flowers in a circle + add continuous spin rotation
-                    double baseAngle = (2.0D * Math.PI / Math.max(1, loaded)) * i;
-                    double spinOffset = (p.tickCount + partialTicks) * 0.15D; // Smooth spinning of the ring
-                    double finalAngle = baseAngle + spinOffset;
+                    double haloAngle = (2.0D * Math.PI / Math.max(1, loaded)) * i;
+                    double spinOffset = (p.tickCount + partialTicks) * 0.12D; // Smooth spin rotation
+                    double finalAngle = haloAngle + spinOffset;
 
-                    double ringRadius = 0.50D; // 50 cm ring radius
+                    double ringRadius = 0.65D; // Hermoso tamaño de halo vertical
                     double dx = backX + rx * Math.cos(finalAngle) * ringRadius;
                     double dy = backY + uy * Math.sin(finalAngle) * ringRadius;
                     double dz = backZ + rz * Math.cos(finalAngle) * ringRadius;
 
                     Vec3 renderPos = new Vec3(px + dx, py + dy, pz + dz);
 
-                    // Position relative to camera
                     poseStack.translate(renderPos.x - camPos.x, renderPos.y - camPos.y, renderPos.z - camPos.z);
 
                     // Billboard to face camera
                     poseStack.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
 
-                    // Spin on Z axis
+                    // Spin individual de la flor
                     poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(spinAngle));
 
-                    Matrix4f matrix = poseStack.last().pose();
                     Matrix3f normalMatrix = poseStack.last().normal();
 
-                    // Rainbow color indices
+                    // Colores de las 6 flores
                     float r = 1.0F, g = 1.0F, b = 1.0F;
                     switch (i % 6) {
-                        case 0 -> { r = 0.0F; g = 1.0F; b = 1.0F; } // Cyan
-                        case 1 -> { r = 0.6F; g = 0.1F; b = 0.9F; } // Purple
-                        case 2 -> { r = 1.0F; g = 0.6F; b = 0.0F; } // Orange
-                        case 3 -> { r = 0.0F; g = 1.0F; b = 0.0F; } // Green
-                        case 4 -> { r = 0.1F; g = 0.1F; b = 1.0F; } // Blue
-                        case 5 -> { r = 1.0F; g = 1.0F; b = 0.0F; } // Yellow
+                        case 0 -> { r = 0.0F; g = 1.0F; b = 1.0F; }   // Cyan
+                        case 1 -> { r = 0.6F; g = 0.1F; b = 0.9F; }   // Purple
+                        case 2 -> { r = 1.0F; g = 0.6F; b = 0.0F; }   // Orange
+                        case 3 -> { r = 0.0F; g = 1.0F; b = 0.0F; }   // Green
+                        case 4 -> { r = 0.1F; g = 0.1F; b = 1.0F; }   // Blue
+                        case 5 -> { r = 1.0F; g = 1.0F; b = 0.0F; }   // Yellow
                     }
 
-                    // Draw petals (scaled down by 100% less than previous version)
-                    float petalSize = 0.18F;
-                    float petalOffset = 0.26F;
-                    for (int pIndex = 0; pIndex < 5; pIndex++) {
-                        double angle = Math.toRadians(pIndex * 72);
-                        float pdx = (float) Math.cos(angle) * petalOffset;
-                        float pdy = (float) Math.sin(angle) * petalOffset;
-                        drawFlowerQuadTextured(consumer, matrix, normalMatrix, pdx, pdy, petalSize, r, g, b, 0.9F, packedLight);
+                    // === RENDER FLORES EN 3D SENCILLO Y BONITO (1.5 bloques de escala) ===
+                    // 1. Cáliz / Soporte trasero de la flor (verde oscuro)
+                    poseStack.pushPose();
+                    poseStack.translate(0.0F, 0.0F, 0.04F);
+                    drawFlowerQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.28F, r * 0.1F, g * 0.5F + 0.1F, b * 0.1F, 0.8F, packedLight);
+                    poseStack.popPose();
+
+                    // 2. Anillo de Pétalos Traseros (6 pétalos, ligeramente inclinados hacia atrás/afuera)
+                    for (int pIndex = 0; pIndex < 6; pIndex++) {
+                        poseStack.pushPose();
+                        poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(pIndex * 60.0F));
+                        poseStack.translate(0.0F, 0.25F, 0.02F); // Desplazamiento radial hacia afuera
+                        poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(20.0F)); // Inclinación
+                        drawFlowerQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.35F, r, g, b, 0.85F, packedLight);
+                        poseStack.popPose();
                     }
 
-                    // Draw inner core (scaled down by 100% less)
-                    poseStack.translate(0.0F, 0.0F, -0.01F);
-                    Matrix4f matrixCore = poseStack.last().pose();
-                    drawFlowerQuadTextured(consumer, matrixCore, normalMatrix, 0.0F, 0.0F, 0.20F, 1.0F, 1.0F, 1.0F, 0.95F, packedLight);
+                    // 3. Anillo de Pétalos Delanteros (6 pétalos, desfasados 30 grados, inclinados más hacia adelante)
+                    for (int pIndex = 0; pIndex < 6; pIndex++) {
+                        poseStack.pushPose();
+                        poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(pIndex * 60.0F + 30.0F));
+                        poseStack.translate(0.0F, 0.20F, -0.02F); // Menos radio, más adelante
+                        poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-25.0F)); // Inclinación hacia adelante
+                        drawFlowerQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.28F, r * 0.9F + 0.1F, g * 0.9F + 0.1F, b * 0.9F + 0.1F, 0.9F, packedLight);
+                        poseStack.popPose();
+                    }
+
+                    // 4. Centro Brillante Extruido y Aura de Brillo
+                    poseStack.pushPose();
+                    poseStack.translate(0.0F, 0.0F, -0.04F); // Extruido hacia adelante
+                    poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-spinAngle * 0.6F)); // Giro lento inverso del núcleo
+                    // Núcleo blanco brillante
+                    drawFlowerQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.22F, 1.0F, 1.0F, 1.0F, 0.95F, packedLight);
+                    // Brillo/Glow pulsante alrededor del centro
+                    float glowPulse = 0.35F + 0.1F * (float) Math.sin((p.tickCount + partialTicks) * 0.2F);
+                    drawFlowerQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.45F, r, g, b, glowPulse, packedLight);
+                    poseStack.popPose();
 
                     poseStack.popPose();
                 }

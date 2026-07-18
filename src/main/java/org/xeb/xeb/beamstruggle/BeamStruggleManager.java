@@ -28,6 +28,15 @@ public class BeamStruggleManager {
     public static final double MASH_DECAY_PER_TICK = 0.05;
     public static final double COLLISION_MOVE_PER_POINT = 0.15;
     public static final int PREP_DURATION_TICKS = 40;
+
+    // === RHYTHM CONSTANTS ===
+    public static final int RHYTHM_CYCLE_LENGTH = 15;     // 0.75 segundos por beat
+    public static final int RHYTHM_PERFECT_END = 3;        // ticks 0-2 = PERFECT
+    public static final int RHYTHM_GOOD_END = 6;           // ticks 3-5 = GOOD
+    public static final int RHYTHM_OK_END = 12;            // ticks 6-11 = OK
+    public static final double PERFECT_MULTIPLIER = 3.0D;
+    public static final double GOOD_MULTIPLIER = 1.5D;
+    public static final double OK_MULTIPLIER = 0.5D;
     public static final double POINT_BLANK_DISTANCE = 4.0;
     public static final double WIN_DISTANCE_NORMAL = 6.0;
     public static final double WIN_DISTANCE_POINT_BLANK = 2.0;
@@ -63,6 +72,15 @@ public class BeamStruggleManager {
         public int lastConcentrationWarningA;
         public int lastConcentrationWarningB;
 
+        // Rhythm Cycle fields
+        public int rhythmCycleTick;
+        public boolean playerAPressedThisCycle;
+        public boolean playerBPressedThisCycle;
+        public int lastTimingA;           // 0=perfect, 1=good, 2=ok, 3=miss, -1=none
+        public int lastTimingB;
+        public int lastTimingDisplayTicksA;
+        public int lastTimingDisplayTicksB;
+
         public BeamStruggle(UUID id, UUID a, UUID b, int idA, int idB, Vec3 startA, Vec3 startB,
                             Vec3 collision, long tick, StrugglePhase phase, double initialDistance,
                             double winDistance, double mashMultiplier, Vec3 lookA, Vec3 lookB) {
@@ -82,6 +100,15 @@ public class BeamStruggleManager {
             this.ticksElapsed = 0;
             this.lastConcentrationWarningA = 0;
             this.lastConcentrationWarningB = 0;
+
+            // Rhythm initializers
+            this.rhythmCycleTick = 0;
+            this.playerAPressedThisCycle = false;
+            this.playerBPressedThisCycle = false;
+            this.lastTimingA = -1;
+            this.lastTimingB = -1;
+            this.lastTimingDisplayTicksA = 0;
+            this.lastTimingDisplayTicksB = 0;
         }
     }
 
@@ -141,12 +168,52 @@ public class BeamStruggleManager {
         if (struggle == null) return;
         if (struggle.phase != StrugglePhase.ACTIVE) return;
 
-        double points = MASH_POINT_PER_CLICK * struggle.mashMultiplier;
-        if (player.getUUID().equals(struggle.ownerA)) {
-            struggle.pointsA += points;
-        } else if (player.getUUID().equals(struggle.ownerB)) {
-            struggle.pointsB += points;
+        boolean isPlayerA = player.getUUID().equals(struggle.ownerA);
+        boolean isPlayerB = player.getUUID().equals(struggle.ownerB);
+        if (!isPlayerA && !isPlayerB) return;
+
+        // Check si ya presionó este ciclo
+        if (isPlayerA && struggle.playerAPressedThisCycle) return;
+        if (isPlayerB && struggle.playerBPressedThisCycle) return;
+
+        // Determinar timing basado en rhythmCycleTick
+        int cycleTick = struggle.rhythmCycleTick;
+        int timing;
+        double multiplier;
+
+        if (cycleTick < RHYTHM_PERFECT_END) {
+            timing = 0; // PERFECT
+            multiplier = PERFECT_MULTIPLIER;
+        } else if (cycleTick < RHYTHM_GOOD_END) {
+            timing = 1; // GOOD
+            multiplier = GOOD_MULTIPLIER;
+        } else if (cycleTick < RHYTHM_OK_END) {
+            timing = 2; // OK
+            multiplier = OK_MULTIPLIER;
+        } else {
+            timing = 3; // MISS (dead zone)
+            multiplier = 0.0D;
         }
+
+        double points = MASH_POINT_PER_CLICK * struggle.mashMultiplier * multiplier;
+
+        if (isPlayerA) {
+            struggle.pointsA += points;
+            struggle.playerAPressedThisCycle = true;
+            struggle.lastTimingA = timing;
+            struggle.lastTimingDisplayTicksA = 15; // mostrar feedback por 15 ticks
+        } else {
+            struggle.pointsB += points;
+            struggle.playerBPressedThisCycle = true;
+            struggle.lastTimingB = timing;
+            struggle.lastTimingDisplayTicksB = 15;
+        }
+
+        // Sonido de feedback (solo para el player que presionó)
+        float pitch = timing == 0 ? 2.0F : (timing == 1 ? 1.5F : (timing == 2 ? 1.0F : 0.5F));
+        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                net.minecraft.sounds.SoundEvents.NOTE_BLOCK_PLING.get(),
+                net.minecraft.sounds.SoundSource.PLAYERS, 0.6F, pitch);
     }
 
     public static boolean isInActiveStruggle(UUID playerUUID) {
@@ -248,6 +315,19 @@ public class BeamStruggleManager {
             }
 
             if (s.phase == StrugglePhase.ACTIVE) {
+                // === RHYTHM CYCLE ===
+                s.rhythmCycleTick++;
+                if (s.rhythmCycleTick >= RHYTHM_CYCLE_LENGTH) {
+                    s.rhythmCycleTick = 0;
+                    // Reset press flags para el nuevo ciclo
+                    s.playerAPressedThisCycle = false;
+                    s.playerBPressedThisCycle = false;
+                }
+
+                // Decrementar display timers
+                if (s.lastTimingDisplayTicksA > 0) s.lastTimingDisplayTicksA--;
+                if (s.lastTimingDisplayTicksB > 0) s.lastTimingDisplayTicksB--;
+
                 // Check 1: max ticks
                 if (s.ticksElapsed >= MAX_STRUGGLE_TICKS) {
                     toResolve.add(s.struggleId);
@@ -615,7 +695,9 @@ public class BeamStruggleManager {
                 net.minecraftforge.network.PacketDistributor.ALL.noArg(),
                 new BeamStrugglePacket(true, s.struggleId, s.ownerAEntityId, s.ownerBEntityId,
                         s.startPosA, s.startPosB, s.currentCollision,
-                        (float) s.pointsA, (float) s.pointsB, s.ticksElapsed, phaseByte, s.initialDistance)
+                        (float) s.pointsA, (float) s.pointsB, s.ticksElapsed, phaseByte, s.initialDistance,
+                        (byte) s.rhythmCycleTick, (byte) s.lastTimingA, (byte) s.lastTimingB,
+                        (byte) s.lastTimingDisplayTicksA, (byte) s.lastTimingDisplayTicksB)
         );
     }
 
@@ -625,7 +707,9 @@ public class BeamStruggleManager {
                 net.minecraftforge.network.PacketDistributor.ALL.noArg(),
                 new BeamStrugglePacket(false, s.struggleId, s.ownerAEntityId, s.ownerBEntityId,
                         s.startPosA, s.startPosB, s.currentCollision,
-                        (float) s.pointsA, (float) s.pointsB, s.ticksElapsed, phaseByte, s.initialDistance)
+                        (float) s.pointsA, (float) s.pointsB, s.ticksElapsed, phaseByte, s.initialDistance,
+                        (byte) s.rhythmCycleTick, (byte) s.lastTimingA, (byte) s.lastTimingB,
+                        (byte) s.lastTimingDisplayTicksA, (byte) s.lastTimingDisplayTicksB)
         );
     }
 

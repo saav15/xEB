@@ -101,96 +101,106 @@ public class BeamStruggleHUDOverlay {
 
     private static void renderActiveHUD(GuiGraphics g, Minecraft mc, int screenW, int screenH,
                                          long now, ClientStruggleData struggle, int localId) {
-        int centerX = screenW - 90;
-        int centerY = screenH / 2;
-        int panelW = 180, panelH = 110;
-        int panelX = centerX - panelW / 2;
-        int panelY = centerY - panelH / 2;
-
         boolean isPlayerA = (localId == struggle.ownerAEntityId);
+        int centerX = screenW / 2;
+        int centerY = screenH / 2;
+
+        // === 1. TIME BAR (top) ===
+        int timeBarW = 120;
+        int timeBarH = 3;
+        int timeBarX = centerX - timeBarW / 2;
+        int timeBarY = centerY - 70;
+        float timeRatio = 1.0F - (struggle.ticksElapsed / 320.0F);
+        int timeFilled = (int) (timeBarW * Math.max(0, timeRatio));
+        g.fill(timeBarX, timeBarY, timeBarX + timeBarW, timeBarY + timeBarH, 0xFF333333);
+        int timeColor = timeRatio > 0.5F ? 0xFFFFD700 : (timeRatio > 0.25F ? 0xFFFFA500 : 0xFFFF3030);
+        g.fill(timeBarX, timeBarY, timeBarX + timeFilled, timeBarY + timeBarH, timeColor);
+
+        // === 2. RHYTHM BAR (center) ===
+        int rhythmBarW = 200;
+        int rhythmBarH = 20;
+        int rhythmBarX = centerX - rhythmBarW / 2;
+        int rhythmBarY = centerY - 50;
+
+        // Calcular posición del beat actual en la barra (0-14 → 0.0-1.0)
+        float beatProgress = struggle.rhythmCycleTick / 15.0F;
+        int beatX = rhythmBarX + (int) (rhythmBarW * beatProgress);
+
+        // Zona PERFECT (verde) — 0-2 de 15 = 0% a 20%
+        int perfectEnd = rhythmBarX + (int) (rhythmBarW * (3.0 / 15.0));
+        g.fill(rhythmBarX, rhythmBarY, perfectEnd, rhythmBarY + rhythmBarH, 0xCC00FF00);
+
+        // Zona GOOD (amarillo) — 3-5 de 15 = 20% a 40%
+        int goodEnd = rhythmBarX + (int) (rhythmBarW * (6.0 / 15.0));
+        g.fill(perfectEnd, rhythmBarY, goodEnd, rhythmBarY + rhythmBarH, 0xCCFFFF00);
+
+        // Zona OK (naranja) — 6-11 de 15 = 40% a 80%
+        int okEnd = rhythmBarX + (int) (rhythmBarW * (12.0 / 15.0));
+        g.fill(goodEnd, rhythmBarY, okEnd, rhythmBarY + rhythmBarH, 0xCCFF8800);
+
+        // Zona MISS (rojo) — 12-14 de 15 = 80% a 100%
+        g.fill(okEnd, rhythmBarY, rhythmBarX + rhythmBarW, rhythmBarY + rhythmBarH, 0xCCFF0000);
+
+        // Borde
+        g.renderOutline(rhythmBarX - 1, rhythmBarY - 1, rhythmBarW + 2, rhythmBarH + 2, 0xFFFFFFFF);
+
+        // Indicador del beat actual (línea vertical blanca que se mueve)
+        g.fill(beatX - 1, rhythmBarY - 3, beatX + 2, rhythmBarY + rhythmBarH + 3, 0xFFFFFFFF);
+
+        // Glow del indicador cuando está en zona PERFECT
+        if (struggle.rhythmCycleTick < 3) {
+            g.fill(beatX - 3, rhythmBarY - 5, beatX + 4, rhythmBarY + rhythmBarH + 5, 0x44FFFFFF);
+        }
+
+        // Texto "RHYTHM"
+        g.drawCenteredString(mc.font, Component.translatable("hud.xeb.beam_struggle.rhythm"),
+                centerX, rhythmBarY - 11, 0xFFFFFFFF);
+
+        // === 3. TIMING FEEDBACK (debajo del rhythm bar) ===
+        int feedbackY = rhythmBarY + rhythmBarH + 4;
+        int myTiming = isPlayerA ? struggle.lastTimingA : struggle.lastTimingB;
+        int myDisplayTicks = isPlayerA ? struggle.lastTimingDisplayTicksA : struggle.lastTimingDisplayTicksB;
+
+        if (myDisplayTicks > 0 && myTiming >= 0) {
+            String[] timingTexts = {"PERFECT!", "GOOD!", "OK", "MISS"};
+            int[] timingColors = {0xFF00FF00, 0xFFFFFF00, 0xFFFF8800, 0xFFFF0000};
+            String text = timingTexts[myTiming];
+            int color = timingColors[myTiming];
+            g.drawCenteredString(mc.font, text, centerX, feedbackY, color);
+        }
+
+        // === 4. TUG-OF-WAR BAR (bottom) ===
+        int tugW = 160;
+        int tugH = 12;
+        int tugX = centerX - tugW / 2;
+        int tugY = centerY + 30;
+
         float myPoints = isPlayerA ? struggle.pointsA : struggle.pointsB;
         float enemyPoints = isPlayerA ? struggle.pointsB : struggle.pointsA;
         float total = myPoints + enemyPoints;
         float myRatio = total > 0 ? myPoints / total : 0.5F;
 
-        drawGoldenFrame(g, panelX, panelY, panelW, panelH, 1.0F);
-
-        // Title
-        String title = Component.translatable("hud.xeb.beam_struggle.title").getString();
-        int titleW = mc.font.width(title);
-        g.drawString(mc.font, title, centerX - titleW / 2, panelY + 10, GOLD_BRIGHT, true);
-
-        // Time bar
-        int timeBarW = panelW - 20;
-        int timeBarH = 3;
-        int timeBarX = panelX + 10;
-        int timeBarY = panelY + 22;
-        float timeRatio = 1.0F - (struggle.ticksElapsed / 160.0F);
-        int timeFilled = (int) (timeBarW * Math.max(0, timeRatio));
-        g.fill(timeBarX, timeBarY, timeBarX + timeBarW, timeBarY + timeBarH, 0xFF333333);
-        int timeColor = timeRatio > 0.5F ? GOLD_BRIGHT : (timeRatio > 0.25F ? 0xFFFFA500 : 0xFFFF3030);
-        g.fill(timeBarX, timeBarY, timeBarX + timeFilled, timeBarY + timeBarH, timeColor);
-
-        // Tug Bar
-        int tugW = panelW - 30;
-        int tugH = 18;
-        int tugX = panelX + 15;
-        int tugY = panelY + 38;
-
+        // Background
         g.fill(tugX, tugY, tugX + tugW, tugY + tugH, 0xFF1A1A1A);
-
+        // Enemy half (right, red)
         int centerIndicator = (int) (tugW * myRatio);
-        g.fill(tugX + centerIndicator, tugY + 2, tugX + tugW - 2, tugY + tugH - 2, BLUE_TEAM);
+        g.fill(tugX + centerIndicator, tugY + 1, tugX + tugW - 1, tugY + tugH - 1, 0xFFCC0000);
+        // My half (left, blue/green)
+        g.fill(tugX + 1, tugY + 1, tugX + centerIndicator, tugY + tugH - 1, 0xFF00AAFF);
+        // Center divider
+        g.fill(tugX + centerIndicator - 1, tugY, tugX + centerIndicator + 1, tugY + tugH, 0xFFFFFFFF);
+        // Border
+        g.renderOutline(tugX, tugY, tugW, tugH, 0xFF888888);
 
-        // Gradient own side
-        for (int i = 0; i < centerIndicator; i++) {
-            float t = (float) i / Math.max(1, tugW);
-            int r = (int) (0xFF + (0xFF - 0xFF) * t);
-            int gC = (int) (0x30 + (0xD7 - 0x30) * t);
-            int b = (int) (0x30 + (0x00 - 0x30) * t);
-            int color = 0xFF000000 | (r << 16) | (gC << 8) | b;
-            g.fill(tugX + i, tugY + 2, tugX + i + 1, tugY + tugH - 2, color);
-        }
-
-        // Gold Diamond Center Indicator
-        float pulse = 0.8F + 0.2F * (float) Math.sin(now * 0.02D);
-        int indicatorX = tugX + centerIndicator;
-        int indicatorY = tugY + tugH / 2;
-        int dSize = (int) (4 * pulse);
-        g.fill(indicatorX - dSize, indicatorY, indicatorX, indicatorY - dSize, GOLD_BRIGHT);
-        g.fill(indicatorX, indicatorY - dSize, indicatorX + dSize, indicatorY, GOLD_BRIGHT);
-        g.fill(indicatorX + dSize, indicatorY, indicatorX, indicatorY + dSize, GOLD_BRIGHT);
-        g.fill(indicatorX, indicatorY + dSize, indicatorX - dSize, indicatorY, GOLD_BRIGHT);
-
-        // Border of tug bar
-        g.fill(tugX, tugY, tugX + tugW, tugY + 1, GOLD_DARK);
-        g.fill(tugX, tugY + tugH - 1, tugX + tugW, tugY + tugH, GOLD_DARK);
-        g.fill(tugX, tugY, tugX + 1, tugY + tugH, GOLD_DARK);
-        g.fill(tugX + tugW - 1, tugY, tugX + tugW, tugY + tugH, GOLD_DARK);
-
-        // Scores
-        String myText = String.format("%.0f", myPoints);
+        // Points text
+        g.drawString(mc.font, String.format("%.0f", myPoints), tugX + 4, tugY + tugH + 2, 0xFFAAFFFF, true);
         String enemyText = String.format("%.0f", enemyPoints);
-        g.drawString(mc.font, myText, tugX + 4, tugY + tugH + 4, 0xFFFFAAAA, true);
-        int enemyTextW = mc.font.width(enemyText);
-        g.drawString(mc.font, enemyText, tugX + tugW - enemyTextW - 4, tugY + tugH + 4, 0xFFAAAAFF, true);
+        g.drawString(mc.font, enemyText, tugX + tugW - mc.font.width(enemyText) - 4, tugY + tugH + 2, 0xFFFFAAAA, true);
 
-        // Mash Prompt
-        float popScale = 1.0F + 0.25F * BeamStruggleRenderer.getLocalMashProgress(localId);
+        // === 5. FLOURISH PROMPT ===
         String keyName = ModKeyMappings.FLOURISH_KEY.getTranslatedKeyMessage().getString();
-        String promptStr = Component.translatable("hud.xeb.beam_struggle.mash", keyName).getString();
-        int promptW = mc.font.width(promptStr);
-
-        PoseStack pose = g.pose();
-        pose.pushPose();
-        float px = centerX;
-        float py = panelY + panelH - 14;
-        pose.translate(px, py, 0.0F);
-        pose.scale(popScale, popScale, 1.0F);
-        int alpha = (int) (255 * (0.7F + 0.3F * (float) Math.sin(now * 0.015D)));
-        int promptColor = (alpha << 24) | 0xFFFFD700;
-        g.drawString(mc.font, promptStr, -promptW / 2, -mc.font.lineHeight / 2, promptColor, true);
-        pose.popPose();
+        String promptStr = Component.translatable("hud.xeb.beam_struggle.tap", keyName).getString();
+        g.drawCenteredString(mc.font, promptStr, centerX, tugY + tugH + 16, 0xFFCCCCCC);
     }
 
     private static void drawGoldenFrame(GuiGraphics g, int x, int y, int w, int h, float pulse) {

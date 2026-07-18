@@ -35,13 +35,101 @@ import org.xeb.xeb.network.TearsSyncPacket;
 import org.xeb.xeb.network.XEBNetwork;
 import org.xeb.xeb.opticblast.ActiveBeamManager;
 import org.xeb.xeb.opticblast.BeamData;
+import software.bernie.geckolib.animatable.GeoItem;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.AnimatableManager;
+import software.bernie.geckolib.core.animation.AnimationController;
+import software.bernie.geckolib.core.animation.RawAnimation;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.*;
+import java.util.function.Consumer;
 
-public class TheTearsItem extends Item {
+public class TheTearsItem extends Item implements GeoItem {
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
     public TheTearsItem(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "controller", 2, event -> {
+            net.minecraft.world.entity.Entity entity = event.getData(software.bernie.geckolib.constant.DataTickets.ENTITY);
+            LivingEntity wielder = resolveWielder(entity);
+            if (wielder instanceof Player player) {
+                int charge = player.getPersistentData().getInt("xebBrimstoneCharge");
+                
+                // Si está cargando el brimstone, dejar en loop la animación de carga
+                if (charge > 0) {
+                    String loopAnim = player.getPersistentData().getString("xebTearsBrimstoneLoopAnim");
+                    if (loopAnim.isEmpty()) {
+                        String[] anims = {"rolly", "rollx", "rollz"};
+                        loopAnim = anims[player.getRandom().nextInt(anims.length)];
+                        player.getPersistentData().putString("xebTearsBrimstoneLoopAnim", loopAnim);
+                    }
+                    return event.setAndContinue(RawAnimation.begin().thenLoop(loopAnim));
+                } else {
+                    player.getPersistentData().remove("xebTearsBrimstoneLoopAnim");
+                }
+                
+                // Si casteó una habilidad recientemente, reproducir la animación
+                int animTicks = player.getPersistentData().getInt("xebTearsAbilityAnimTicks");
+                if (animTicks > 0) {
+                    String animName = player.getPersistentData().getString("xebTearsAbilityAnimName");
+                    if (!animName.isEmpty()) {
+                        return event.setAndContinue(RawAnimation.begin().thenPlay(animName));
+                    }
+                }
+            }
+            return event.setAndContinue(RawAnimation.begin().thenLoop("rolly")); // Default looping anim
+        }));
+    }
+
+    @Nullable
+    private LivingEntity resolveWielder(net.minecraft.world.entity.Entity entityFromTicket) {
+        if (entityFromTicket instanceof LivingEntity living && isHolding(living)) {
+            return living;
+        }
+        try {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.player != null && isHolding(mc.player)) {
+                return mc.player;
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private boolean isHolding(LivingEntity entity) {
+        return entity.getMainHandItem().getItem() == this
+                || entity.getOffhandItem().getItem() == this;
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+
+    @Override
+    public void initializeClient(Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+        consumer.accept(new net.minecraftforge.client.extensions.common.IClientItemExtensions() {
+            private org.xeb.xeb.client.renderer.TheTearsGeoRenderer renderer;
+
+            @Override
+            public net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (this.renderer == null) {
+                    this.renderer = new org.xeb.xeb.client.renderer.TheTearsGeoRenderer();
+                }
+                return this.renderer;
+            }
+        });
+    }
+
+    public static void triggerAbilityAnim(Player player) {
+        String[] anims = {"rolly", "rollx", "rollz"};
+        String selected = anims[player.getRandom().nextInt(anims.length)];
+        player.getPersistentData().putInt("xebTearsAbilityAnimTicks", 15);
+        player.getPersistentData().putString("xebTearsAbilityAnimName", selected);
     }
 
     @Override
@@ -139,16 +227,12 @@ public class TheTearsItem extends Item {
             long currentTick = level.getGameTime();
 
             // Estado TRANSIENT (compartido con ActuarKeyPacket, TearsSyncPacket y el HUD)
-            // → player.getPersistentData(). No es fuga de memoria: es 1 entrada por jugador,
-            //   no un Map estático con UUID como clave.
             CompoundTag pData = player.getPersistentData();
 
-            // Estado DURABLE ligado al item (viaja con él si el jugador lo tira)
-            // → ItemStack NBT. Solo para valores que DEBEN seguir al item.
+            // Estado DURABLE ligado al item
             CompoundTag stackTag = stack.getOrCreateTag();
 
             // --- 1. Regeneración Pasiva ---
-            // Timestamp en el ItemStack para no interferir con use() ni startUsingItem()
             if (!level.isClientSide()) {
                 long lastHeal = stackTag.getLong("xebLastHealTick");
                 if (currentTick - lastHeal >= 1200L) { // 60 segundos
@@ -157,13 +241,22 @@ public class TheTearsItem extends Item {
                 }
             }
 
-            // --- 2. Decrementar cooldowns de habilidades (en pData, igual que ActuarKeyPacket) ---
+            // --- 2. Decrementar cooldowns y animaciones ---
             int prevA1 = pData.getInt("xebTearsA1Cooldown");
             int prevA2 = pData.getInt("xebTearsA2Cooldown");
+            int prevAnimTicks = pData.getInt("xebTearsAbilityAnimTicks");
+            String prevAnimName = pData.getString("xebTearsAbilityAnimName");
+
             if (prevA1 > 0) pData.putInt("xebTearsA1Cooldown", prevA1 - 1);
             if (prevA2 > 0) pData.putInt("xebTearsA2Cooldown", prevA2 - 1);
+            if (prevAnimTicks > 0) {
+                pData.putInt("xebTearsAbilityAnimTicks", prevAnimTicks - 1);
+                if (prevAnimTicks - 1 <= 0) {
+                    pData.remove("xebTearsAbilityAnimName");
+                }
+            }
 
-            // --- 3. Decrementar duración del imbue (en ItemStack: es estado del item) ---
+            // --- 3. Decrementar duración del imbue ---
             int prevImbueType = stackTag.getInt("xebTearsImbueType");
             int prevImbueDur  = stackTag.getInt("xebTearsImbueDuration");
             if (prevImbueDur > 0) {
@@ -173,7 +266,7 @@ public class TheTearsItem extends Item {
                 }
             }
 
-            // --- 4. Cola de burst (Activa 2 — en pData para coherencia con ActuarKeyPacket) ---
+            // --- 4. Cola de burst ---
             int burstCount = pData.getInt("xebTearsBurstCount");
             if (burstCount > 0) {
                 int burstTimer = pData.getInt("xebTearsBurstTimer") + 1;
@@ -198,15 +291,9 @@ public class TheTearsItem extends Item {
                 if (prevCharge < 80) {
                     int newCharge = prevCharge + 1;
                     pData.putInt("xebBrimstoneCharge", newCharge);
-                    // Feedback de audio cada 20 ticks mientras se carga (pitch creciente)
-                    if (!level.isClientSide() && newCharge % 20 == 0) {
-                        level.playSound(null, player, SoundEvents.NOTE_BLOCK_PLING.get(),
-                                SoundSource.PLAYERS, 0.4F, 0.5F + (newCharge / 80.0F) * 1.5F);
-                    }
                 }
             } else {
-                // Si no se está cargando y no se está disparando, resetear carga
-                if (prevFiring <= 0 && prevCharge > 0) {
+                if (prevCharge > 0) {
                     pData.putInt("xebBrimstoneCharge", 0);
                 }
             }
@@ -220,13 +307,16 @@ public class TheTearsItem extends Item {
                 int curCharge = pData.getInt("xebBrimstoneCharge");
                 int curFiring = pData.getInt("xebBrimstoneFiringTicks");
                 boolean curInstant = pData.getBoolean("xebNextBrimstoneInstant");
+                int curAnimTicks = pData.getInt("xebTearsAbilityAnimTicks");
+                String curAnimName = pData.getString("xebTearsAbilityAnimName");
 
                 if (curA1 != prevA1 || curA2 != prevA2
                         || curImbue != prevImbueType || curDur != prevImbueDur
                         || curCharge != prevCharge || curFiring != prevFiring
-                        || curInstant != prevInstant) {
+                        || curInstant != prevInstant
+                        || curAnimTicks != prevAnimTicks || !curAnimName.equals(prevAnimName)) {
                     XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
-                            new TearsSyncPacket(curA1, curA2, curImbue, curDur, curCharge, curFiring, curInstant));
+                            new TearsSyncPacket(curA1, curA2, curImbue, curDur, curCharge, curFiring, curInstant, curAnimTicks, curAnimName));
                 }
             }
 
@@ -238,14 +328,6 @@ public class TheTearsItem extends Item {
                 }
                 if (!level.isClientSide()) {
                     tickBrimstoneLaser(player, level, currentTick);
-                }
-            } else {
-                if (firingTicks == 0 && pData.contains("xebBrimstoneFiringTicks")) {
-                    pData.remove("xebBrimstoneFiringTicks");
-                    if (!level.isClientSide()) {
-                        XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
-                                new BrimstoneBeamPacket(player.getId(), false, TearsProjectileEntity.IMBUE_NONE, Collections.emptyList()));
-                    }
                 }
             }
         }
@@ -287,113 +369,22 @@ public class TheTearsItem extends Item {
     }
 
     private void tickBrimstoneLaser(Player player, Level level, long currentTick) {
-        // Imbue es estado del item → ItemStack NBT
-        ItemStack heldStack = player.getMainHandItem().is(this) ? player.getMainHandItem() : player.getOffhandItem();
-        int imbue = heldStack.getOrCreateTag().getInt("xebTearsImbueType");
+        UUID playerUUID = player.getUUID();
+        ItemStack stack = player.getMainHandItem().is(this) ? player.getMainHandItem() : player.getOffhandItem();
+        int imbue = stack.getOrCreateTag().getInt("xebTearsImbueType");
 
-        // Firing from the mouth
-        Vec3 mouthPos = player.getEyePosition(1.0F).subtract(0, 0.15D, 0);
         Vec3 lookDir = player.getLookAngle();
+        Vec3 mouthPos = player.getEyePosition(1.0F).add(lookDir.scale(0.5D));
 
         List<Vec3> points = new ArrayList<>();
         points.add(mouthPos);
 
-        Set<LivingEntity> hitEntities = new HashSet<>();
+        Set<LivingEntity> hitEntities = new LinkedHashSet<>();
         Vec3 finalCollisionPoint = null;
-        UUID playerUUID = player.getUUID();
+        Vec3 struggleCollision = null;
 
-        Vec3 struggleCollision = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(playerUUID);
-        if (struggleCollision != null) {
-            points.add(struggleCollision);
-            finalCollisionPoint = struggleCollision;
-
-            // Update struggle collision point using current raycast look direction
-            Vec3 otherStart = null;
-            UUID otherOwnerUUID = null;
-            for (BeamData otherBeam : ActiveBeamManager.get().getActiveBeams()) {
-                if (!otherBeam.getOwnerUUID().equals(playerUUID)) {
-                    otherOwnerUUID = otherBeam.getOwnerUUID();
-                    otherStart = otherBeam.getStart();
-                    break;
-                }
-            }
-            if (otherStart != null) {
-                double reach = 40.0D;
-                Vec3 lookEnd = mouthPos.add(lookDir.scale(reach));
-                Vec3 closestCol = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, lookEnd, 1.2D);
-                if (closestCol != null) {
-                    org.xeb.xeb.beamstruggle.BeamStruggleManager.updateCollisionPoint(playerUUID, closestCol);
-                    Vec3 updatedCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(playerUUID);
-                    if (updatedCol != null) {
-                        finalCollisionPoint = updatedCol;
-                        points.set(points.size() - 1, finalCollisionPoint);
-                    }
-                }
-            }
-        } else {
-            // Brimstone Morado (Purple): curves and loops targets
-            if (imbue == TearsProjectileEntity.IMBUE_PURPLE) {
-                Vec3 currentPos = mouthPos;
-                Vec3 currentDir = lookDir;
-                double segmentLength = 2.0D;
-                int maxSegments = 12;
-
-                for (int i = 0; i < maxSegments; i++) {
-                    Vec3 nextPos = currentPos.add(currentDir.scale(segmentLength));
-
-                    BlockHitResult blockHit = level.clip(new ClipContext(
-                            currentPos, nextPos,
-                            ClipContext.Block.COLLIDER,
-                            ClipContext.Fluid.NONE,
-                            player
-                    ));
-
-                    Vec3 segmentEnd = (blockHit.getType() != HitResult.Type.MISS) ? blockHit.getLocation() : nextPos;
-
-                    // Find entities near segmentEnd
-                    AABB sweepBox = new AABB(currentPos, segmentEnd).inflate(0.8D);
-                    List<LivingEntity> entities = level.getEntitiesOfClass(LivingEntity.class, sweepBox,
-                            e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() 
-                                 && !hitEntities.contains(e) && !(e instanceof CrazyDiamondEntity));
-
-                    if (!entities.isEmpty() && hitEntities.size() < 5) {
-                        LivingEntity closest = null;
-                        double closestDist = Double.MAX_VALUE;
-                        for (LivingEntity e : entities) {
-                            double d = currentPos.distanceToSqr(e.position());
-                            if (d < closestDist) {
-                                closestDist = d;
-                                closest = e;
-                            }
-                        }
-
-                        if (closest != null) {
-                            hitEntities.add(closest);
-                            // Bend next segment towards entity center
-                            Vec3 targetCenter = closest.getBoundingBox().getCenter();
-                            currentDir = targetCenter.subtract(currentPos).normalize();
-                            
-                            nextPos = currentPos.add(currentDir.scale(segmentLength));
-                            blockHit = level.clip(new ClipContext(
-                                    currentPos, nextPos,
-                                    ClipContext.Block.COLLIDER,
-                                    ClipContext.Fluid.NONE,
-                                    player
-                            ));
-                            segmentEnd = (blockHit.getType() != HitResult.Type.MISS) ? blockHit.getLocation() : nextPos;
-                        }
-                    }
-
-                    points.add(segmentEnd);
-                    currentPos = segmentEnd;
-
-                    if (blockHit.getType() != HitResult.Type.MISS) {
-                        finalCollisionPoint = segmentEnd;
-                        break;
-                    }
-                }
-            } else {
-                // Straight Beam
+        if (!level.isClientSide()) {
+            if (!org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(player.getUUID())) {
                 double reach = 40.0D;
                 Vec3 beamEnd = mouthPos.add(lookDir.scale(reach));
 
@@ -406,7 +397,6 @@ public class TheTearsItem extends Item {
 
                 Vec3 effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
 
-                // Entity sweep along the beam (hitbox scaled up to 1.5x1.5 blocks = 0.75F inflation)
                 AABB sweepBox = new AABB(mouthPos, effectiveEnd).inflate(0.75D);
                 List<LivingEntity> list = level.getEntitiesOfClass(LivingEntity.class, sweepBox,
                         e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() && !(e instanceof CrazyDiamondEntity));
@@ -414,7 +404,6 @@ public class TheTearsItem extends Item {
                 LivingEntity closestTarget = null;
                 double closestDist = Double.MAX_VALUE;
                 for (LivingEntity target : list) {
-                    // Ray-to-entity-aabb check
                     AABB aabb = target.getBoundingBox().inflate(0.75D);
                     Optional<Vec3> clip = aabb.clip(mouthPos, effectiveEnd);
                     if (clip.isPresent()) {
@@ -436,13 +425,12 @@ public class TheTearsItem extends Item {
             }
         }
 
-        // --- 1. Apply Damage & Special element ticks ---
         if (!org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(player.getUUID())) {
             for (LivingEntity target : hitEntities) {
-                float baseDmg = 5.0F; // Normal Brimstone deals same as Optic Blast (5.0F) per tick
+                float baseDmg = 5.0F;
                 boolean isBack = isBackstab(player, target);
                 if (isBack) {
-                    baseDmg *= 1.05F; // +5% damage multiplier
+                    baseDmg *= 1.05F;
                     playBackstabSound(player, target, currentTick);
                 }
 
@@ -451,7 +439,6 @@ public class TheTearsItem extends Item {
                 target.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
                 target.hurt(player.damageSources().playerAttack(player), baseDmg);
 
-                // White imbuement: tick lightning strike
                 if (imbue == TearsProjectileEntity.IMBUE_WHITE) {
                     if (player.getRandom().nextFloat() <= 0.08F) {
                         LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(level);
@@ -464,29 +451,23 @@ public class TheTearsItem extends Item {
                     target.addEffect(new MobEffectInstance(MobEffects.WITHER, 60, 1));
                     target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1));
                 } else if (imbue == TearsProjectileEntity.IMBUE_COLD) {
-                    target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 3)); // Slowness IV
+                    target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 3));
                 }
             }
         }
 
-        // --- 2. Check Beam vs Beam Collision in ActiveBeamManager ---
         Vec3 renderEnd = points.get(points.size() - 1);
 
-        // FIX: solo usar collision point del struggle si el struggle está ACTIVO
-        // Si el struggle terminó, getCollisionPointFor retorna null y calculamos fresh
         struggleCollision = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(playerUUID);
         if (struggleCollision != null) {
-            // Struggle activo — usar el collision point del struggle
             renderEnd = struggleCollision;
             points.set(points.size() - 1, renderEnd);
         } else {
-            // No hay struggle activo — calcular colisión fresh este tick
             Vec3 beamCollision = ActiveBeamManager.get().checkBeamVsBeamCollision(playerUUID, mouthPos, renderEnd, 1.2D);
             if (beamCollision != null) {
                 double collisionDist = mouthPos.distanceToSqr(beamCollision);
                 double currentEndDist = mouthPos.distanceToSqr(renderEnd);
                 if (collisionDist < currentEndDist + 4.0D) {
-                    // Buscar el otro beam owner para iniciar struggle
                     UUID otherOwnerUUID = null;
                     Vec3 otherStart = null;
                     Vec3 otherEnd = null;
@@ -501,19 +482,16 @@ public class TheTearsItem extends Item {
                     }
 
                     if (otherOwnerUUID != null && otherStart != null && otherEnd != null && level instanceof ServerLevel serverLevel) {
-                        // Check frontal
                         Vec3 myDir = renderEnd.subtract(mouthPos).normalize();
                         Vec3 otherDir = otherEnd.subtract(otherStart).normalize();
                         double dotProduct = myDir.dot(otherDir);
 
                         if (dotProduct < -0.2D) {
-                            // Frontal — iniciar struggle
                             renderEnd = beamCollision;
                             points.set(points.size() - 1, renderEnd);
                             org.xeb.xeb.beamstruggle.BeamStruggleManager.onBeamCollision(
                                     playerUUID, otherOwnerUUID, mouthPos, otherStart, beamCollision, currentTick, serverLevel);
                         } else {
-                            // No frontal — cortar beam y drenar
                             renderEnd = beamCollision;
                             points.set(points.size() - 1, renderEnd);
 
@@ -537,7 +515,6 @@ public class TheTearsItem extends Item {
             }
         }
 
-        // --- 3. Register Beam data ---
         int color = 0xFF0000;
         if (imbue == TearsProjectileEntity.IMBUE_PURPLE) color = 0xB000FF;
         else if (imbue == TearsProjectileEntity.IMBUE_WHITE) color = 0xFFFFFF;
@@ -556,11 +533,9 @@ public class TheTearsItem extends Item {
         );
         ActiveBeamManager.get().putBeam(playerUUID, beamData);
 
-        // --- 4. Send network sync packet to client ---
         XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
                 new BrimstoneBeamPacket(player.getId(), true, imbue, points));
 
-        // --- 5. Spawn mouth particles ---
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(ParticleTypes.SMOKE, mouthPos.x, mouthPos.y, mouthPos.z,
                     2, 0.1D, 0.1D, 0.1D, 0.02D);
@@ -590,6 +565,9 @@ public class TheTearsItem extends Item {
             long currentTick = level.getGameTime();
             if (currentTick - lastTearTime >= 8) { // 0.4 seconds (8 ticks)
                 tag.putLong("xebLastTearShootTime", currentTick);
+                
+                triggerAbilityAnim(player);
+                
                 fireSingleTear(player, level, false);
                 player.swing(InteractionHand.MAIN_HAND, true);
             }

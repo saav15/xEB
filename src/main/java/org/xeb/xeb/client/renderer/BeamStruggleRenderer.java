@@ -46,6 +46,13 @@ public class BeamStruggleRenderer {
         public byte phase; // 0=PREP, 1=ACTIVE, 2=RESOLVED
         public double initialDistance;
 
+        // Rhythm fields on client
+        public int rhythmCycleTick;
+        public int lastTimingA;
+        public int lastTimingB;
+        public int lastTimingDisplayTicksA;
+        public int lastTimingDisplayTicksB;
+
         public ClientStruggleData(BeamStrugglePacket msg) {
             this.struggleId = msg.getStruggleId();
             this.ownerAEntityId = msg.getOwnerAEntityId();
@@ -60,6 +67,12 @@ public class BeamStruggleRenderer {
             this.lastUpdateTime = System.currentTimeMillis();
             this.phase = msg.getPhase();
             this.initialDistance = msg.getInitialDistance();
+            
+            this.rhythmCycleTick = msg.getRhythmCycleTick();
+            this.lastTimingA = msg.getLastTimingA();
+            this.lastTimingB = msg.getLastTimingB();
+            this.lastTimingDisplayTicksA = msg.getLastTimingDisplayTicksA();
+            this.lastTimingDisplayTicksB = msg.getLastTimingDisplayTicksB();
         }
 
         public void update(BeamStrugglePacket msg) {
@@ -72,6 +85,12 @@ public class BeamStruggleRenderer {
             this.lastUpdateTime = System.currentTimeMillis();
             this.phase = msg.getPhase();
             this.initialDistance = msg.getInitialDistance();
+            
+            this.rhythmCycleTick = msg.getRhythmCycleTick();
+            this.lastTimingA = msg.getLastTimingA();
+            this.lastTimingB = msg.getLastTimingB();
+            this.lastTimingDisplayTicksA = msg.getLastTimingDisplayTicksA();
+            this.lastTimingDisplayTicksB = msg.getLastTimingDisplayTicksB();
         }
     }
 

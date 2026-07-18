@@ -36,6 +36,52 @@ public class BuffTickHandler {
         LivingEntity entity = event.getEntity();
         if (entity.level().isClientSide()) return;
 
+        // === Spore Cloud ticking (Golden Flower retorno) ===
+        if (entity instanceof ServerPlayer sp) {
+            int sporeTicks = sp.getPersistentData().getInt("xebSporeCloudTicks");
+            if (sporeTicks > 0) {
+                sp.getPersistentData().putInt("xebSporeCloudTicks", sporeTicks - 1);
+                
+                double sx = sp.getX();
+                double sy = sp.getY();
+                double sz = sp.getZ();
+                sp.getPersistentData().putDouble("xebSporeCloudX", sx);
+                sp.getPersistentData().putDouble("xebSporeCloudY", sy);
+                sp.getPersistentData().putDouble("xebSporeCloudZ", sz);
+                
+                ServerLevel sl = sp.serverLevel();
+                
+                // Partículas de esporas
+                if (sp.level().getGameTime() % 3 == 0) {
+                    for (int i = 0; i < 4; i++) {
+                        double angle = sl.random.nextDouble() * Math.PI * 2.0;
+                        double radius = org.xeb.xeb.item.GoldenFlowerItem.SPORE_RADIUS * sl.random.nextDouble();
+                        double px = sx + Math.cos(angle) * radius;
+                        double pz = sz + Math.sin(angle) * radius;
+                        sl.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD, px, sy + 0.5, pz,
+                                1, 0.1, 0.1, 0.1, 0.01);
+                    }
+                }
+                
+                // Dañar mobs hostiles en el área cada 20 ticks
+                if (sp.level().getGameTime() % 20 == 0) {
+                    double radius = org.xeb.xeb.item.GoldenFlowerItem.SPORE_RADIUS;
+                    net.minecraft.world.phys.AABB sporeBox = new net.minecraft.world.phys.AABB(sx - radius, sy - 1, sz - radius,
+                                             sx + radius, sy + 3, sz + radius);
+                    List<LivingEntity> hostileTargets = sl.getEntitiesOfClass(LivingEntity.class, sporeBox,
+                            e -> e instanceof net.minecraft.world.entity.Mob mob
+                                    && mob.getTarget() == sp
+                                    && e.isAlive()
+                                    && e != sp);
+                    
+                    for (LivingEntity hostile : hostileTargets) {
+                        hostile.hurt(sp.damageSources().magic(), org.xeb.xeb.item.GoldenFlowerItem.SPORE_DAMAGE_PER_TICK);
+                        hostile.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 40, 1, false, false, false));
+                    }
+                }
+            }
+        }
+
         // ── Madness / Mega Boss Bar (N19) ──
         boolean qualifies = false;
         boolean hasMadness = false;

@@ -82,6 +82,9 @@ public class ModItems {
     public static final RegistryObject<Item> HOLY_DUALITY_BLADE = ITEMS.register("holy_duality_blade",
             () -> new HolyDualityBladeItem(new Item.Properties().stacksTo(1)));
 
+    public static final RegistryObject<Item> SMART_HALBERD = ITEMS.register("smart_halberd",
+            () -> new SmartHalberdItem(new Item.Properties().stacksTo(1)));
+
     public static final RegistryObject<Item> ENIGMA_BIOS = ITEMS.register("enigma_bios",
             () -> new EnigmaBiosItem(new Item.Properties().stacksTo(1)));
 

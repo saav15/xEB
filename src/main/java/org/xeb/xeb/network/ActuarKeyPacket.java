@@ -578,7 +578,7 @@ public class ActuarKeyPacket {
                                 int element = 1 + player.getRandom().nextInt(4); // 1=Purple 2=White 3=Dark 4=Cold
                                 // Imbue es estado del item → se escribe en el ItemStack NBT
                                 net.minecraft.world.item.ItemStack tearsStack =
-                                        player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.TheTearsItem
+                        player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.TheTearsItem
                                         ? player.getMainHandItem() : player.getOffhandItem();
                                 net.minecraft.nbt.CompoundTag stackTag = tearsStack.getOrCreateTag();
                                 stackTag.putInt("xebTearsImbueType", element);
@@ -586,6 +586,8 @@ public class ActuarKeyPacket {
                                 // Cooldown de la habilidad → pData (se decrementa en inventoryTick)
                                 player.getPersistentData().putInt("xebTearsA1Cooldown", 300); // 15s
                                 
+                                org.xeb.xeb.item.TheTearsItem.triggerAbilityAnim(player);
+
                                 player.level().playSound(null, player, SoundEvents.GENERIC_EAT, SoundSource.PLAYERS, 1.2F, 1.0F);
                                 player.level().playSound(null, player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
                             }
@@ -597,6 +599,8 @@ public class ActuarKeyPacket {
                                 player.getPersistentData().putInt("xebTearsBurstTimer", 0);
                                 player.getPersistentData().putBoolean("xebNextBrimstoneInstant", true);
                                 
+                                org.xeb.xeb.item.TheTearsItem.triggerAbilityAnim(player);
+
                                 player.level().playSound(null, player, SoundEvents.BAT_TAKEOFF, SoundSource.PLAYERS, 1.0F, 1.5F);
                                 player.level().playSound(null, player, SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 0.6F, 1.6F);
                             }

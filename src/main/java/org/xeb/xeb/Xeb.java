@@ -262,6 +262,8 @@ public class Xeb {
                     org.xeb.xeb.client.renderer.MechaVulcanProjectileRenderer::new);
             event.registerEntityRenderer(ModEntities.HOMING_MISSILE.get(),
                     net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
+            event.registerEntityRenderer(ModEntities.SPIKE_PROJECTILE.get(),
+                    org.xeb.xeb.client.renderer.SpikeProjectileRenderer::new);
         }
 
         private static final java.util.Set<Object> patchedRenderers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
