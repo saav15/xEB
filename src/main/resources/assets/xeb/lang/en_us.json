@@ -606,5 +606,14 @@
   "gui.xeb.tooltip.attack_speed": "  §7⚡ Left Click Speed: §b",
   "gui.xeb.tooltip.attack_range": "  §7⬌ Left Click Range: §a",
   "gui.xeb.tooltip.right_click_prefix": "  §eRight Click: §7",
-  "gui.xeb.tooltip.dps": "  §b⚡ Estimated DPS: §e"
+  "gui.xeb.tooltip.dps": "  §b⚡ Estimated DPS: §e",
+  "item.xeb.smart_halberd": "Smart Halberd",
+  "item.xeb.smart_halberd.desc1": "§eA legendary high-tech halberd with exceptional reach.",
+  "item.xeb.smart_halberd.desc2": "§eHold right click to charge and spawn frozen ice spikes in a zigzag pattern, releasing to launch them.",
+  "item.xeb.smart_halberd.lore": "§b§o\"An advanced weapon that thinks steps ahead of its wielder.\"",
+  "item.xeb.smart_halberd.enigma_lore": "ANALYSIS: This legendary weapon contains an integrated cognitive processor. It tracks wielder health and dynamically updates its display based on combat conditions.",
+  "item.xeb.smart_halberd.ability.left_click.name": "Vanilla Strike",
+  "item.xeb.smart_halberd.ability.left_click.desc": "Deliver standard vanilla attacks. Has a Netherite-axe-like speed but boasts increased reach and 9 attack damage.",
+  "item.xeb.smart_halberd.ability.right_click.name": "Snake Spike Barrage",
+  "item.xeb.smart_halberd.ability.right_click.desc": "Charge to manifest frozen ice spikes in a zigzag pattern. Releasing launches them to strike targets and shatter on impact into smaller barbs."
 }

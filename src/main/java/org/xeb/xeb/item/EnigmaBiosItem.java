@@ -20,6 +20,9 @@ public class EnigmaBiosItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        if (!level.isClientSide() && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(serverPlayer, -1);
+        }
         if (level.isClientSide()) {
             org.xeb.xeb.client.ClientAccess.openEnigmaBiosScreen();
         }

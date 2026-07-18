@@ -602,5 +602,14 @@
   "gui.xeb.tooltip.attack_speed": "  §7⚡ Vel. Click Izquierdo: §b",
   "gui.xeb.tooltip.attack_range": "  §7⬌ Rango Click Izquierdo: §a",
   "gui.xeb.tooltip.right_click_prefix": "  §eClick Derecho: §7",
-  "gui.xeb.tooltip.dps": "  §b⚡ DPS Estimado: §e"
+  "gui.xeb.tooltip.dps": "  §b⚡ DPS Estimado: §e",
+  "item.xeb.smart_halberd": "Alabarda Inteligente",
+  "item.xeb.smart_halberd.desc1": "§eUna alabarda legendaria de alta tecnología con alcance excepcional.",
+  "item.xeb.smart_halberd.desc2": "§eMantén pulsado clic derecho para cargar y generar espinas de hielo en patrón zigzag, suelta para lanzarlas.",
+  "item.xeb.smart_halberd.lore": "§b§o\"Un arma avanzada que piensa varios pasos por delante de su portador.\"",
+  "item.xeb.smart_halberd.enigma_lore": "ANÁLISIS: Esta arma legendaria contiene un procesador cognitivo integrado. Monitorea la salud del portador y actualiza dinámicamente su pantalla.",
+  "item.xeb.smart_halberd.ability.left_click.name": "Golpe Vanilla",
+  "item.xeb.smart_halberd.ability.left_click.desc": "Ataques básicos cuerpo a cuerpo con velocidad de hacha de netherite, alcance mejorado y 9 puntos de daño.",
+  "item.xeb.smart_halberd.ability.right_click.name": "Ráfaga de Espinas Serpiente",
+  "item.xeb.smart_halberd.ability.right_click.desc": "Carga para manifestar espinas de hielo en un patrón zigzag. Al soltar, se lanzan hacia los objetivos y se rompen en pequeñas púas con empuje al impactar."
 }
