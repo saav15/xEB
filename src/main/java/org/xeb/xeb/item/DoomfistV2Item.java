@@ -54,7 +54,9 @@ public class DoomfistV2Item extends Item implements software.bernie.geckolib.ani
 
     @Override
     public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
-        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() || super.canApplyAtEnchantingTable(stack, enchantment);
+        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() 
+            || enchantment == org.xeb.xeb.enchantment.ModEnchantments.IMPACT_OVERLOAD.get() 
+            || super.canApplyAtEnchantingTable(stack, enchantment);
     }
 
     @Override

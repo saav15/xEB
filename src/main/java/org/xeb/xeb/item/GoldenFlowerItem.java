@@ -104,7 +104,9 @@ public class GoldenFlowerItem extends Item implements GeoItem {
 
     @Override
     public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
-        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() || super.canApplyAtEnchantingTable(stack, enchantment);
+        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() 
+            || enchantment == org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURA.get() 
+            || super.canApplyAtEnchantingTable(stack, enchantment);
     }
 
     @Override

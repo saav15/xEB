@@ -7,6 +7,8 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.screens.Screen;
 import java.util.List;
 
 /**
@@ -22,13 +24,10 @@ public class DogmaItem extends Item {
         super(properties);
     }
 
+
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level,
                                 List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("item.xeb.dogma.desc1"));
-        tooltip.add(Component.translatable("item.xeb.dogma.desc2", Component.keybind("key.xeb.activa_3")));
-        tooltip.add(Component.translatable("item.xeb.dogma.requires",
-                Component.translatable("item.xeb.the_tears")));
         super.appendHoverText(stack, level, tooltip, flag);
     }
 }

@@ -115,8 +115,8 @@ public class RiftBossAIHandler {
                                       player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.DoomfistV2Item ||
                                       player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.DoomfistV2Item;
 
-            // A. Golden Flower counter: escape spore clouds / cleanse slowdown
-            if (holdingFlower) {
+            // A. Golden Flower counter: escape spore clouds / cleanse slowdown (25% chance)
+            if (holdingFlower && boss.getRandom().nextFloat() < 0.25F) {
                 if (boss.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) || boss.distanceToSqr(player) < 36.0D) {
                     boss.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
                     boss.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 60, 3, false, false, true)); // Speed IV
@@ -133,8 +133,8 @@ public class RiftBossAIHandler {
                 }
             }
 
-            // B. Smart Halberd counter: evade sweep reach by jumping back
-            if (holdingHalberd && halberdEvadeCD == 0 && boss.distanceToSqr(player) < 22.0D) {
+            // B. Smart Halberd counter: evade sweep reach by jumping back (25% chance)
+            if (holdingHalberd && halberdEvadeCD == 0 && boss.distanceToSqr(player) < 22.0D && boss.getRandom().nextFloat() < 0.25F) {
                 boss.getPersistentData().putInt("xebHalberdEvadeCD", 45); // Cooldown: 2.25s
                 Vec3 jumpBack = boss.position().subtract(player.position()).normalize().scale(0.9D);
                 boss.setDeltaMovement(jumpBack.x, 0.35D, jumpBack.z);
@@ -143,8 +143,8 @@ public class RiftBossAIHandler {
                         SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.2F, 0.7F);
             }
 
-            // C. Doomfist counter: high dodge leap to avoid charged slam impact
-            if (holdingDoomfist && doomfistEvadeCD == 0) {
+            // C. Doomfist counter: high dodge leap to avoid charged slam impact (25% chance)
+            if (holdingDoomfist && doomfistEvadeCD == 0 && boss.getRandom().nextFloat() < 0.25F) {
                 float chargeRatio = player.getPersistentData().getFloat("xebDoomfistChargeRatio");
                 if (chargeRatio > 0.15F && boss.distanceToSqr(player) < 225.0D) {
                     // Check if player is facing boss
@@ -165,9 +165,9 @@ public class RiftBossAIHandler {
                 }
             }
 
-            // D. Beams counter: weave laterally/zig-zag if threat is aiming linear beam at boss
+            // D. Beams counter: weave laterally/zig-zag if threat is aiming linear beam at boss (25% chance)
             double dot = player.getLookAngle().dot(boss.position().subtract(player.getEyePosition(1.0F)).normalize());
-            if (dot > 0.96D && player.isUsingItem() && boss.distanceToSqr(player) < 400.0D) {
+            if (dot > 0.96D && player.isUsingItem() && boss.distanceToSqr(player) < 400.0D && boss.getRandom().nextFloat() < 0.25F) {
                 Vec3 threatLook = player.getLookAngle();
                 Vec3 perp = threatLook.cross(new Vec3(0, 1, 0)).normalize();
                 if (perp.lengthSqr() < 0.01D) perp = threatLook.cross(new Vec3(1, 0, 0)).normalize();
@@ -195,10 +195,10 @@ public class RiftBossAIHandler {
         if (entity.level().isClientSide() || !(entity instanceof Mob boss)) return;
         if (!boss.getPersistentData().getBoolean("xebRiftBoss")) return;
 
-        // Counter Smart Halberd sweep damage: parry shield & knockback shockwave
+        // Counter Smart Halberd sweep damage: parry shield & knockback shockwave (25% chance)
         if (event.getSource().getEntity() instanceof LivingEntity attacker) {
             ItemStack weapon = attacker.getMainHandItem();
-            if (weapon.getItem() instanceof org.xeb.xeb.item.SmartHalberdItem) {
+            if (weapon.getItem() instanceof org.xeb.xeb.item.SmartHalberdItem && boss.getRandom().nextFloat() < 0.25F) {
                 boss.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, 2, false, false, true)); // Resistance III
                 boss.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 60, 1, false, false, true));      // Strength II
                 boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
@@ -209,39 +209,41 @@ public class RiftBossAIHandler {
                 attacker.setDeltaMovement(push.x, 0.38D, push.z);
                 attacker.hurtMarked = true;
             }
-        }
+        } black: {
+            // Counter projectile barrages (e.g. flower pellets, halberd spikes)
+            Entity directSource = event.getSource().getDirectEntity();
+            if (directSource instanceof Projectile || directSource instanceof FlowerProjectileEntity || directSource instanceof SpikeProjectileEntity) {
+                int hits = boss.getPersistentData().getInt("xebProjHits") + 1;
+                boss.getPersistentData().putInt("xebProjHits", hits);
+                boss.getPersistentData().putInt("xebProjHitTimer", 40); // 2 second window
 
-        // Counter projectile barrages (e.g. flower pellets, halberd spikes)
-        Entity directSource = event.getSource().getDirectEntity();
-        if (directSource instanceof Projectile || directSource instanceof FlowerProjectileEntity || directSource instanceof SpikeProjectileEntity) {
-            int hits = boss.getPersistentData().getInt("xebProjHits") + 1;
-            boss.getPersistentData().putInt("xebProjHits", hits);
-            boss.getPersistentData().putInt("xebProjHitTimer", 40); // 2 second window
+                if (hits >= 3) {
+                    boss.getPersistentData().putInt("xebProjHits", 0);
+                    // 25% chance to activate the shockwave shield
+                    if (boss.getRandom().nextFloat() < 0.25F) {
+                        boss.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 60, 4, false, false, true)); // Resistance V (Immune)
 
-            if (hits >= 3) {
-                // Trigger shockwave shield
-                boss.getPersistentData().putInt("xebProjHits", 0);
-                boss.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 60, 4, false, false, true)); // Resistance V (Immune)
+                        // Sonic boom shockwave sound
+                        boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
+                                SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 1.5F, 1.2F);
 
-                // Sonic boom shockwave sound
-                boss.level().playSound(null, boss.getX(), boss.getY(), boss.getZ(),
-                        SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 1.5F, 1.2F);
+                        // Push back nearby entities
+                        List<LivingEntity> targets = boss.level().getEntitiesOfClass(LivingEntity.class, boss.getBoundingBox().inflate(6.0D));
+                        for (LivingEntity target : targets) {
+                            if (target != boss) {
+                                Vec3 push = target.position().subtract(boss.position()).normalize().scale(1.3D);
+                                target.setDeltaMovement(push.x, 0.45D, push.z);
+                                target.hurtMarked = true;
+                            }
+                        }
 
-                // Push back nearby entities
-                List<LivingEntity> targets = boss.level().getEntitiesOfClass(LivingEntity.class, boss.getBoundingBox().inflate(6.0D));
-                for (LivingEntity target : targets) {
-                    if (target != boss) {
-                        Vec3 push = target.position().subtract(boss.position()).normalize().scale(1.3D);
-                        target.setDeltaMovement(push.x, 0.45D, push.z);
-                        target.hurtMarked = true;
+                        // Destroy nearby projectiles in range
+                        List<Entity> projectiles = boss.level().getEntitiesOfClass(Entity.class, boss.getBoundingBox().inflate(6.0D),
+                                p -> p instanceof FlowerProjectileEntity || p instanceof SpikeProjectileEntity || p instanceof Projectile);
+                        for (Entity proj : projectiles) {
+                            proj.discard();
+                        }
                     }
-                }
-
-                // Destroy nearby projectiles in range
-                List<Entity> projectiles = boss.level().getEntitiesOfClass(Entity.class, boss.getBoundingBox().inflate(6.0D),
-                        p -> p instanceof FlowerProjectileEntity || p instanceof SpikeProjectileEntity || p instanceof Projectile);
-                for (Entity proj : projectiles) {
-                    proj.discard();
                 }
             }
         }

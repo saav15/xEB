@@ -297,6 +297,30 @@ public class OpticBlastTickHandler {
         // --- 5. Deal damage to hit entity ---
         // FIX: no dañar durante struggle activo
         if (hitEntity != null && !org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(ownerUUID)) {
+            boolean isBlocked = hitEntity.isBlocking();
+            int refractionLvl = player.getMainHandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.REFRACTION.get());
+            if (refractionLvl == 0) {
+                refractionLvl = player.getOffhandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.REFRACTION.get());
+            }
+            if (isBlocked && refractionLvl > 0) {
+                final LivingEntity finalHitEntity = hitEntity;
+                List<LivingEntity> nearbyTargets = level.getEntitiesOfClass(LivingEntity.class, hitEntity.getBoundingBox().inflate(8.0D),
+                        e -> e instanceof LivingEntity && e.isAlive() && e != player && e != finalHitEntity && !e.isSpectator());
+                int shots = Math.min(3, nearbyTargets.size());
+                for (int j = 0; j < shots; j++) {
+                    LivingEntity targetNearby = nearbyTargets.get(j);
+                    org.xeb.xeb.entity.MiniLaserProjectileEntity miniLaser = new org.xeb.xeb.entity.MiniLaserProjectileEntity(level, player);
+                    miniLaser.moveTo(effectiveEnd.x, effectiveEnd.y, effectiveEnd.z, 0.0F, 0.0F);
+                    Vec3 dir = targetNearby.getEyePosition(1.0F).subtract(effectiveEnd).normalize();
+                    miniLaser.setDeltaMovement(dir.scale(2.5D));
+                    level.addFreshEntity(miniLaser);
+                }
+                if (shots > 0) {
+                    level.playSound(null, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
+                            SoundEvents.AMETHYST_BLOCK_HIT, SoundSource.PLAYERS, 1.0F, 1.6F);
+                }
+            }
+
             hitEntity.getPersistentData().putString("xebLastAttackWeapon", "optic_blast");
             hitEntity.getPersistentData().putString("xebLastAttackType", "right_click");
             hitEntity.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());

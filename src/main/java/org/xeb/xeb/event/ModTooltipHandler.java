@@ -15,12 +15,21 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.xeb.xeb.Xeb;
 import org.xeb.xeb.item.ModItems;
+import org.xeb.xeb.extremeburst.ExtremeBurstRegistry;
 
 import java.util.List;
 import java.util.Map;
 
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class ModTooltipHandler {
+
+    public static boolean isExtremeBurstCurio(ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        Item item = stack.getItem();
+        return item == ModItems.DOGMA.get()
+                || item == ModItems.OMEGA_FLOWERY.get()
+                || item == ModItems.QUANTUM_CAT_BARRAGE.get();
+    }
 
     public static boolean isModWeapon(ItemStack stack) {
         if (stack.isEmpty()) return false;
@@ -149,6 +158,30 @@ public class ModTooltipHandler {
         return result;
     }
 
+    private static Component createPurpleWaveName(String nameText) {
+        MutableComponent result = Component.empty();
+        long time = System.currentTimeMillis();
+        for (int i = 0; i < nameText.length(); i++) {
+            char c = nameText.charAt(i);
+            double phase = ((time % 2000) / 2000.0 * 2.0 * Math.PI) - (i * 0.25);
+            int r = (int) (185 + 55 * Math.sin(phase));
+            int g = (int) (50 + 30 * Math.sin(phase));
+            int b = (int) (210 + 30 * Math.sin(phase));
+            int rgb = (r << 16) | (g << 8) | b;
+            result.append(Component.literal(String.valueOf(c))
+                    .withStyle(style -> style.withColor(net.minecraft.network.chat.TextColor.fromRgb(rgb)).withBold(true)));
+        }
+        return result;
+    }
+
+    private static String getWeaponName(String id) {
+        return switch (id) {
+            case "the_tears"     -> Component.translatable("item.xeb.the_tears").getString();
+            case "golden_flower" -> Component.translatable("item.xeb.golden_flower").getString();
+            default              -> id;
+        };
+    }
+
     @SubscribeEvent
     public static void onItemTooltip(ItemTooltipEvent event) {
         ItemStack stack = event.getItemStack();
@@ -237,18 +270,146 @@ public class ModTooltipHandler {
                     tooltip.add(Component.literal("NBT: " + size + " tag(s)").withStyle(ChatFormatting.DARK_GRAY));
                 }
             }
+        } else if (isExtremeBurstCurio(stack)) {
+            List<Component> tooltip = event.getToolTip();
+            if (tooltip.isEmpty()) return;
+
+            Component originalName = tooltip.get(0);
+            Component customName = createPurpleWaveName(originalName.getString());
+
+            tooltip.clear();
+            tooltip.add(customName);
+
+            Item curioItem = stack.getItem();
+            ExtremeBurstRegistry.ExtremeBurstEntry entry = ExtremeBurstRegistry.getEntry(curioItem);
+            if (entry == null) return;
+
+            String desc1Key = "";
+            String desc2Key = "";
+            String requiresKey = "";
+            String loreKey = "";
+
+            if (curioItem == ModItems.DOGMA.get()) {
+                desc1Key = "item.xeb.dogma.desc1";
+                desc2Key = "item.xeb.dogma.desc2";
+                requiresKey = "item.xeb.dogma.requires";
+                loreKey = "item.xeb.dogma.enigma_lore";
+            } else if (curioItem == ModItems.OMEGA_FLOWERY.get()) {
+                desc1Key = "item.xeb.omega_flowery.desc1";
+                desc2Key = "item.xeb.omega_flowery.desc2";
+                requiresKey = "item.xeb.omega_flowery.requires";
+                loreKey = "item.xeb.omega_flowery.enigma_lore";
+            } else if (curioItem == ModItems.QUANTUM_CAT_BARRAGE.get()) {
+                desc1Key = "item.xeb.quantum_cat_barrage.desc1";
+                desc2Key = "item.xeb.quantum_cat_barrage.desc2";
+                loreKey = "item.xeb.quantum_cat_barrage.desc5";
+            }
+
+            if (!Screen.hasShiftDown()) {
+                if (!loreKey.isEmpty()) {
+                    Component loreComp = Component.translatable(loreKey);
+                    if (!loreKey.equals("item.xeb.quantum_cat_barrage.desc5")) {
+                        tooltip.add(loreComp.copy().withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC));
+                    } else {
+                        tooltip.add(loreComp);
+                    }
+                    tooltip.add(Component.literal(""));
+                }
+                tooltip.add(Component.translatable("gui.xeb.tooltip.shift_prompt"));
+            } else {
+                tooltip.add(Component.literal(""));
+                tooltip.add(Component.translatable("gui.xeb.tooltip.description"));
+                
+                String typeStr = entry.type == ExtremeBurstRegistry.BurstType.UNIVERSAL 
+                        ? Component.translatable("gui.xeb.tooltip.extreme_burst.accessibility.universal").getString() 
+                        : Component.translatable("gui.xeb.tooltip.extreme_burst.accessibility.limited", 
+                                entry.requiredWeaponName != null ? getWeaponName(entry.requiredWeaponName) : "").getString();
+                
+                String verStr = entry.version == ExtremeBurstRegistry.BurstVersion.INSTANT 
+                        ? Component.translatable("gui.xeb.tooltip.extreme_burst.type.instant").getString() 
+                        : Component.translatable("gui.xeb.tooltip.extreme_burst.type.instance").getString();
+                
+                tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.description_label")
+                        .withStyle(ChatFormatting.DARK_PURPLE)
+                        .append(Component.literal(typeStr + " / " + verStr).withStyle(ChatFormatting.LIGHT_PURPLE)));
+
+                tooltip.add(Component.literal(""));
+                tooltip.add(Component.translatable("gui.xeb.tooltip.stats"));
+                
+                double cdSec = entry.cooldownTicks / 20.0;
+                tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.cooldown_label")
+                        .withStyle(ChatFormatting.DARK_PURPLE)
+                        .append(Component.translatable("gui.xeb.tooltip.extreme_burst.seconds_value", cdSec).withStyle(ChatFormatting.LIGHT_PURPLE)));
+                
+                if (entry.durationTicks > 0) {
+                    double durSec = entry.durationTicks / 20.0;
+                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.duration_label")
+                            .withStyle(ChatFormatting.DARK_PURPLE)
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.seconds_value", durSec).withStyle(ChatFormatting.LIGHT_PURPLE)));
+                }
+
+                tooltip.add(Component.literal(""));
+                tooltip.add(Component.translatable("gui.xeb.tooltip.abilities"));
+                
+                if (curioItem == ModItems.QUANTUM_CAT_BARRAGE.get()) {
+                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.cat").withStyle(ChatFormatting.LIGHT_PURPLE));
+                } else if (curioItem == ModItems.DOGMA.get()) {
+                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.dogma").withStyle(ChatFormatting.LIGHT_PURPLE));
+                } else if (curioItem == ModItems.OMEGA_FLOWERY.get()) {
+                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery").withStyle(ChatFormatting.LIGHT_PURPLE));
+                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery.act1").withStyle(ChatFormatting.AQUA));
+                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery.act2").withStyle(ChatFormatting.AQUA));
+                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery.act3").withStyle(ChatFormatting.AQUA));
+                }
+
+                if (!loreKey.isEmpty()) {
+                    tooltip.add(Component.literal(""));
+                    Component loreComp = Component.translatable(loreKey);
+                    if (!loreKey.equals("item.xeb.quantum_cat_barrage.desc5")) {
+                        tooltip.add(loreComp.copy().withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC));
+                    } else {
+                        tooltip.add(loreComp);
+                    }
+                }
+            }
+
+            if (event.getFlags().isAdvanced()) {
+                net.minecraft.resources.ResourceLocation rl = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+                if (rl != null) {
+                    tooltip.add(Component.literal(rl.toString()).withStyle(ChatFormatting.DARK_GRAY));
+                }
+                if (stack.hasTag()) {
+                    int size = stack.getTag().getAllKeys().size();
+                    tooltip.add(Component.literal("NBT: " + size + " tag(s)").withStyle(ChatFormatting.DARK_GRAY));
+                }
+            }
         }
     }
 
     @SubscribeEvent
     public static void onTooltipColor(RenderTooltipEvent.Color event) {
         ItemStack stack = event.getItemStack();
-        if (isModWeapon(stack)) {
+        if (isModWeapon(stack) || isExtremeBurstCurio(stack)) {
             long time = System.currentTimeMillis();
             double phaseStart = (time % 1500) / 1500.0 * 2.0 * Math.PI;
             double phaseEnd = phaseStart + Math.PI;
 
-            if (stack.is(ModItems.SMART_HALBERD.get())) {
+            if (isExtremeBurstCurio(stack)) {
+                // Purple/magenta glow border and dark purple background
+                int rStart = (int) (185 + 55 * Math.sin(phaseStart));
+                int gStart = (int) (50 + 30 * Math.sin(phaseStart));
+                int bStart = (int) (210 + 30 * Math.sin(phaseStart));
+                int borderStart = 0xFF000000 | (rStart << 16) | (gStart << 8) | bStart;
+
+                int rEnd = (int) (185 + 55 * Math.sin(phaseEnd));
+                int gEnd = (int) (50 + 30 * Math.sin(phaseEnd));
+                int bEnd = (int) (210 + 30 * Math.sin(phaseEnd));
+                int borderEnd = 0xFF000000 | (rEnd << 16) | (gEnd << 8) | bEnd;
+
+                event.setBorderStart(borderStart);
+                event.setBorderEnd(borderEnd);
+                event.setBackground(0xF2120215); // Dark purple background
+            } else if (stack.is(ModItems.SMART_HALBERD.get())) {
                 // Set dynamic animated legendary aqua border and dark teal background glow
                 int rStart = (int) (10 + 10 * Math.sin(phaseStart));
                 int gStart = (int) (225 + 30 * Math.sin(phaseStart));

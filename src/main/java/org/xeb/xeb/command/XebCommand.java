@@ -106,7 +106,7 @@ public class XebCommand {
             .then(
                 Commands.literal("add")
                     .then(
-                        Commands.argument("logNumber", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 5))
+                        Commands.argument("logNumber", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 33))
                             .then(
                                 Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
                                     .executes(ctx -> {
@@ -128,7 +128,7 @@ public class XebCommand {
             .then(
                 Commands.literal("revoke")
                     .then(
-                        Commands.argument("logNumber", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 5))
+                        Commands.argument("logNumber", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 33))
                             .then(
                                 Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
                                     .executes(ctx -> {
@@ -148,13 +148,13 @@ public class XebCommand {
                         Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
                             .executes(ctx -> {
                                 net.minecraft.server.level.ServerPlayer targetPlayer = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
-                                for (int i = 1; i <= 5; i++) {
+                                for (int i = 1; i <= 33; i++) {
                                     targetPlayer.getPersistentData().putBoolean("xebUnlockedBitacora" + i, false);
                                 }
                                 org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, -1);
                                 ctx.getSource().sendSuccess(() -> Component.literal("Successfully cleared all Enigma Bios logs for " + targetPlayer.getScoreboardName()), true);
                                 return 1;
-                            })
+                             })
                     )
             )
             .then(
@@ -163,7 +163,7 @@ public class XebCommand {
                         Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
                             .executes(ctx -> {
                                  net.minecraft.server.level.ServerPlayer targetPlayer = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
-                                 for (int i = 1; i <= 5; i++) {
+                                 for (int i = 1; i <= 33; i++) {
                                      boolean already = targetPlayer.getPersistentData().getBoolean("xebUnlockedBitacora" + i);
                                      if (!already) {
                                          targetPlayer.getPersistentData().putBoolean("xebUnlockedBitacora" + i, true);

@@ -248,21 +248,15 @@ public class ShatteredRiftEntity extends Entity {
     }
 
     private void equipAndBuffBoss(Mob boss, int bossTargetLevel, int difficulty, ServerLevel level) {
-        // Continuous multiplier scaling based on calculated boss target level
-        double hpMultiplier = 1.0D + (bossTargetLevel * 0.45D);   // +45% HP per level
-        double dmgMultiplier = 1.0D + (bossTargetLevel * 0.15D);  // +15% damage per level
+        // Continuous multiplier scaling based on calculated boss target level (HP scaling reduced by 50%)
+        double hpMultiplier = 1.0D + (bossTargetLevel * 0.225D);   // +22.5% HP per level
 
         var maxHpAttr = boss.getAttribute(Attributes.MAX_HEALTH);
         if (maxHpAttr != null) {
             double baseVal = maxHpAttr.getBaseValue();
-            maxHpAttr.setBaseValue(baseVal * hpMultiplier);
-            boss.setHealth((float) (baseVal * hpMultiplier));
-        }
-
-        var dmgAttr = boss.getAttribute(Attributes.ATTACK_DAMAGE);
-        if (dmgAttr != null) {
-            double baseVal = dmgAttr.getBaseValue();
-            dmgAttr.setBaseValue(baseVal * dmgMultiplier);
+            double finalHp = (baseVal * hpMultiplier) * 0.5D; // Lower total HP by 50%
+            maxHpAttr.setBaseValue(finalHp);
+            boss.setHealth((float) finalHp);
         }
 
         var followAttr = boss.getAttribute(Attributes.FOLLOW_RANGE);

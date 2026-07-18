@@ -11,6 +11,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import org.jetbrains.annotations.Nullable;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.screens.Screen;
+
 import java.util.List;
 
 public class QuantumCatBarrageItem extends Item {
@@ -18,10 +21,9 @@ public class QuantumCatBarrageItem extends Item {
         super(properties);
     }
 
+
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("item.xeb.quantum_cat_barrage.desc1"));
-        tooltip.add(Component.translatable("item.xeb.quantum_cat_barrage.desc2", Component.keybind("key.xeb.activa_3")));
         super.appendHoverText(stack, level, tooltip, flag);
     }
 

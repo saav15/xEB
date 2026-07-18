@@ -149,7 +149,9 @@ public class TheTearsItem extends Item implements GeoItem {
 
     @Override
     public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
-        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() || super.canApplyAtEnchantingTable(stack, enchantment);
+        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() 
+            || enchantment == org.xeb.xeb.enchantment.ModEnchantments.REFRACTION.get() 
+            || super.canApplyAtEnchantingTable(stack, enchantment);
     }
 
     @Override
@@ -432,6 +434,29 @@ public class TheTearsItem extends Item implements GeoItem {
                 if (isBack) {
                     baseDmg *= 1.05F;
                     playBackstabSound(player, target, currentTick);
+                }
+
+                boolean isBlocked = target.isBlocking();
+                int refractionLvl = player.getMainHandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.REFRACTION.get());
+                if (refractionLvl == 0) {
+                    refractionLvl = player.getOffhandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.REFRACTION.get());
+                }
+                if (isBlocked && refractionLvl > 0) {
+                    List<LivingEntity> nearbyTargets = level.getEntitiesOfClass(LivingEntity.class, target.getBoundingBox().inflate(8.0D),
+                            e -> e instanceof LivingEntity && e.isAlive() && e != player && e != target && !e.isSpectator());
+                    int shots = Math.min(3, nearbyTargets.size());
+                    for (int j = 0; j < shots; j++) {
+                        LivingEntity targetNearby = nearbyTargets.get(j);
+                        org.xeb.xeb.entity.MiniLaserProjectileEntity miniLaser = new org.xeb.xeb.entity.MiniLaserProjectileEntity(level, player);
+                        miniLaser.moveTo(target.getX(), target.getEyeY() - 0.2D, target.getZ(), 0.0F, 0.0F);
+                        Vec3 dir = targetNearby.getEyePosition(1.0F).subtract(target.getEyePosition(1.0F)).normalize();
+                        miniLaser.setDeltaMovement(dir.scale(2.5D));
+                        level.addFreshEntity(miniLaser);
+                    }
+                    if (shots > 0) {
+                        level.playSound(null, target.getX(), target.getY(), target.getZ(),
+                                SoundEvents.AMETHYST_BLOCK_HIT, SoundSource.PLAYERS, 1.0F, 1.6F);
+                    }
                 }
 
                 target.getPersistentData().putString("xebLastAttackWeapon", "the_tears");

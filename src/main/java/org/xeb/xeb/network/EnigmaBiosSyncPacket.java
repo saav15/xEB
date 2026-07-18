@@ -18,15 +18,17 @@ public class EnigmaBiosSyncPacket {
     }
 
     public static void encode(EnigmaBiosSyncPacket msg, FriendlyByteBuf buf) {
-        for (int i = 0; i < 5; i++) {
+        buf.writeInt(msg.unlocked.length);
+        for (int i = 0; i < msg.unlocked.length; i++) {
             buf.writeBoolean(msg.unlocked[i]);
         }
         buf.writeInt(msg.newlyUnlocked);
     }
 
     public static EnigmaBiosSyncPacket decode(FriendlyByteBuf buf) {
-        boolean[] unlocked = new boolean[5];
-        for (int i = 0; i < 5; i++) {
+        int length = buf.readInt();
+        boolean[] unlocked = new boolean[length];
+        for (int i = 0; i < length; i++) {
             unlocked[i] = buf.readBoolean();
         }
         return new EnigmaBiosSyncPacket(unlocked, buf.readInt());
@@ -38,10 +40,10 @@ public class EnigmaBiosSyncPacket {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null) {
-                    for (int i = 0; i < 5; i++) {
+                    for (int i = 0; i < msg.unlocked.length; i++) {
                         mc.player.getPersistentData().putBoolean("xebUnlockedBitacora" + (i + 1), msg.unlocked[i]);
                     }
-                    if (msg.newlyUnlocked >= 1 && msg.newlyUnlocked <= 5) {
+                    if (msg.newlyUnlocked >= 1) {
                         XebCompletionToast.show(msg.newlyUnlocked);
                     }
                 }

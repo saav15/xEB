@@ -85,10 +85,12 @@ public class EnigmaBiosHandler {
         }
     }
 
+    public static final int TOTAL_LOGS = 33;
+
     public static void unlockRandomLog(ServerPlayer player) {
         CompoundTag tag = player.getPersistentData();
         List<Integer> lockedLogs = new ArrayList<>();
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= TOTAL_LOGS; i++) {
             if (!tag.getBoolean("xebUnlockedBitacora" + i)) {
                 lockedLogs.add(i);
             }
@@ -128,7 +130,7 @@ public class EnigmaBiosHandler {
         if (event.isWasDeath()) {
             CompoundTag oldData = event.getOriginal().getPersistentData();
             CompoundTag newData = event.getEntity().getPersistentData();
-            for (int i = 1; i <= 5; i++) {
+            for (int i = 1; i <= TOTAL_LOGS; i++) {
                 String key = "xebUnlockedBitacora" + i;
                 if (oldData.contains(key)) {
                     newData.putBoolean(key, oldData.getBoolean(key));
@@ -138,9 +140,9 @@ public class EnigmaBiosHandler {
     }
 
     public static void syncBitacoras(ServerPlayer player, int newlyUnlocked) {
-        boolean[] unlocked = new boolean[5];
+        boolean[] unlocked = new boolean[TOTAL_LOGS];
         CompoundTag tag = player.getPersistentData();
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < TOTAL_LOGS; i++) {
             unlocked[i] = tag.getBoolean("xebUnlockedBitacora" + (i + 1));
         }
         XEBNetwork.CHANNEL.send(

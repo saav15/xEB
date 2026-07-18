@@ -268,6 +268,15 @@ public class BuffTickHandler {
             int rechargeInterval = pData.getBoolean("xebOmegaFloweryActive")
                     ? org.xeb.xeb.extremeburst.OmegaFloweryHandler.CHARGE_RECHARGE_INTERVAL_OMEGA
                     : org.xeb.xeb.extremeburst.OmegaFloweryHandler.CHARGE_RECHARGE_INTERVAL_NORMAL;
+            
+            int floriculturaLvl = player.getMainHandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURA.get());
+            if (floriculturaLvl == 0) {
+                floriculturaLvl = player.getOffhandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURA.get());
+            }
+            if (floriculturaLvl > 0) {
+                rechargeInterval = (int) (rechargeInterval * (1.0 - floriculturaLvl * 0.15));
+            }
+
             if (charges < 6) {
                 rechargeTimer++;
                 if (rechargeTimer >= rechargeInterval) {
@@ -1272,6 +1281,22 @@ public class BuffTickHandler {
                         net.minecraft.world.entity.Entity attacker = level.getEntity(attackerUuid);
                         if (attacker instanceof net.minecraft.world.entity.player.Player pAttacker) {
                             slamSource = entity.damageSources().playerAttack(pAttacker);
+
+                            // Apply Impact Overload!
+                            int lvl = pAttacker.getMainHandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.IMPACT_OVERLOAD.get());
+                            if (lvl == 0) {
+                                lvl = pAttacker.getOffhandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.IMPACT_OVERLOAD.get());
+                            }
+                            if (lvl > 0) {
+                                initialDamage *= (1.0F + lvl * 0.20F);
+                                double radius = 1.5D * lvl;
+                                net.minecraft.world.phys.AABB area = entity.getBoundingBox().inflate(radius);
+                                for (LivingEntity nearby : level.getEntitiesOfClass(LivingEntity.class, area)) {
+                                    if (nearby != entity && nearby != pAttacker && nearby.isAlive()) {
+                                        nearby.hurt(slamSource, initialDamage * 0.5F);
+                                    }
+                                }
+                            }
                         }
                     }
 

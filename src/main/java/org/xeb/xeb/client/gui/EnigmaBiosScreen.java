@@ -68,6 +68,13 @@ public class EnigmaBiosScreen extends Screen {
                 "gui.xeb.enigma_bios.log5.title",
                 "gui.xeb.enigma_bios.log5.content"
         ));
+        // Medallion Buff Logs
+        for (int i = 6; i <= 33; i++) {
+            logs.add(new LogEntry(
+                    "gui.xeb.enigma_bios.log" + i + ".title",
+                    "gui.xeb.enigma_bios.log" + i + ".content"
+            ));
+        }
     }
 
     private String translate(String key) {
@@ -170,11 +177,10 @@ public class EnigmaBiosScreen extends Screen {
         int startX = this.leftPos + 6;
         int viewportY = this.topPos + 18;
         int viewportH = 130;
-
-        int totalTabs = 6;
+        int totalTabs = 1 + logs.size();
         int contentHeight = totalTabs * 22;
         int maxTabScroll = Math.max(0, contentHeight - viewportH);
-
+ 
         // Draw tab scrollbar if content overflows viewport
         if (maxTabScroll > 0) {
             int scrollbarX = startX + 61;
@@ -184,7 +190,7 @@ public class EnigmaBiosScreen extends Screen {
             thumbY = net.minecraft.util.Mth.clamp(thumbY, viewportY, viewportY + viewportH - thumbH);
             g.fill(scrollbarX, thumbY, scrollbarX + 3, thumbY + thumbH, 0xFF00FFCC);
         }
-
+ 
         // Draw scissored tabs
         g.enableScissor(startX, viewportY, startX + 65, viewportY + viewportH);
         for (int i = 0; i < totalTabs; i++) {
@@ -192,13 +198,13 @@ public class EnigmaBiosScreen extends Screen {
             if (y + 20 < viewportY || y > viewportY + viewportH) {
                 continue;
             }
-
+ 
             boolean active = (this.activeTab == i);
             boolean hovered = mouseX >= startX && mouseX < startX + 60 && mouseY >= y && mouseY < y + 20
                     && y >= viewportY && y + 20 <= viewportY + viewportH;
-
+ 
             boolean isUnlocked = true;
-            if (i >= 1 && i <= 5 && this.minecraft != null && this.minecraft.player != null) {
+            if (i >= 1 && i <= logs.size() && this.minecraft != null && this.minecraft.player != null) {
                 isUnlocked = this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + i);
             }
 
@@ -764,14 +770,14 @@ public class EnigmaBiosScreen extends Screen {
         int areaH = 130;
 
         // Check if tab scrollbar was clicked
-        int maxTabScroll = Math.max(0, 6 * 22 - viewportH);
+        int maxTabScroll = Math.max(0, (1 + logs.size()) * 22 - viewportH);
         if (maxTabScroll > 0 && scaledMouseX >= startX + 61 && scaledMouseX < startX + 64 && scaledMouseY >= viewportY && scaledMouseY < viewportY + viewportH) {
             this.isDraggingTabScroll = true;
             return true;
         }
 
         // Tab item clicks
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 1 + logs.size(); i++) {
             int y = viewportY + i * 22 - (int) tabScrollAmount;
             if (scaledMouseX >= startX && scaledMouseX < startX + 60 && scaledMouseY >= y && scaledMouseY < y + 20
                     && y >= viewportY && y + 20 <= viewportY + viewportH) {
@@ -865,7 +871,7 @@ public class EnigmaBiosScreen extends Screen {
         }
 
         // Active log scrollbar check
-        if (this.activeTab >= 1 && this.activeTab <= 5) {
+        if (this.activeTab >= 1 && this.activeTab <= logs.size()) {
             int index = this.activeTab - 1;
             boolean isUnlocked = this.minecraft != null && this.minecraft.player != null &&
                     this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + (index + 1));
@@ -944,8 +950,8 @@ public class EnigmaBiosScreen extends Screen {
         int areaH = 130;
 
         if (this.isDraggingTabScroll) {
-            int maxTabScroll = Math.max(0, 6 * 22 - viewportH);
-            int thumbH = Math.max(10, (int) ((float) viewportH * viewportH / (6 * 22)));
+            int maxTabScroll = Math.max(0, (1 + logs.size()) * 22 - viewportH);
+            int thumbH = Math.max(10, (int) ((float) viewportH * viewportH / ((1 + logs.size()) * 22)));
             int trackH = viewportH - thumbH;
             if (trackH > 0) {
                 float change = (float) (scaledDragY * maxTabScroll / trackH);
@@ -954,7 +960,7 @@ public class EnigmaBiosScreen extends Screen {
             return true;
         }
 
-        if (this.isDraggingContentScroll && this.activeTab >= 1 && this.activeTab <= 5) {
+        if (this.isDraggingContentScroll && this.activeTab >= 1 && this.activeTab <= logs.size()) {
             int index = this.activeTab - 1;
             LogEntry log = logs.get(index);
             int textY = this.topPos + 18 + 26;

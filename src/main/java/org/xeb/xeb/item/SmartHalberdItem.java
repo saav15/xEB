@@ -127,7 +127,9 @@ public class SmartHalberdItem extends Item implements GeoItem {
 
     @Override
     public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
-        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() || super.canApplyAtEnchantingTable(stack, enchantment);
+        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() 
+            || enchantment == org.xeb.xeb.enchantment.ModEnchantments.SPIKE_FRENZY.get() 
+            || super.canApplyAtEnchantingTable(stack, enchantment);
     }
 
     @Override
@@ -253,6 +255,7 @@ public class SmartHalberdItem extends Item implements GeoItem {
         
         if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
             Vec3 lookDir = player.getLookAngle();
+            int levelSpikeFrenzy = stack.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.SPIKE_FRENZY.get());
             
             for (int i = 0; i < spikeCount; i++) {
                 String key = "xebHalberdSpike" + i;
@@ -271,6 +274,22 @@ public class SmartHalberdItem extends Item implements GeoItem {
                 spike.setOwner(serverPlayer);
                 spike.setSpikeIndex(i);
                 level.addFreshEntity(spike);
+
+                // Spike Frenzy: Spawn extra adjacent spikes
+                if (levelSpikeFrenzy > 0) {
+                    Vec3 right = new Vec3(-lookDir.z, 0.0D, lookDir.x).normalize();
+                    for (int extra = 1; extra <= levelSpikeFrenzy; extra++) {
+                        for (double side : new double[]{-0.8D * extra, 0.8D * extra}) {
+                            SpikeProjectileEntity extraSpike = new SpikeProjectileEntity(level, serverPlayer);
+                            Vec3 extraSpikePos = spikePos.add(right.scale(side));
+                            extraSpike.moveTo(extraSpikePos.x, extraSpikePos.y, extraSpikePos.z, player.getYRot(), player.getXRot());
+                            extraSpike.setDeltaMovement(lookDir.scale(SPIKE_LAUNCH_SPEED));
+                            extraSpike.setOwner(serverPlayer);
+                            extraSpike.setSpikeIndex(i);
+                            level.addFreshEntity(extraSpike);
+                        }
+                    }
+                }
             }
             
             // Sonido de lanzamiento
