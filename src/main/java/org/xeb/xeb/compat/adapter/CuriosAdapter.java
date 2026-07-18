@@ -49,6 +49,7 @@ public class CuriosAdapter implements ModCompatAdapter {
     private Method getStacks;
     private Method getSlots;
     private Method getStackInSlot;
+    private Method getRenders;
     private Object helperInstance; // CuriosApi.getCuriosHelper() result (static, stable)
     private boolean initialized = false;
 
@@ -93,6 +94,15 @@ public class CuriosAdapter implements ModCompatAdapter {
                 stacksClass = Class.forName("top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler");
             }
             this.getStacks             = stacksClass.getMethod("getStacks");
+            try {
+                this.getRenders        = stacksClass.getMethod("getRenders");
+            } catch (NoSuchMethodException e) {
+                try {
+                    this.getRenders    = stacksClass.getMethod("isVisible");
+                } catch (NoSuchMethodException e2) {
+                    this.getRenders    = null;
+                }
+            }
 
             Class<?> iItemHandlerClass = Class.forName("net.minecraftforge.items.IItemHandler");
             this.getSlots              = iItemHandlerClass.getMethod("getSlots");
@@ -199,18 +209,14 @@ public class CuriosAdapter implements ModCompatAdapter {
                     ItemStack stack = (ItemStack) getStackInSlot.invoke(stacksObj, i);
                     if (stack != null && stack.is(item)) {
                         // Found the curio! Query getRenders() on ICurioStacksHandler
-                        try {
-                            Method getRendersMethod = stacksHandler.getClass().getMethod("getRenders");
-                            return (Boolean) getRendersMethod.invoke(stacksHandler);
-                        } catch (NoSuchMethodException e) {
-                            // Fallback if method name differs in some versions
+                        if (this.getRenders != null) {
                             try {
-                                Method isVisibleMethod = stacksHandler.getClass().getMethod("isVisible");
-                                return (Boolean) isVisibleMethod.invoke(stacksHandler);
-                            } catch (NoSuchMethodException e2) {
+                                return (Boolean) this.getRenders.invoke(stacksHandler);
+                            } catch (Exception e) {
                                 return true; // Default to visible if reflection fails
                             }
                         }
+                        return true; // Default to visible if method doesn't exist
                     }
                 }
             }
