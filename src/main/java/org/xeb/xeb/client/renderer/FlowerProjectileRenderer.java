@@ -32,12 +32,11 @@ public class FlowerProjectileRenderer extends EntityRenderer<FlowerProjectileEnt
         poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(angle));
 
         VertexConsumer consumer = bufferSource.getBuffer(RenderType.entityTranslucent(WHITE_TEX));
-        Matrix4f matrix = poseStack.last().pose();
         Matrix3f normalMatrix = poseStack.last().normal();
 
-        // Get colors based on color index
+        // Get colors based on color index (same as load sequence)
         float r = 1.0F, g = 1.0F, b = 1.0F;
-        switch (entity.getColorIndex()) {
+        switch (entity.getColorIndex() % 6) {
             case 0 -> { r = 0.0F; g = 1.0F; b = 1.0F; } // Cyan
             case 1 -> { r = 0.6F; g = 0.1F; b = 0.9F; } // Purple
             case 2 -> { r = 1.0F; g = 0.6F; b = 0.0F; } // Orange
@@ -46,20 +45,32 @@ public class FlowerProjectileRenderer extends EntityRenderer<FlowerProjectileEnt
             case 5 -> { r = 1.0F; g = 1.0F; b = 0.0F; } // Yellow
         }
 
-        // Draw petals (scaled down by 100% less than previous version)
-        float petalSize = 0.20F;
-        float petalOffset = 0.28F;
-        for (int i = 0; i < 5; i++) {
-            double rad = Math.toRadians(i * 72);
-            float dx = (float) Math.cos(rad) * petalOffset;
-            float dy = (float) Math.sin(rad) * petalOffset;
-            drawQuadTextured(consumer, matrix, normalMatrix, dx, dy, petalSize, r, g, b, 0.9F, packedLight);
+        // Draw 3D flower components:
+        // 1. Calyx / Back Support (dark green)
+        poseStack.pushPose();
+        poseStack.translate(0.0F, 0.0F, 0.04F);
+        drawQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.28F, r * 0.1F, g * 0.5F + 0.1F, b * 0.1F, 0.8F, packedLight);
+        poseStack.popPose();
+
+        // 2. Anillo de 5 Pétalos
+        for (int pIndex = 0; pIndex < 5; pIndex++) {
+            poseStack.pushPose();
+            poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(pIndex * 72.0F));
+            poseStack.translate(0.0F, 0.22F, 0.01F);
+            poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(15.0F)); // Tilt forward
+            drawQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.32F, r, g, b, 0.9F, packedLight);
+            poseStack.popPose();
         }
 
-        // Draw glowing inner core (scaled down by 100% less, slightly offset forward on Z to avoid Z-fighting)
-        poseStack.translate(0.0F, 0.0F, -0.01F);
-        Matrix4f matrixCore = poseStack.last().pose();
-        drawQuadTextured(consumer, matrixCore, normalMatrix, 0.0F, 0.0F, 0.24F, 1.0F, 1.0F, 1.0F, 0.95F, packedLight); // white-hot center
+        // 3. Central Core & Pulsing Glow Aura
+        poseStack.pushPose();
+        poseStack.translate(0.0F, 0.0F, -0.04F);
+        poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-angle * 0.6F)); // Slow reverse spin
+        drawQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.22F, 1.0F, 1.0F, 1.0F, 0.95F, packedLight); // White center
+        
+        float glowPulse = 0.35F + 0.1F * (float) Math.sin((entity.tickCount + partialTick) * 0.2F);
+        drawQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.45F, r, g, b, glowPulse, packedLight); // Glow aura
+        poseStack.popPose();
 
         poseStack.popPose();
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);

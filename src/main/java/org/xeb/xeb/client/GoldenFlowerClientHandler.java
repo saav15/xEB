@@ -247,24 +247,13 @@ public class GoldenFlowerClientHandler {
                     poseStack.translate(0.0F, 0.0F, 0.04F);
                     drawFlowerQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.28F, r * 0.1F, g * 0.5F + 0.1F, b * 0.1F, 0.8F, packedLight);
                     poseStack.popPose();
-
-                    // 2. Anillo de Pétalos Traseros (6 pétalos, ligeramente inclinados hacia atrás/afuera)
-                    for (int pIndex = 0; pIndex < 6; pIndex++) {
+                    // 2. Anillo de 5 Pétalos (inclinados hacia afuera)
+                    for (int pIndex = 0; pIndex < 5; pIndex++) {
                         poseStack.pushPose();
-                        poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(pIndex * 60.0F));
-                        poseStack.translate(0.0F, 0.25F, 0.02F); // Desplazamiento radial hacia afuera
-                        poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(20.0F)); // Inclinación
-                        drawFlowerQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.35F, r, g, b, 0.85F, packedLight);
-                        poseStack.popPose();
-                    }
-
-                    // 3. Anillo de Pétalos Delanteros (6 pétalos, desfasados 30 grados, inclinados más hacia adelante)
-                    for (int pIndex = 0; pIndex < 6; pIndex++) {
-                        poseStack.pushPose();
-                        poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(pIndex * 60.0F + 30.0F));
-                        poseStack.translate(0.0F, 0.20F, -0.02F); // Menos radio, más adelante
-                        poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-25.0F)); // Inclinación hacia adelante
-                        drawFlowerQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.28F, r * 0.9F + 0.1F, g * 0.9F + 0.1F, b * 0.9F + 0.1F, 0.9F, packedLight);
+                        poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(pIndex * 72.0F));
+                        poseStack.translate(0.0F, 0.22F, 0.01F); // Desplazamiento radial hacia afuera
+                        poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(15.0F)); // Inclinación
+                        drawFlowerQuadTextured(consumer, poseStack.last().pose(), normalMatrix, 0.0F, 0.0F, 0.32F, r, g, b, 0.9F, packedLight);
                         poseStack.popPose();
                     }
 

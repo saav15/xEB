@@ -191,6 +191,8 @@ public class FlowerProjectileEntity extends ThrowableProjectile {
             }
             
             if (result.getEntity() instanceof LivingEntity target) {
+                target.invulnerableTime = 0;
+                target.hurtTime = 0;
                 target.hurt(this.damageSources().thrown(this, this.getOwner()), GoldenFlowerItem.FLOWER_PROJECTILE_DAMAGE);
 
                 // If target dies and projectile lifetime is not over, search for another target in the vicinity

@@ -132,6 +132,13 @@ public class ModEntities {
                     .updateInterval(1)
                     .build("spike_projectile"));
 
+    public static final RegistryObject<EntityType<ShatteredRiftEntity>> SHATTERED_RIFT = ENTITY_TYPES.register("shattered_rift",
+            () -> EntityType.Builder.<ShatteredRiftEntity>of(ShatteredRiftEntity::new, MobCategory.MISC)
+                    .sized(3.0F, 0.2F)
+                    .clientTrackingRange(10)
+                    .updateInterval(1)
+                    .build("shattered_rift"));
+
     public static void register(IEventBus eventBus) {
         ENTITY_TYPES.register(eventBus);
     }

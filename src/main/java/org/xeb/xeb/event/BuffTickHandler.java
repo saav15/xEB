@@ -38,6 +38,34 @@ public class BuffTickHandler {
 
         // === Spore Cloud ticking (Golden Flower retorno) ===
         if (entity instanceof ServerPlayer sp) {
+            // Natural Shattered Rift Spawning (once every 1200 ticks / 1 minute per player)
+            if (sp.tickCount % 1200 == 0) {
+                double spawnDistSqr = sp.level().getSharedSpawnPos().distToCenterSqr(sp.position());
+                if (spawnDistSqr > 40000.0D) { // > 200 blocks away from world spawn
+                    if (sp.getRandom().nextFloat() < 0.08F) { // 8% chance per minute
+                        double rx = sp.getX() + (sp.getRandom().nextDouble() - 0.5D) * 100.0D;
+                        double rz = sp.getZ() + (sp.getRandom().nextDouble() - 0.5D) * 100.0D;
+                        net.minecraft.core.BlockPos checkPos = new net.minecraft.core.BlockPos((int) rx, (int) sp.getY(), (int) rz);
+                        net.minecraft.core.BlockPos topPos = sp.level().getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, checkPos);
+                        if (sp.level().getBlockState(topPos.below()).isSolid() && sp.level().isEmptyBlock(topPos)) {
+                            net.minecraft.world.phys.AABB checkArea = new net.minecraft.world.phys.AABB(topPos).inflate(32.0D);
+                            List<org.xeb.xeb.entity.ShatteredRiftEntity> nearbyRifts = sp.level().getEntitiesOfClass(org.xeb.xeb.entity.ShatteredRiftEntity.class, checkArea);
+                            if (nearbyRifts.isEmpty()) {
+                                float rVal = sp.getRandom().nextFloat();
+                                int difficulty = 0;
+                                if (rVal < 0.05F) difficulty = 3;      // Rainbow (5%)
+                                else if (rVal < 0.20F) difficulty = 2; // Red (15%)
+                                else if (rVal < 0.50F) difficulty = 1; // Green (30%)
+                                // Default to 0 (Blue, 50%)
+                                
+                                org.xeb.xeb.entity.ShatteredRiftEntity rift = new org.xeb.xeb.entity.ShatteredRiftEntity(sp.level(), topPos.getX() + 0.5D, topPos.getY(), topPos.getZ() + 0.5D, difficulty);
+                                sp.level().addFreshEntity(rift);
+                            }
+                        }
+                    }
+                }
+            }
+
             int sporeTicks = sp.getPersistentData().getInt("xebSporeCloudTicks");
             if (sporeTicks > 0) {
                 sp.getPersistentData().putInt("xebSporeCloudTicks", sporeTicks - 1);

@@ -177,7 +177,55 @@ public class XebCommand {
                     )
             );
 
-        devCommand.then(cooldownsCommand).then(curiosCommand).then(loggCommand);
+        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> riftCommand = Commands.literal("rift")
+            .then(
+                Commands.literal("spawn")
+                    .then(
+                        Commands.argument("difficulty", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 3))
+                            .executes(ctx -> {
+                                net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                int difficulty = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "difficulty");
+                                org.xeb.xeb.entity.ShatteredRiftEntity rift = new org.xeb.xeb.entity.ShatteredRiftEntity(player.level(), player.getX(), player.getY(), player.getZ(), difficulty);
+                                player.level().addFreshEntity(rift);
+                                ctx.getSource().sendSuccess(() -> Component.literal(
+                                        net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Spawned Shattered Rift with difficulty " + difficulty + " at your feet."),
+                                        true);
+                                return 1;
+                            })
+                    )
+                    .executes(ctx -> {
+                        net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        org.xeb.xeb.entity.ShatteredRiftEntity rift = new org.xeb.xeb.entity.ShatteredRiftEntity(player.level(), player.getX(), player.getY(), player.getZ(), 0);
+                        player.level().addFreshEntity(rift);
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Spawned Shattered Rift with difficulty 0 (Blue) at your feet."),
+                                true);
+                        return 1;
+                    })
+            )
+            .then(
+                Commands.literal("despawn")
+                    .executes(ctx -> {
+                        net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(
+                                player.getX() - 1.5D, player.getY() - 1.5D, player.getZ() - 1.5D,
+                                player.getX() + 1.5D, player.getY() + 1.5D, player.getZ() + 1.5D
+                        );
+                        java.util.List<org.xeb.xeb.entity.ShatteredRiftEntity> rifts = player.level().getEntitiesOfClass(
+                                org.xeb.xeb.entity.ShatteredRiftEntity.class, area
+                        );
+                        int count = rifts.size();
+                        for (org.xeb.xeb.entity.ShatteredRiftEntity rift : rifts) {
+                            rift.discard();
+                        }
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Despawned " + count + " Shattered Rift(s) in a 3x3 area around you."),
+                                true);
+                        return 1;
+                    })
+            );
+
+        devCommand.then(cooldownsCommand).then(curiosCommand).then(loggCommand).then(riftCommand);
 
         dispatcher.register(
             Commands.literal("xeb")

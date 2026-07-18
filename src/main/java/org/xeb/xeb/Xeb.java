@@ -264,6 +264,8 @@ public class Xeb {
                     net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
             event.registerEntityRenderer(ModEntities.SPIKE_PROJECTILE.get(),
                     org.xeb.xeb.client.renderer.SpikeProjectileRenderer::new);
+            event.registerEntityRenderer(ModEntities.SHATTERED_RIFT.get(),
+                    org.xeb.xeb.client.renderer.ShatteredRiftRenderer::new);
         }
 
         private static final java.util.Set<Object> patchedRenderers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
