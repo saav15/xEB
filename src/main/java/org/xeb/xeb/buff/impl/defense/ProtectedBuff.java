@@ -15,6 +15,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -91,6 +93,16 @@ public class ProtectedBuff extends EliteBuff {
 
     @Override
     public void onDamageTaken(LivingEntity entity, LivingHurtEvent event) {
+        Entity attacker = event.getSource().getEntity();
+        if (attacker instanceof net.minecraft.world.entity.player.Player player) {
+            ItemStack held = player.getMainHandItem();
+            if (!held.isEmpty() && org.xeb.xeb.enchantment.ModEnchantments.isSpecialItem(held.getItem())) {
+                if (held.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.AEGIS_SHATTER.get()) > 0) {
+                    return;
+                }
+            }
+        }
+
         if (event.getSource().is(net.minecraft.world.damagesource.DamageTypes.FELL_OUT_OF_WORLD)
                 || event.getAmount() >= 1000.0F
                 || entity.getPersistentData().getBoolean("xebDelayedPainTriggering")) {

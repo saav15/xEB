@@ -670,5 +670,15 @@
   "gui.xeb.enigma_bios.log32.title": "Log #32: Enduring Core",
   "gui.xeb.enigma_bios.log32.content": "Hardy medallions prevent the wearer from being knocked back or staggered. Their mass density matches that of bedrock.",
   "gui.xeb.enigma_bios.log33.title": "Log #33: Viscous Adhesion",
-  "gui.xeb.enigma_bios.log33.content": "Sticky medallions coat the host in a highly viscous substance. Attackers stick to the host, slowing their weapon swings and movements."
+  "gui.xeb.enigma_bios.log33.content": "Sticky medallions coat the host in a highly viscous substance. Attackers stick to the host, slowing their weapon swings and movements.",
+  "enchantment.xeb.rift_siphon": "Rift Siphon",
+  "enchantment.xeb.decoherence": "Decoherence",
+  "enchantment.xeb.feedback_loop": "Feedback Loop",
+  "enchantment.xeb.resonant_cleave": "Resonant Cleave",
+  "enchantment.xeb.chronostasis": "Chronostasis",
+  "enchantment.xeb.medallion_overload": "Medallion Overload",
+  "enchantment.xeb.floricultural_zeal": "Floricultural Zeal",
+  "enchantment.xeb.quantum_phase": "Quantum Phase",
+  "enchantment.xeb.purifying_beam": "Purifying Beam",
+  "enchantment.xeb.aegis_shatter": "Aegis Shatter"
 }

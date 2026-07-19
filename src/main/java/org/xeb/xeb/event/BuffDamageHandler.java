@@ -103,6 +103,31 @@ public class BuffDamageHandler {
             }
         }
 
+        // Decoherence enchantment check
+        if (event.getSource().getEntity() instanceof net.minecraft.world.entity.player.Player attackerPlayer) {
+            net.minecraft.world.item.ItemStack held = attackerPlayer.getMainHandItem();
+            if (!held.isEmpty() && org.xeb.xeb.enchantment.ModEnchantments.isSpecialItem(held.getItem())) {
+                int decoLvl = held.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.DECOHERENCE.get());
+                if (decoLvl > 0) {
+                    net.minecraft.nbt.CompoundTag aData = attackerPlayer.getPersistentData();
+                    if (aData.getInt("xebDecoherencePlayerCooldown") <= 0) {
+                        if (attackerPlayer.getRandom().nextFloat() < 0.15F) {
+                            target.getPersistentData().putInt("xebDecoherenceActiveTicks", 120); // 6 seconds
+                            aData.putInt("xebDecoherencePlayerCooldown", 3600); // 3 minutes
+                            
+                            target.level().playSound(null, target.getX(), target.getY(), target.getZ(),
+                                    net.minecraft.sounds.SoundEvents.CONDUIT_DEACTIVATE, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.0F);
+                            
+                            if (target.level() instanceof ServerLevel serverLevel) {
+                                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.FLASH, target.getX(), target.getY() + 1.0D, target.getZ(),
+                                        5, 0.3D, 0.3D, 0.3D, 0.05D);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // --- Ultra Charged left-click attack damage adjustment ---
         // Sets the weapon effective base to 14: scales current damage proportionally
         // so BetterCombat swing multipliers and combos still apply on top.
@@ -374,8 +399,10 @@ public class BuffDamageHandler {
             }
         }
 
+
+
         // ── Medallion buffs (target) ──────────────────────────────────────────────
-        List<MedallionData> targetMedallions = MedallionManager.getMedallions(target);
+        List<MedallionData> targetMedallions = MedallionManager.getActiveMedallions(target);
         if (!targetMedallions.isEmpty()) {
             for (MedallionData m : targetMedallions) {
                 if (event.isCanceled()) break;
@@ -392,7 +419,7 @@ public class BuffDamageHandler {
                 org.xeb.xeb.boss.FrozenBossRecoverySystem.registerDamageDealt(livingAttacker);
             }
 
-            List<MedallionData> attackerMedallions = MedallionManager.getMedallions(livingAttacker);
+            List<MedallionData> attackerMedallions = MedallionManager.getActiveMedallions(livingAttacker);
             if (!attackerMedallions.isEmpty()) {
                 for (MedallionData m : attackerMedallions) {
                     if (event.isCanceled()) break;
@@ -559,7 +586,7 @@ public class BuffDamageHandler {
         if (hit.getType() == HitResult.Type.ENTITY) {
             EntityHitResult entityHit = (EntityHitResult) hit;
             if (entityHit.getEntity() instanceof LivingEntity target) {
-                List<MedallionData> medallions = MedallionManager.getMedallions(target);
+                List<MedallionData> medallions = MedallionManager.getActiveMedallions(target);
                 if (!medallions.isEmpty()) {
                     for (MedallionData m : medallions) {
                         m.getBuff().onProjectileImpact(target, event);

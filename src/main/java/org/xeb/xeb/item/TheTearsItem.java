@@ -149,8 +149,7 @@ public class TheTearsItem extends Item implements GeoItem {
 
     @Override
     public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
-        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() 
-            || enchantment == org.xeb.xeb.enchantment.ModEnchantments.REFRACTION.get() 
+        return org.xeb.xeb.enchantment.ModEnchantments.isModEnchantment(enchantment) 
             || super.canApplyAtEnchantingTable(stack, enchantment);
     }
 

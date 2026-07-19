@@ -106,6 +106,12 @@ public class RiftBossAIHandler {
 
         // Scan nearby threat players to execute counter strategy
         for (ServerPlayer player : nearbyPlayers) {
+            ItemStack mainHeld = player.getMainHandItem();
+            if (!mainHeld.isEmpty() && org.xeb.xeb.enchantment.ModEnchantments.isSpecialItem(mainHeld.getItem())) {
+                if (mainHeld.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.AEGIS_SHATTER.get()) > 0) {
+                    continue;
+                }
+            }
             boolean holdingFlower = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.GoldenFlowerItem ||
                                     player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.GoldenFlowerItem;
             boolean holdingHalberd = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.SmartHalberdItem ||
@@ -198,6 +204,11 @@ public class RiftBossAIHandler {
         // Counter Smart Halberd sweep damage: parry shield & knockback shockwave (25% chance)
         if (event.getSource().getEntity() instanceof LivingEntity attacker) {
             ItemStack weapon = attacker.getMainHandItem();
+            if (!weapon.isEmpty() && org.xeb.xeb.enchantment.ModEnchantments.isSpecialItem(weapon.getItem())) {
+                if (weapon.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.AEGIS_SHATTER.get()) > 0) {
+                    return;
+                }
+            }
             if (weapon.getItem() instanceof org.xeb.xeb.item.SmartHalberdItem && boss.getRandom().nextFloat() < 0.25F) {
                 boss.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, 2, false, false, true)); // Resistance III
                 boss.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 60, 1, false, false, true));      // Strength II

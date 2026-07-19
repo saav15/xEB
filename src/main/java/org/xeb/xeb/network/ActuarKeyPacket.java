@@ -646,7 +646,30 @@ public class ActuarKeyPacket {
                                 CompoundTag pData = player.getPersistentData();
                                 if (pData.getInt("xebMechaSpindashState") == 1) {
                                     int charges = pData.getInt("xebSpindashCharges");
-                                    charges--;
+                                    
+                                    // Floricultural Zeal refund check on Mecha Overdrive (The Mech II Core)
+                                    int zealLvl = 0;
+                                    net.minecraft.world.item.ItemStack mechaStack = player.getMainHandItem();
+                                    if (mechaStack.getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem) {
+                                        zealLvl = mechaStack.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURAL_ZEAL.get());
+                                    } else {
+                                        mechaStack = player.getOffhandItem();
+                                        if (mechaStack.getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem) {
+                                            zealLvl = mechaStack.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURAL_ZEAL.get());
+                                        }
+                                    }
+                                    
+                                    boolean refunded = false;
+                                    if (zealLvl > 0 && player.getRandom().nextFloat() < zealLvl * 0.15F) {
+                                        refunded = true;
+                                    }
+                                    
+                                    if (!refunded) {
+                                        charges--;
+                                    } else {
+                                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                                net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 2.0F);
+                                    }
                                     pData.putInt("xebSpindashCharges", charges);
                                     Vec3 playerLook = player.getLookAngle().normalize();
 

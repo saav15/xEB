@@ -669,5 +669,15 @@
   "gui.xeb.enigma_bios.log32.title": "Bitácora #32: Núcleo Indestructible",
   "gui.xeb.enigma_bios.log32.content": "Los medallones Hardy evitan que el portador sea empujado o desestabilizado. Su densidad de masa se asemeja a la de la roca de matriz.",
   "gui.xeb.enigma_bios.log33.title": "Bitácora #33: Adhesión Viscosa",
-  "gui.xeb.enigma_bios.log33.content": "Los medallones Sticky recubren al huésped en una sustancia altamente viscosa. Los atacantes se adhieren al huésped, ralentizando sus movimientos y ataques."
+  "gui.xeb.enigma_bios.log33.content": "Los medallones Sticky recubren al huésped en una sustancia altamente viscosa. Los atacantes se adhieren al huésped, ralentizando sus movimientos y ataques.",
+  "enchantment.xeb.rift_siphon": "Sifón de Grieta",
+  "enchantment.xeb.decoherence": "Descoherencia",
+  "enchantment.xeb.feedback_loop": "Bucle de Retroalimentación",
+  "enchantment.xeb.resonant_cleave": "Tajo Resonante",
+  "enchantment.xeb.chronostasis": "Cronoestasis",
+  "enchantment.xeb.medallion_overload": "Sobrecarga de Medallón",
+  "enchantment.xeb.floricultural_zeal": "Zelo Floricultor",
+  "enchantment.xeb.quantum_phase": "Fase Cuántica",
+  "enchantment.xeb.purifying_beam": "Haz Purificador",
+  "enchantment.xeb.aegis_shatter": "Rompe-Égidas"
 }

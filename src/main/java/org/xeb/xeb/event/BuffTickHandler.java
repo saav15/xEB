@@ -36,6 +36,17 @@ public class BuffTickHandler {
         LivingEntity entity = event.getEntity();
         if (entity.level().isClientSide()) return;
 
+        // Decrement Decoherence ticks
+        net.minecraft.nbt.CompoundTag entityData = entity.getPersistentData();
+        int decoactive = entityData.getInt("xebDecoherenceActiveTicks");
+        if (decoactive > 0) {
+            entityData.putInt("xebDecoherenceActiveTicks", decoactive - 1);
+        }
+        int decocd = entityData.getInt("xebDecoherencePlayerCooldown");
+        if (decocd > 0) {
+            entityData.putInt("xebDecoherencePlayerCooldown", decocd - 1);
+        }
+
         // === Spore Cloud ticking (Golden Flower retorno) ===
         if (entity instanceof ServerPlayer sp) {
             // Natural Shattered Rift Spawning (once every 1200 ticks / 1 minute per player)
@@ -426,7 +437,7 @@ public class BuffTickHandler {
         }
 
         ServerLevel level = (ServerLevel) entity.level();
-        List<MedallionData> medallions = MedallionManager.getMedallions(entity);
+        List<MedallionData> medallions = MedallionManager.getActiveMedallions(entity);
 
         // ── Medallion buff ticks ──────────────────────────────────────────────
         if (!medallions.isEmpty()) {

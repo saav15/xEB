@@ -52,8 +52,15 @@ public class MedallionManager {
         return list;
     }
 
+    public static List<MedallionData> getActiveMedallions(LivingEntity entity) {
+        if (entity != null && entity.getPersistentData().getInt("xebDecoherenceActiveTicks") > 0) {
+            return new ArrayList<>();
+        }
+        return getMedallions(entity);
+    }
+
     public static boolean hasBuff(LivingEntity entity, String buffId) {
-        for (MedallionData m : getMedallions(entity)) {
+        for (MedallionData m : getActiveMedallions(entity)) {
             if (m.getBuff().getId().equals(buffId)) {
                 return true;
             }

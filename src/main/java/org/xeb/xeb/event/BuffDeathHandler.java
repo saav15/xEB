@@ -43,7 +43,7 @@ public class BuffDeathHandler {
         }
 
         // Route death to target's buffs
-        List<MedallionData> targetMedallions = MedallionManager.getMedallions(target);
+        List<MedallionData> targetMedallions = MedallionManager.getActiveMedallions(target);
         if (!targetMedallions.isEmpty()) {
             for (MedallionData m : targetMedallions) {
                 m.getBuff().onDeath(target, event);
@@ -53,7 +53,7 @@ public class BuffDeathHandler {
         // Route kill to attacker's buffs
         Entity attacker = event.getSource().getEntity();
         if (attacker instanceof LivingEntity livingAttacker) {
-            List<MedallionData> attackerMedallions = MedallionManager.getMedallions(livingAttacker);
+            List<MedallionData> attackerMedallions = MedallionManager.getActiveMedallions(livingAttacker);
             if (!attackerMedallions.isEmpty()) {
                 for (MedallionData m : attackerMedallions) {
                     m.getBuff().onKill(livingAttacker, event);

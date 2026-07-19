@@ -104,8 +104,7 @@ public class GoldenFlowerItem extends Item implements GeoItem {
 
     @Override
     public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
-        return enchantment == org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get() 
-            || enchantment == org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURA.get() 
+        return org.xeb.xeb.enchantment.ModEnchantments.isModEnchantment(enchantment) 
             || super.canApplyAtEnchantingTable(stack, enchantment);
     }
 
@@ -193,8 +192,23 @@ public class GoldenFlowerItem extends Item implements GeoItem {
             int charges = player.getPersistentData().getInt("xebGoldenFlowerCharges");
 
             if (loaded > 0) {
-                // Consume charges
-                charges = Math.max(0, charges - loaded);
+                // Consume charges with Floricultural Zeal refund check
+                int zealLvl = stack.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURAL_ZEAL.get());
+                int consumed = loaded;
+                if (zealLvl > 0) {
+                    int refunded = 0;
+                    for (int i = 0; i < loaded; i++) {
+                        if (player.getRandom().nextFloat() < zealLvl * 0.15F) {
+                            refunded++;
+                        }
+                    }
+                    consumed = Math.max(0, loaded - refunded);
+                    if (refunded > 0) {
+                        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                                net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 2.0F);
+                    }
+                }
+                charges = Math.max(0, charges - consumed);
                 player.getPersistentData().putInt("xebGoldenFlowerCharges", charges);
 
                 // Find a target ahead
