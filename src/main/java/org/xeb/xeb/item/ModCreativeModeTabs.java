@@ -34,6 +34,18 @@ public class ModCreativeModeTabs {
                                 new net.minecraft.world.item.enchantment.EnchantmentInstance(org.xeb.xeb.enchantment.ModEnchantments.MEDALLERO.get(), 3);
                         net.minecraft.world.item.EnchantedBookItem.addEnchantment(book, inst);
                         output.accept(book);
+
+                        // Add new special weapon enchantments
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.RIFT_SIPHON.get(), 3);
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.DECOHERENCE.get(), 1);
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.FEEDBACK_LOOP.get(), 3);
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.RESONANT_CLEAVE.get(), 3);
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.CHRONOSTASIS.get(), 1);
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.MEDALLION_OVERLOAD.get(), 2);
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURAL_ZEAL.get(), 3);
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.QUANTUM_PHASE.get(), 1);
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.PURIFYING_BEAM.get(), 3);
+                        addEnchantedBook(output, org.xeb.xeb.enchantment.ModEnchantments.AEGIS_SHATTER.get(), 1);
                     })
                     .build()
     );
@@ -96,6 +108,14 @@ public class ModCreativeModeTabs {
                     })
                     .build()
     );
+
+    private static void addEnchantedBook(CreativeModeTab.Output output, net.minecraft.world.item.enchantment.Enchantment enchantment, int level) {
+        ItemStack book = net.minecraft.world.item.Items.ENCHANTED_BOOK.getDefaultInstance();
+        net.minecraft.world.item.enchantment.EnchantmentInstance inst =
+                new net.minecraft.world.item.enchantment.EnchantmentInstance(enchantment, level);
+        net.minecraft.world.item.EnchantedBookItem.addEnchantment(book, inst);
+        output.accept(book);
+    }
 
     public static void register(IEventBus eventBus) {
         CREATIVE_MODE_TABS.register(eventBus);
