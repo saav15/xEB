@@ -1,0 +1,30 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"Idle": {
+			"loop": true,
+			"animation_length": 0.8333,
+			"bones": {
+				"Crown": {
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.2083": {
+							"vector": [0, 0.3, 0]
+						},
+						"0.4167": {
+							"vector": [0, 0.7, 0]
+						},
+						"0.625": {
+							"vector": [0, 0.3, 0]
+						},
+						"0.8333": {
+							"vector": [0, 0, 0]
+						}
+					}
+				}
+			}
+		}
+	}
+}

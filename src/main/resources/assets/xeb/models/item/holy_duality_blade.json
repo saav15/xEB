@@ -1,6 +1,102 @@
 {
-  "parent": "minecraft:item/handheld",
+  "credit": "Made with Blockbench",
+  "parent": "builtin/entity",
+  "texture_size": [
+    32,
+    32
+  ],
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        -51,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        5.75,
+        0
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        -45,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        6,
+        0
+      ]
+    },
+    "ground": {
+      "rotation": [
+        53.28,
+        6.21,
+        12.45
+      ],
+      "translation": [
+        0,
+        2.5,
+        5.75
+      ]
+    },
+    "gui": {
+      "rotation": [
+        39.7800000000002,
+        35.059999999999945,
+        -73.57999999999993
+      ],
+      "translation": [
+        6,
+        4,
+        0
+      ],
+      "scale": [
+        1.2,
+        1.2,
+        1.2
+      ]
+    },
+    "head": {
+      "rotation": [
+        92.59,
+        54.7,
+        -92.1
+      ],
+      "translation": [
+        3,
+        -10.5,
+        3.5
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        151.94999999999982,
+        -25.13000000000011,
+        131.94999999999982
+      ],
+      "translation": [
+        -4.75,
+        6,
+        -3
+      ]
+    },
+    "on_shelf": {
+      "rotation": [
+        0,
+        45.75,
+        0
+      ],
+      "translation": [
+        0,
+        2.25,
+        0
+      ]
+    }
+  },
   "textures": {
-    "layer0": "minecraft:item/iron_sword"
+    "particle": "xeb:item/texture"
   }
 }

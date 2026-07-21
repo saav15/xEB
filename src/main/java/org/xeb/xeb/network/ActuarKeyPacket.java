@@ -901,7 +901,7 @@ public class ActuarKeyPacket {
 
                                 // NUEVO: Spin de 3 vueltas, 7 daño cada una, 3x3 AoE por vuelta
                                 player.getPersistentData().putBoolean("xebHolyAnnihilationActive", true);
-                                player.getPersistentData().putInt("xebHolyAnnihilationTicks", 30); // 30 ticks = 3 vueltas de 10 ticks
+                                player.getPersistentData().putInt("xebHolyAnnihilationTicks", 26); // 26 ticks = matches the new animation length
                                 player.getPersistentData().putInt("xebHolyAnnihilationHits", 0); // contador de vueltas
                                 player.getPersistentData().putDouble("xebHolyAnnihilationX", targetVec.x);
                                 player.getPersistentData().putDouble("xebHolyAnnihilationY", targetVec.y);
@@ -916,86 +916,35 @@ public class ActuarKeyPacket {
                             }
                         } else if (msg.button == 5 && msg.press) {
                             // Holy Left Click combo
+                            net.minecraft.nbt.CompoundTag pData = player.getPersistentData();
+                            if (pData.getInt("xebHolyAttackTicks") > 0) {
+                                // Locked out during animation
+                                ctx.setPacketHandled(true);
+                                return;
+                            }
+
                             net.minecraft.world.item.ItemStack stack = player.getMainHandItem().is(ModItems.HOLY_DUALITY_BLADE.get())
                                      ? player.getMainHandItem() : player.getOffhandItem();
                             int combo = stack.getOrCreateTag().getInt("xebHolyComboStage"); // 0, 1, 2
-                            
-                            AABB box;
-                            double baseDmg = HolyDualityBladeItem.BASE_DAMAGE;
-                            
-                            if (combo == 0) {
-                                // Right slash
-                                Vec3 cross = player.getLookAngle().normalize().cross(new Vec3(0, 1, 0)).normalize();
-                                box = player.getBoundingBox().move(cross.scale(1.2D)).inflate(1.5D);
-                            } else if (combo == 1) {
-                                // Left slash
-                                Vec3 cross = player.getLookAngle().normalize().cross(new Vec3(0, 1, 0)).normalize();
-                                box = player.getBoundingBox().move(cross.scale(-1.2D)).inflate(1.5D);
-                            } else {
-                                // Double slash (X)
-                                box = player.getBoundingBox().move(player.getLookAngle().normalize().scale(1.5D)).inflate(2.0D, 1.5D, 2.0D);
-                                baseDmg = 14.0D;
+
+                            // Set animations and delayed damage ticks
+                            pData.putInt("xebHolyPlayingCombo", combo);
+                            if (combo == 0) { // Right slash
+                                pData.putInt("xebHolyAttackTicks", 7);
+                                pData.putInt("xebHolyDamageDelay", 3);
+                            } else if (combo == 1) { // Left slash
+                                pData.putInt("xebHolyAttackTicks", 7);
+                                pData.putInt("xebHolyDamageDelay", 3);
+                            } else { // X slash
+                                pData.putInt("xebHolyAttackTicks", 13);
+                                pData.putInt("xebHolyDamageDelay", 7);
                             }
 
                             // Advance combo stage
                             int nextCombo = (combo + 1) % 3;
                             stack.getOrCreateTag().putInt("xebHolyComboStage", nextCombo);
 
-                            boolean isBlessed = player.getPersistentData().getBoolean("xebHolyBlessedActive");
-                            if (isBlessed) {
-                                baseDmg *= 3.0D;
-                            }
-
-                            boolean isCrit = isBlessed || (player.getRandom().nextFloat() < 0.25F);
-
-                            List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, box, e -> e != player && e.isAlive());
-                            for (LivingEntity target : targets) {
-                                float finalDmg = (float) baseDmg;
-                                if (isCrit) {
-                                    finalDmg *= 1.5F;
-                                }
-                                
-                                target.hurt(player.damageSources().playerAttack(player), finalDmg);
-
-                                if (isCrit) {
-                                    if (player.level() instanceof ServerLevel sl) {
-                                        sl.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0D, target.getZ(),
-                                                8, 0.2D, 0.2D, 0.2D, 0.15D);
-                                        sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + 1.0D, target.getZ(),
-                                                5, 0.2D, 0.2D, 0.2D, 0.05D);
-                                        sl.sendParticles(ParticleTypes.LAVA, target.getX(), target.getY() + 1.0D, target.getZ(),
-                                                3, 0.1D, 0.1D, 0.1D, 0.0D);
-                                    }
-                                    
-                                    // Apply Charred Burn for 3 seconds (60 ticks)
-                                    net.minecraft.nbt.CompoundTag targetNBT = target.getPersistentData();
-                                    int currentTicks = targetNBT.getInt("xebCharredBurnTicks");
-                                    int currentStack = targetNBT.getInt("xebCharredBurnStack");
-                                    if (currentTicks > 0) {
-                                        targetNBT.putInt("xebCharredBurnStack", currentStack + 1);
-                                    } else {
-                                        targetNBT.putInt("xebCharredBurnStack", 1);
-                                    }
-                                    targetNBT.putInt("xebCharredBurnTicks", 60);
-                                    targetNBT.putUUID("xebCharredBurnAttacker", player.getUUID());
-                                }
-
-                                net.minecraft.nbt.CompoundTag targetNBT = target.getPersistentData();
-                                long lastHitTime = targetNBT.getLong("xebLastHolyHitTime");
-                                int lastCombo = targetNBT.getInt("xebLastHolyCombo");
-                                long now = player.level().getGameTime();
-
-                                if (now - lastHitTime <= 15 && lastCombo != combo) {
-                                    // Stagger
-                                    target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 9));
-                                    player.level().playSound(null, target.getX(), target.getY(), target.getZ(),
-                                            SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 1.0F, 1.5F);
-                                }
-
-                                targetNBT.putLong("xebLastHolyHitTime", now);
-                                targetNBT.putInt("xebLastHolyCombo", combo);
-                            }
-
+                            // Play sounds immediately
                             player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                                     SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 1.2F);
                             if (combo == 2) {

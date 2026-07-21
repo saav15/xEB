@@ -55,8 +55,23 @@ public class HolyDualityClientHandler {
         }
     }
 
+    public static class HolyPulse {
+        public final Vec3 pos;
+        public final float maxRadius;
+        public int ticksRemaining;
+        public final int maxTicks;
+
+        public HolyPulse(Vec3 pos, float maxRadius, int duration) {
+            this.pos = pos;
+            this.maxRadius = maxRadius;
+            this.ticksRemaining = duration;
+            this.maxTicks = duration;
+        }
+    }
+
     public static final java.util.List<HolyBeam> ACTIVE_BEAMS = new java.util.concurrent.CopyOnWriteArrayList<>();
     public static final java.util.List<HolySlash> ACTIVE_SLASHES = new java.util.concurrent.CopyOnWriteArrayList<>();
+    public static final java.util.List<HolyPulse> ACTIVE_PULSES = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -76,6 +91,13 @@ public class HolyDualityClientHandler {
             }
         }
 
+        for (HolyPulse pulse : ACTIVE_PULSES) {
+            pulse.ticksRemaining--;
+            if (pulse.ticksRemaining <= 0) {
+                ACTIVE_PULSES.remove(pulse);
+            }
+        }
+
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
 
@@ -89,6 +111,20 @@ public class HolyDualityClientHandler {
                 if (annihilation) {
                     int clientTicks = player.getPersistentData().getInt("xebHolyAnnihilationTicksClient") + 1;
                     player.getPersistentData().putInt("xebHolyAnnihilationTicksClient", clientTicks);
+
+                    // Spawn expanding shockwave pulses synchronized with spin damage triggers
+                    if (clientTicks == 6 || clientTicks == 13 || clientTicks == 20) {
+                        ACTIVE_PULSES.add(new HolyPulse(player.position(), 5.0F, 10)); // 5.0m max radius, 10 ticks duration
+                        
+                        // Spawn cool particles in a circle
+                        for (int theta = 0; theta < 360; theta += 15) {
+                            double rad = Math.toRadians(theta);
+                            double px = player.getX() + Math.cos(rad) * 1.5D;
+                            double pz = player.getZ() + Math.sin(rad) * 1.5D;
+                            double py = player.getY() + 0.1D;
+                            mc.level.addParticle(ParticleTypes.END_ROD, px, py, pz, Math.cos(rad) * 0.15D, 0.02D, Math.sin(rad) * 0.15D);
+                        }
+                    }
                 } else {
                     player.getPersistentData().putInt("xebHolyAnnihilationTicksClient", 0);
                 }
@@ -201,6 +237,52 @@ public class HolyDualityClientHandler {
             }
             poseStack.popPose();
         }
+
+        // 3. Render Holy Annihilation expanding pulses
+        if (!ACTIVE_PULSES.isEmpty()) {
+            for (HolyPulse pulse : ACTIVE_PULSES) {
+                poseStack.pushPose();
+                poseStack.translate(pulse.pos.x - camPos.x, pulse.pos.y - camPos.y, pulse.pos.z - camPos.z);
+                
+                Matrix4f matrix = poseStack.last().pose();
+                float progress = 1.0F - (pulse.ticksRemaining / (float) pulse.maxTicks);
+                float radius = progress * pulse.maxRadius;
+                float alpha = 1.0F - progress; // fade out as it expands
+                
+                drawExpandingRing(consumer, matrix, radius, alpha);
+                poseStack.popPose();
+            }
+        }
+    }
+
+    private static void drawExpandingRing(VertexConsumer consumer, Matrix4f matrix, float radius, float alpha) {
+        int segments = 32;
+        float width = 0.4F; // width of the ring border
+        for (int i = 0; i < segments; i++) {
+            double angle1 = (i * 2.0D * Math.PI) / segments;
+            double angle2 = ((i + 1) * 2.0D * Math.PI) / segments;
+            
+            float cos1 = (float) Math.cos(angle1);
+            float sin1 = (float) Math.sin(angle1);
+            float cos2 = (float) Math.cos(angle2);
+            float sin2 = (float) Math.sin(angle2);
+            
+            float x1_in = cos1 * Math.max(0.0F, radius - width);
+            float z1_in = sin1 * Math.max(0.0F, radius - width);
+            float x1_out = cos1 * radius;
+            float z1_out = sin1 * radius;
+            
+            float x2_in = cos2 * Math.max(0.0F, radius - width);
+            float z2_in = sin2 * Math.max(0.0F, radius - width);
+            float x2_out = cos2 * radius;
+            float z2_out = sin2 * radius;
+            
+            // Draw a flat ring on XZ plane (gold/light theme color)
+            consumer.vertex(matrix, x1_in, 0.05F, z1_in).color(1.0F, 0.9F, 0.4F, alpha * 0.6F).endVertex();
+            consumer.vertex(matrix, x1_out, 0.05F, z1_out).color(1.0F, 0.9F, 0.4F, 0.0F).endVertex();
+            consumer.vertex(matrix, x2_out, 0.05F, z2_out).color(1.0F, 0.9F, 0.4F, 0.0F).endVertex();
+            consumer.vertex(matrix, x2_in, 0.05F, z2_in).color(1.0F, 0.9F, 0.4F, alpha * 0.6F).endVertex();
+        }
     }
 
     private static void drawSlashArc(VertexConsumer consumer, Matrix4f matrix, float startAngle, float endAngle, float radius, float alpha, boolean rightToLeft) {
@@ -258,9 +340,9 @@ public class HolyDualityClientHandler {
         if (annihilation) {
             event.getPoseStack().pushPose();
             int clientTicks = player.getPersistentData().getInt("xebHolyAnnihilationTicksClient");
-            if (clientTicks > 8) {
+            if (clientTicks > 6) {
                 // Spin after landing
-                float spinAngle = (clientTicks - 8 + event.getPartialTick()) * 36.0F;
+                float spinAngle = (clientTicks - 6 + event.getPartialTick()) * 36.0F;
                 event.getPoseStack().mulPose(Axis.YP.rotationDegrees(spinAngle));
             } else {
                 // Ninja landing pose vertical offset

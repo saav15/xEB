@@ -47,15 +47,15 @@ public class XebPlayerAnimator {
     private static String getHolyAnimation(Player player) {
         var data = player.getPersistentData();
         boolean annihilation = data.getBoolean("xebHolyAnnihilationActive");
-        int combo = data.getInt("xebHolyComboStage");
-        boolean isAttacking = player.swingTime > 0;
+        int attackTicks = data.getInt("xebHolyAttackTicks");
+        int playingCombo = data.getInt("xebHolyPlayingCombo");
         int blastCharge = data.getInt("xebHolyBlastCharge");
         int blastCast = data.getInt("xebHolyBlastCastTicks");
 
         if (annihilation) return "animation.xeb_player.holy_annihilation";
-        if (isAttacking) {
-            if (combo == 0) return "animation.xeb_player.holy_slash_right";
-            if (combo == 1) return "animation.xeb_player.holy_slash_left";
+        if (attackTicks > 0) {
+            if (playingCombo == 0) return "animation.xeb_player.holy_slash_right";
+            if (playingCombo == 1) return "animation.xeb_player.holy_slash_left";
             return "animation.xeb_player.holy_slash_x";
         }
         if (blastCast > 0) return "animation.xeb_player.holy_blast_cast";

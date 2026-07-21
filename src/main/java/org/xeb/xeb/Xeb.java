@@ -301,6 +301,7 @@ public class Xeb {
                     livingRenderer.addLayer(new org.xeb.xeb.render.DoomfistRenderLayer(livingRenderer));
                     livingRenderer.addLayer(new org.xeb.xeb.render.OpticBlastPlayerLayer(livingRenderer));
                     livingRenderer.addLayer(new org.xeb.xeb.render.HolyDualityRenderLayer(livingRenderer));
+                    livingRenderer.addLayer(new org.xeb.xeb.render.CrazyDiamondRenderLayer(livingRenderer));
                 }
             };
 

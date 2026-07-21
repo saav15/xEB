@@ -304,24 +304,51 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
                 }
             }
 
-            // Annihilation ticking — 3 vueltas con 7 daño cada una en 3x3
+            // Ticking for Left Click combos
+            int attackTicks = pData.getInt("xebHolyAttackTicks");
+            if (attackTicks > 0) {
+                pData.putInt("xebHolyAttackTicks", attackTicks - 1);
+            }
+
+            int dmgDelay = pData.getInt("xebHolyDamageDelay");
+            if (dmgDelay > 0) {
+                dmgDelay--;
+                pData.putInt("xebHolyDamageDelay", dmgDelay);
+                if (dmgDelay == 0) {
+                    dealComboDamage(player, level);
+                }
+            }
+
+            // Reset combo stage after 35 ticks of inactivity
+            if (attackTicks == 0 && stack.getOrCreateTag().getInt("xebHolyComboStage") > 0) {
+                int comboInactivity = pData.getInt("xebHolyComboInactivity") + 1;
+                pData.putInt("xebHolyComboInactivity", comboInactivity);
+                if (comboInactivity > 35) {
+                    stack.getOrCreateTag().putInt("xebHolyComboStage", 0);
+                    pData.putInt("xebHolyComboInactivity", 0);
+                }
+            } else {
+                pData.putInt("xebHolyComboInactivity", 0);
+            }
+
+            // Annihilation ticking — 3 spins with 24 damage each in 5.0m area (Annihilation lasts 26 ticks matching the animation)
             if (pData.getBoolean("xebHolyAnnihilationActive")) {
                 int annTicks = pData.getInt("xebHolyAnnihilationTicks");
                 if (annTicks > 0) {
                     int hits = pData.getInt("xebHolyAnnihilationHits");
 
-                    // Cada 10 ticks = 1 vuelta completa (3 vueltas total en 30 ticks)
-                    if (annTicks % 10 == 0 && hits < 3) {
+                    // Trigger hits at 20, 13, and 6 ticks remaining
+                    if ((annTicks == 20 || annTicks == 13 || annTicks == 6) && hits < 3) {
                         hits++;
                         pData.putInt("xebHolyAnnihilationHits", hits);
 
-                        // Sonido de corte
+                        // Sweep sound
                         level.playSound(null, player.getX(), player.getY(), player.getZ(),
                                 SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 1.5F);
 
-                        // 3x3 AoE centrado en el player
-                        AABB box = player.getBoundingBox().inflate(1.5D, 1.0D, 1.5D);
-                        double baseDmg = 7.0D; // 7 daño por vuelta
+                        // 5x5 AoE centered on player (radius 5.0m = inflate 5.0D)
+                        AABB box = player.getBoundingBox().inflate(5.0D, 2.0D, 5.0D);
+                        double baseDmg = 24.0D; // Massive damage per spin
 
                         int blessedCharges = pData.getInt("xebHolyBlessedCharges");
                         boolean isBlessed = blessedCharges > 0;
@@ -332,17 +359,17 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
 
                         List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, box, e -> e != player && e.isAlive());
                         for (LivingEntity target : targets) {
-                            target.hurt(player.damageSources().playerAttack(player), (float) baseDmg);
+                            target.hurt(level.damageSources().playerAttack(player), (float) baseDmg);
 
-                            // Knockback hacia afuera del player
+                            // Expanded knockback
                             Vec3 knockDir = target.position().subtract(player.position()).normalize();
-                            target.setDeltaMovement(knockDir.x * 0.8D, 0.3D, knockDir.z * 0.8D);
+                            target.setDeltaMovement(knockDir.x * 1.0D, 0.4D, knockDir.z * 1.0D);
                             target.hurtMarked = true;
 
-                            // Partículas sutiles
+                            // Critical particles
                             if (level instanceof ServerLevel sl) {
                                 sl.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0D, target.getZ(),
-                                        3, 0.2D, 0.2D, 0.2D, 0.05D);
+                                        6, 0.2D, 0.2D, 0.2D, 0.05D);
                             }
                         }
                     }
@@ -357,6 +384,83 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
             if (player instanceof ServerPlayer serverPlayer && level.getGameTime() % 2 == 0) {
                 syncToClient(serverPlayer);
             }
+        }
+    }
+
+    private void dealComboDamage(Player player, Level level) {
+        CompoundTag pData = player.getPersistentData();
+        int playingCombo = pData.getInt("xebHolyPlayingCombo");
+        
+        ItemStack stack = player.getMainHandItem().is(ModItems.HOLY_DUALITY_BLADE.get())
+                ? player.getMainHandItem() : player.getOffhandItem();
+        if (stack.isEmpty()) return;
+
+        AABB box;
+        double baseDmg = BASE_DAMAGE;
+
+        Vec3 look = player.getLookAngle().normalize();
+        Vec3 right = look.cross(new Vec3(0, 1, 0)).normalize();
+
+        if (playingCombo == 0) { // Right slash
+            box = player.getBoundingBox().move(look.scale(1.5D)).move(right.scale(0.8D)).inflate(1.8D, 1.2D, 1.8D);
+        } else if (playingCombo == 1) { // Left slash
+            box = player.getBoundingBox().move(look.scale(1.5D)).move(right.scale(-0.8D)).inflate(1.8D, 1.2D, 1.8D);
+        } else { // X slash
+            box = player.getBoundingBox().move(look.scale(2.0D)).inflate(2.5D, 1.5D, 2.5D);
+            baseDmg = 14.0D;
+        }
+
+        boolean isBlessed = pData.getBoolean("xebHolyBlessedActive");
+        if (isBlessed) {
+            baseDmg *= 3.0D;
+        }
+
+        boolean isCrit = isBlessed || (player.getRandom().nextFloat() < 0.25F);
+
+        List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, box, e -> e != player && e.isAlive());
+        for (LivingEntity target : targets) {
+            float finalDmg = (float) baseDmg;
+            if (isCrit) {
+                finalDmg *= 1.5F;
+            }
+
+            target.hurt(level.damageSources().playerAttack(player), finalDmg);
+
+            if (isCrit) {
+                if (level instanceof ServerLevel sl) {
+                    sl.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0D, target.getZ(),
+                            8, 0.2D, 0.2D, 0.2D, 0.15D);
+                    sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + 1.0D, target.getZ(),
+                            5, 0.2D, 0.2D, 0.2D, 0.05D);
+                    sl.sendParticles(ParticleTypes.LAVA, target.getX(), target.getY() + 1.0D, target.getZ(),
+                            3, 0.1D, 0.1D, 0.1D, 0.0D);
+                }
+
+                CompoundTag targetNBT = target.getPersistentData();
+                int currentTicks = targetNBT.getInt("xebCharredBurnTicks");
+                int currentStack = targetNBT.getInt("xebCharredBurnStack");
+                if (currentTicks > 0) {
+                    targetNBT.putInt("xebCharredBurnStack", currentStack + 1);
+                } else {
+                    targetNBT.putInt("xebCharredBurnStack", 1);
+                }
+                targetNBT.putInt("xebCharredBurnTicks", 60);
+                targetNBT.putUUID("xebCharredBurnAttacker", player.getUUID());
+            }
+
+            CompoundTag targetNBT = target.getPersistentData();
+            long lastHitTime = targetNBT.getLong("xebLastHolyHitTime");
+            int lastCombo = targetNBT.getInt("xebLastHolyCombo");
+            long now = level.getGameTime();
+
+            if (now - lastHitTime <= 15 && lastCombo != playingCombo) {
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 9));
+                level.playSound(null, target.getX(), target.getY(), target.getZ(),
+                        SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 1.0F, 1.5F);
+            }
+
+            targetNBT.putLong("xebLastHolyHitTime", now);
+            targetNBT.putInt("xebLastHolyCombo", playingCombo);
         }
     }
 
@@ -377,8 +481,25 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
                         1.5D + (Math.min(160, pData.getInt("xebHolyBlastCharge")) / 160.0D) * 2.5D,
                         pData.getInt("xebHolyA1Cooldown"),
                         pData.getInt("xebHolyA2Cooldown"),
-                        combo
+                        combo,
+                        pData.getInt("xebHolyAttackTicks"),
+                        pData.getInt("xebHolyPlayingCombo")
                 )
         );
+    }
+
+    @Override
+    public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+        consumer.accept(new net.minecraftforge.client.extensions.common.IClientItemExtensions() {
+            private org.xeb.xeb.client.renderer.HolyDualityBladeGeoRenderer renderer;
+
+            @Override
+            public net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (this.renderer == null) {
+                    this.renderer = new org.xeb.xeb.client.renderer.HolyDualityBladeGeoRenderer();
+                }
+                return this.renderer;
+            }
+        });
     }
 }

@@ -91,11 +91,30 @@ public abstract class EliteBuff {
     public abstract void onDetach(LivingEntity entity);
 
     public abstract void onServerTick(LivingEntity entity, ServerLevel level);
+    public void onServerTick(LivingEntity entity, ServerLevel level, org.xeb.xeb.medallion.MedallionData data) {
+        onServerTick(entity, level);
+    }
 
     public void onDamageTaken(LivingEntity entity, LivingHurtEvent event) {}
+    public void onDamageTaken(LivingEntity entity, LivingHurtEvent event, org.xeb.xeb.medallion.MedallionData data) {
+        onDamageTaken(entity, event);
+    }
+
     public void onDamageDealt(LivingEntity entity, LivingHurtEvent event) {}
+    public void onDamageDealt(LivingEntity entity, LivingHurtEvent event, org.xeb.xeb.medallion.MedallionData data) {
+        onDamageDealt(entity, event);
+    }
+
     public void onHurt(LivingEntity entity, LivingHurtEvent event) {}
+    public void onHurt(LivingEntity entity, LivingHurtEvent event, org.xeb.xeb.medallion.MedallionData data) {
+        onHurt(entity, event);
+    }
+
     public void onDeath(LivingEntity entity, LivingDeathEvent event) {}
+    public void onDeath(LivingEntity entity, LivingDeathEvent event, org.xeb.xeb.medallion.MedallionData data) {
+        onDeath(entity, event);
+    }
+
     public void onKill(LivingEntity entity, LivingDeathEvent event) {}
     public void onProjectileImpact(LivingEntity entity, ProjectileImpactEvent event) {}
 }

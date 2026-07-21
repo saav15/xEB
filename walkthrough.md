@@ -1,28 +1,28 @@
-# Walkthrough - Enigma Bios UI Limits & Translation Keys Correction
+# Walkthrough - Refactorización Polimórfica de Buffs & Exposición de Configuración de Balance
 
-We solved the Enigma Bios tab rendering issues, restored missing translation keys for Curio tooltips in all languages, and updated the Smart Halberd lore text.
-
-## Changes Made
-
-### 1. Enigma Bios Dynamic UI Bounds
-- **UI Bounds Correction [EnigmaBiosScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/EnigmaBiosScreen.java):**
-  - Replaced hardcoded bounds (such as `6` for total tab count and `5` for maximum log index) with dynamic values calculated from `logs.size()`.
-  - Solved scrolling and dragging restrictions: the UI now seamlessly permits scrolling and clicking tabs from 1 through 33, drawing the scrollbars and tabs dynamically according to the actual number of registered log entries.
-
-### 2. Restored Broken Translations
-- **Restored Translation Keys [en_us.json](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/resources/assets/xeb/lang/en_us.json) / [es_es.json](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/resources/assets/xeb/lang/es_es.json):**
-  - Appended all `gui.xeb.tooltip.extreme_burst.*` translation keys (which were missing, causing raw translation key text to show up in-game).
-  - Appended all Enigma Bios log entries 6 to 33 in English and Spanish (Spain) translation files.
-
-### 3. Smart Halberd Lore Update
-- **Updated Lore Text:**
-  - Modified `"item.xeb.smart_halberd.lore"` to `"§b§o\"Puedes sentir el frio que sufrio su inteligente dueño\""` in [es_mx.json](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/resources/assets/xeb/lang/es_mx.json) and [es_es.json](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/resources/assets/xeb/lang/es_es.json).
-  - Updated `"item.xeb.smart_halberd.lore"` in [en_us.json](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/resources/assets/xeb/lang/en_us.json) to `"§b§o\"You can feel the cold suffered by its smart owner.\""`.
+Se refactorizó la arquitectura de los handlers de eventos de mobs élite ([EliteBuff.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/buff/EliteBuff.java)), se solucionaron los proyectiles con daño fijo pendiente (`TODO: balancear daño`), y se ampliaron las opciones de configuración en [Config.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/Config.java).
 
 ---
 
-## Verification Results
+## Cambios Realizados
 
-### Project Compilation & Build
-- **Command:** `./gradlew build -x test --console=plain`
-- **Result:** `BUILD SUCCESSFUL` - compiled and packaged successfully.
+### 1. Sistema de Configuración Extendida (`Config.java`)
+- **Nuevas Categorías en `xeb-common.toml`:**
+  - `weaponsAndRelics`: Daño de Mecha Vulcan (`mechaVulcanDamage`), daño de Homing Missiles (`homingMissileDamage`), radio del Doomfist Slam (`doomfistSlamRadius`), radio y duración del Demon Core (`demonCoreRadiationRadius`, `demonCoreDoomedDurationSeconds`) y alcance de Crazy Diamond (`crazyDiamondReachDistance`).
+  - `medallionBuffs`: Porcentaje de reflejo de Spiky (`spikyReflectPercentage`), porcentaje de vida al resucitar de Undying (`undyingReviveHealthPercent`), cantidad de moscas de Infested (`infestedFliesSpawnCount`) y probabilidad de rebote de Mirror (`mirrorProjectileReflectChance`).
+  - `beamStruggle`: Duración máxima en segundos (`beamStruggleMaxDurationSeconds`) y multiplicador por click (`beamStruggleClickPowerMultiplier`).
+
+### 2. Proyectiles con Daño Configurable
+- **[MechaVulcanProjectileEntity.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/entity/MechaVulcanProjectileEntity.java):** Sustituida constante de `2.0D` por `Config.mechaVulcanDamage`.
+- **[HomingMissileEntity.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/entity/HomingMissileEntity.java):** Sustituida constante de `6.0D` por `Config.homingMissileDamage`.
+
+### 3. Arquitectura Polimórfica de Buffs Élite
+- **[EliteBuff.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/buff/EliteBuff.java):** Añadidad firmas con `MedallionData` (`onServerTick`, `onDamageTaken`, `onDamageDealt`, `onHurt`, `onDeath`) para soportar despachamiento limpio desde eventos sin necesidad de casteos o árboles de condicionales `if/else` masivos.
+
+---
+
+## Resultados de Verificación
+
+### Compilación del Proyecto
+- **Comando:** `./gradlew compileJava --console=plain`
+- **Resultado:** Proceso de compilación ejecutado exitosamente.

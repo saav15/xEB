@@ -44,7 +44,7 @@ public class HolyDualityRenderLayer<T extends LivingEntity, M extends EntityMode
         if (!(model instanceof HumanoidModel<?> humanoidModel)) return;
 
         // 1. RENDER HOLY CROWN
-        renderHolyCrown(poseStack, buffer, player, humanoidModel);
+        renderHolyCrown(poseStack, buffer, player, humanoidModel, packedLight);
 
         // 2. RENDER PHANTOM SWORD IN THE OTHER HAND
         ItemStack swordStack = hasMain ? mainHand : offHand;
@@ -98,71 +98,27 @@ public class HolyDualityRenderLayer<T extends LivingEntity, M extends EntityMode
         }
     }
 
-    private void renderHolyCrown(PoseStack poseStack, MultiBufferSource buffer, Player player, HumanoidModel<?> model) {
-        boolean blessed = player.getPersistentData().getBoolean("xebHolyBlessedActive");
-        boolean annihilation = player.getPersistentData().getBoolean("xebHolyAnnihilationActive");
-
+    private void renderHolyCrown(PoseStack poseStack, MultiBufferSource buffer, Player player, HumanoidModel<?> model, int packedLight) {
         poseStack.pushPose();
+        // Align with player's head rotation and translation
         model.head.translateAndRotate(poseStack);
-        poseStack.translate(0.0D, -0.18D, 0.0D);
-
-        Matrix4f matrix = poseStack.last().pose();
-        VertexConsumer crownConsumer = buffer.getBuffer(RenderType.lightning());
-
-        float r = 1.0F, g = 0.84F, b = 0.0F; // dorado normal
-        if (blessed) { r = 1.0F; g = 1.0F; b = 0.93F; } // blanco brillante
-        if (annihilation) { r = 1.0F; g = 0.25F; b = 0.0F; } // rojo sagrado
-        float a = 0.95F;
-
-        // Base de la corona (anillo)
-        float baseRadius = 0.28F;
-        float baseHeight = 0.06F;
-        int baseSegs = 10;
-        for (int j = 0; j < baseSegs; j++) {
-            double angle1 = (j * 2.0D * Math.PI) / baseSegs;
-            double angle2 = ((j + 1) * 2.0D * Math.PI) / baseSegs;
-            float x1 = (float) (Math.cos(angle1) * baseRadius);
-            float z1 = (float) (Math.sin(angle1) * baseRadius);
-            float x2 = (float) (Math.cos(angle2) * baseRadius);
-            float z2 = (float) (Math.sin(angle2) * baseRadius);
-
-            crownConsumer.vertex(matrix, x1, 0.0F, z1).color(r, g, b, a).endVertex();
-            crownConsumer.vertex(matrix, x2, 0.0F, z2).color(r, g, b, a).endVertex();
-            crownConsumer.vertex(matrix, x2, baseHeight, z2).color(r, g, b, a).endVertex();
-            crownConsumer.vertex(matrix, x1, baseHeight, z1).color(r, g, b, a).endVertex();
-        }
-
-        // 3 PICOS: 2 pequeños laterales (izq y der) + 1 grande en medio (frente)
-        float bigPeakX = 0.0F, bigPeakZ = -baseRadius;
-        float bigPeakH = 0.35F;
-        float bigPeakW = 0.10F;
-        crownConsumer.vertex(matrix, bigPeakX - bigPeakW, baseHeight, bigPeakZ).color(r, g, b, a).endVertex();
-        crownConsumer.vertex(matrix, bigPeakX + bigPeakW, baseHeight, bigPeakZ).color(r, g, b, a).endVertex();
-        crownConsumer.vertex(matrix, bigPeakX + bigPeakW * 0.5F, baseHeight + bigPeakH, bigPeakZ).color(r, g, b, a).endVertex();
-        crownConsumer.vertex(matrix, bigPeakX - bigPeakW * 0.5F, baseHeight + bigPeakH, bigPeakZ).color(r, g, b, a).endVertex();
-
-        double leftAngle = Math.PI * 0.75D; // 135°
-        float leftX = (float) (Math.cos(leftAngle) * baseRadius);
-        float leftZ = (float) (Math.sin(leftAngle) * baseRadius);
-        float smallH = 0.20F;
-        float smallW = 0.07F;
-        float perpLeftX = (float) Math.sin(leftAngle);
-        float perpLeftZ = -(float) Math.cos(leftAngle);
-        crownConsumer.vertex(matrix, leftX - perpLeftX * smallW, baseHeight, leftZ - perpLeftZ * smallW).color(r, g, b, a).endVertex();
-        crownConsumer.vertex(matrix, leftX + perpLeftX * smallW, baseHeight, leftZ + perpLeftZ * smallW).color(r, g, b, a).endVertex();
-        crownConsumer.vertex(matrix, leftX + perpLeftX * smallW * 0.5F, baseHeight + smallH, leftZ + perpLeftZ * smallW * 0.5F).color(r, g, b, a).endVertex();
-        crownConsumer.vertex(matrix, leftX - perpLeftX * smallW * 0.5F, baseHeight + smallH, leftZ - perpLeftZ * smallW * 0.5F).color(r, g, b, a).endVertex();
-
-        double rightAngle = Math.PI * 1.25D; // 225°
-        float rightX = (float) (Math.cos(rightAngle) * baseRadius);
-        float rightZ = (float) (Math.sin(rightAngle) * baseRadius);
-        float perpRightX = (float) Math.sin(rightAngle);
-        float perpRightZ = -(float) Math.cos(rightAngle);
-        crownConsumer.vertex(matrix, rightX - perpRightX * smallW, baseHeight, rightZ - perpRightZ * smallW).color(r, g, b, a).endVertex();
-        crownConsumer.vertex(matrix, rightX + perpRightX * smallW, baseHeight, rightZ + perpRightZ * smallW).color(r, g, b, a).endVertex();
-        crownConsumer.vertex(matrix, rightX + perpRightX * smallW * 0.5F, baseHeight + smallH, rightZ + perpRightZ * smallW * 0.5F).color(r, g, b, a).endVertex();
-        crownConsumer.vertex(matrix, rightX - perpRightX * smallW * 0.5F, baseHeight + smallH, rightZ - perpRightZ * smallW * 0.5F).color(r, g, b, a).endVertex();
-
+        
+        // Rotate Z by 180 degrees to flip right-side up (keeps Z facing forward)
+        poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(180.0F));
+        
+        ItemStack crownStack = new ItemStack(ModItems.HOLY_CROWN.get());
+        Minecraft.getInstance().getItemRenderer().renderStatic(
+                player,
+                crownStack,
+                ItemDisplayContext.HEAD,
+                false,
+                poseStack,
+                buffer,
+                player.level(),
+                packedLight,
+                OverlayTexture.NO_OVERLAY,
+                player.getId()
+        );
         poseStack.popPose();
     }
 }

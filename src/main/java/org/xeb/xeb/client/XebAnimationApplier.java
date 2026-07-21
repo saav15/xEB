@@ -204,8 +204,9 @@ public class XebAnimationApplier {
     }
 
     private static void applyHolySlashRight(HumanoidModel<?> model, float time, Player player) {
-        float swingProgress = model.attackTime;
-        float eased = 1.0F - (1.0F - swingProgress) * (1.0F - swingProgress);
+        int attackTicks = player.getPersistentData().getInt("xebHolyAttackTicks");
+        float progress = 1.0F - (attackTicks / 7.0F);
+        float eased = progress * progress * (3.0F - 2.0F * progress);
         model.body.yRot = (float) Math.toRadians(-20 - 10 * eased);
         model.rightArm.xRot = (float) Math.toRadians(-30 - 70 * eased);
         model.rightArm.zRot = (float) Math.toRadians(-20 + 10 * eased);
@@ -214,8 +215,9 @@ public class XebAnimationApplier {
     }
 
     private static void applyHolySlashLeft(HumanoidModel<?> model, float time, Player player) {
-        float swingProgress = model.attackTime;
-        float eased = 1.0F - (1.0F - swingProgress) * (1.0F - swingProgress);
+        int attackTicks = player.getPersistentData().getInt("xebHolyAttackTicks");
+        float progress = 1.0F - (attackTicks / 7.0F);
+        float eased = progress * progress * (3.0F - 2.0F * progress);
         model.body.yRot = (float) Math.toRadians(20 + 10 * eased);
         model.leftArm.xRot = (float) Math.toRadians(-30 - 70 * eased);
         model.leftArm.zRot = (float) Math.toRadians(20 - 10 * eased);
@@ -224,8 +226,9 @@ public class XebAnimationApplier {
     }
 
     private static void applyHolySlashX(HumanoidModel<?> model, float time, Player player) {
-        float swingProgress = model.attackTime;
-        float eased = 1.0F - (1.0F - swingProgress) * (1.0F - swingProgress);
+        int attackTicks = player.getPersistentData().getInt("xebHolyAttackTicks");
+        float progress = 1.0F - (attackTicks / 13.0F);
+        float eased = progress * progress * (3.0F - 2.0F * progress);
         
         // Inclinar torso ligeramente hacia adelante al golpear
         model.body.xRot = (float) Math.toRadians(15 * eased);
@@ -245,8 +248,8 @@ public class XebAnimationApplier {
         net.minecraft.nbt.CompoundTag pData = player.getPersistentData();
         int clientTicks = pData.getInt("xebHolyAnnihilationTicksClient");
         
-        // Ninja landing pose para los primeros 8 ticks
-        if (clientTicks <= 8) {
+        // Ninja landing pose para los primeros 6 ticks
+        if (clientTicks <= 6) {
             // Piernas dobladas (agachado ninja)
             model.rightLeg.xRot = (float) Math.toRadians(-45);
             model.leftLeg.xRot = (float) Math.toRadians(-45);
@@ -265,7 +268,7 @@ public class XebAnimationApplier {
             model.leftArm.xRot = (float) Math.toRadians(60);
             model.leftArm.yRot = (float) Math.toRadians(30);
         } else {
-            // Giro de tornado después del tick 8
+            // Giro de tornado después del tick 6
             // Brazos totalmente extendidos horizontalmente sosteniendo ambas espadas
             model.rightArm.xRot = (float) Math.toRadians(-90);
             model.rightArm.zRot = (float) Math.toRadians(-75);

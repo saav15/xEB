@@ -88,7 +88,7 @@ public class HomingMissileEntity extends ThrowableProjectile implements net.mine
     private void explode(LivingEntity hitTarget) {
         if (!this.level().isClientSide()) {
             Level level = this.level();
-            double dmg = 6.0D; // TODO: balancear daño
+            double dmg = org.xeb.xeb.Config.homingMissileDamage;
             
             if (hitTarget != null) {
                 hitTarget.hurt(this.damageSources().thrown(this, this.getOwner()), (float) dmg);

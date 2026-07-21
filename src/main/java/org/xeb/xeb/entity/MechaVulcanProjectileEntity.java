@@ -42,7 +42,7 @@ public class MechaVulcanProjectileEntity extends ThrowableProjectile implements 
         super.onHitEntity(result);
         if (!this.level().isClientSide()) {
             if (result.getEntity() instanceof LivingEntity target) {
-                double dmg = 2.0D; // TODO: balancear daño
+                double dmg = org.xeb.xeb.Config.mechaVulcanDamage;
                 target.hurt(this.damageSources().thrown(this, this.getOwner()), (float) dmg);
             }
             this.discard();

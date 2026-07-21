@@ -203,6 +203,57 @@ public class Config {
             .comment("If true and Tinkers' Construct is loaded, register elite materials and modifiers.")
             .define("eliteLoot.tconstructIntegration", true);
 
+    // Weapons & Relics Group
+    public static final ForgeConfigSpec.DoubleValue MECHA_VULCAN_DAMAGE = BUILDER
+            .comment("Base damage dealt by Mecha Vulcan projectiles.")
+            .defineInRange("weaponsAndRelics.mechaVulcanDamage", 2.0D, 0.5D, 100.0D);
+
+    public static final ForgeConfigSpec.DoubleValue HOMING_MISSILE_DAMAGE = BUILDER
+            .comment("Base explosion damage dealt by Homing Missiles.")
+            .defineInRange("weaponsAndRelics.homingMissileDamage", 6.0D, 1.0D, 200.0D);
+
+    public static final ForgeConfigSpec.DoubleValue DOOMFIST_SLAM_RADIUS = BUILDER
+            .comment("Impact radius (in blocks) of the Doomfist Seismic Slam.")
+            .defineInRange("weaponsAndRelics.doomfistSlamRadius", 4.5D, 1.0D, 15.0D);
+
+    public static final ForgeConfigSpec.DoubleValue DEMON_CORE_RADIATION_RADIUS = BUILDER
+            .comment("Lethal radiation radius (in blocks) of the Demon Core when open.")
+            .defineInRange("weaponsAndRelics.demonCoreRadiationRadius", 8.0D, 2.0D, 32.0D);
+
+    public static final ForgeConfigSpec.IntValue DEMON_CORE_DOOMED_DURATION = BUILDER
+            .comment("Duration in seconds of the Doomed debuff applied by Demon Core.")
+            .defineInRange("weaponsAndRelics.demonCoreDoomedDurationSeconds", 10, 1, 120);
+
+    public static final ForgeConfigSpec.DoubleValue CRAZY_DIAMOND_REACH_DISTANCE = BUILDER
+            .comment("Extended reach distance (in blocks) of the Crazy Diamond Stand.")
+            .defineInRange("weaponsAndRelics.crazyDiamondReachDistance", 6.0D, 3.0D, 12.0D);
+
+    // Medallion Buffs Group
+    public static final ForgeConfigSpec.DoubleValue SPIKY_REFLECT_PERCENTAGE = BUILDER
+            .comment("Damage reflection percentage for the Spiky elite buff (0.25 = 25%).")
+            .defineInRange("medallionBuffs.spikyReflectPercentage", 0.25D, 0.05D, 2.0D);
+
+    public static final ForgeConfigSpec.DoubleValue UNDYING_REVIVE_HEALTH_PERCENT = BUILDER
+            .comment("Health percentage granted upon reviving with Undying buff (0.50 = 50%).")
+            .defineInRange("medallionBuffs.undyingReviveHealthPercent", 0.50D, 0.10D, 1.0D);
+
+    public static final ForgeConfigSpec.IntValue INFESTED_FLIES_SPAWN_COUNT = BUILDER
+            .comment("Number of elite flies spawned on hurt/death with Infested buff.")
+            .defineInRange("medallionBuffs.infestedFliesSpawnCount", 2, 1, 10);
+
+    public static final ForgeConfigSpec.DoubleValue MIRROR_PROJECTILE_REFLECT_CHANCE = BUILDER
+            .comment("Chance to reflect incoming projectiles with Mirror buff (0.75 = 75%).")
+            .defineInRange("medallionBuffs.mirrorProjectileReflectChance", 0.75D, 0.10D, 1.0D);
+
+    // Beam Struggle Group
+    public static final ForgeConfigSpec.IntValue BEAM_STRUGGLE_MAX_DURATION = BUILDER
+            .comment("Maximum duration in seconds of a Beam Struggle clash.")
+            .defineInRange("beamStruggle.maxDurationSeconds", 15, 5, 60);
+
+    public static final ForgeConfigSpec.DoubleValue BEAM_STRUGGLE_CLICK_POWER = BUILDER
+            .comment("Power multiplier per click for players during Beam Struggle clashes.")
+            .defineInRange("beamStruggle.clickPowerMultiplier", 1.0D, 0.1D, 10.0D);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static boolean enabled = true;
@@ -262,6 +313,24 @@ public class Config {
     public static double essenceDropChance = 0.08D;
     public static boolean bossBitGuaranteed = true;
     public static boolean tconstructIntegrationEnabled = true;
+
+    // Weapons & Relics static variables
+    public static double mechaVulcanDamage = 2.0D;
+    public static double homingMissileDamage = 6.0D;
+    public static double doomfistSlamRadius = 4.5D;
+    public static double demonCoreRadiationRadius = 8.0D;
+    public static int demonCoreDoomedDurationSeconds = 10;
+    public static double crazyDiamondReachDistance = 6.0D;
+
+    // Medallion Buffs static variables
+    public static double spikyReflectPercentage = 0.25D;
+    public static double undyingReviveHealthPercent = 0.50D;
+    public static int infestedFliesSpawnCount = 2;
+    public static double mirrorProjectileReflectChance = 0.75D;
+
+    // Beam Struggle static variables
+    public static int beamStruggleMaxDurationSeconds = 15;
+    public static double beamStruggleClickPower = 1.0D;
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
@@ -332,5 +401,23 @@ public class Config {
         essenceDropChance = ESSENCE_DROP_CHANCE.get();
         bossBitGuaranteed = BOSS_BIT_GUARANTEED.get();
         tconstructIntegrationEnabled = TCONSTRUCT_INTEGRATION_ENABLED.get();
+
+        // Load Weapons & Relics config
+        mechaVulcanDamage = MECHA_VULCAN_DAMAGE.get();
+        homingMissileDamage = HOMING_MISSILE_DAMAGE.get();
+        doomfistSlamRadius = DOOMFIST_SLAM_RADIUS.get();
+        demonCoreRadiationRadius = DEMON_CORE_RADIATION_RADIUS.get();
+        demonCoreDoomedDurationSeconds = DEMON_CORE_DOOMED_DURATION.get();
+        crazyDiamondReachDistance = CRAZY_DIAMOND_REACH_DISTANCE.get();
+
+        // Load Medallion Buffs config
+        spikyReflectPercentage = SPIKY_REFLECT_PERCENTAGE.get();
+        undyingReviveHealthPercent = UNDYING_REVIVE_HEALTH_PERCENT.get();
+        infestedFliesSpawnCount = INFESTED_FLIES_SPAWN_COUNT.get();
+        mirrorProjectileReflectChance = MIRROR_PROJECTILE_REFLECT_CHANCE.get();
+
+        // Load Beam Struggle config
+        beamStruggleMaxDurationSeconds = BEAM_STRUGGLE_MAX_DURATION.get();
+        beamStruggleClickPower = BEAM_STRUGGLE_CLICK_POWER.get();
     }
 }

@@ -18,8 +18,16 @@ import org.xeb.xeb.network.XEBNetwork;
 import org.xeb.xeb.network.CrazyDiamondSyncPacket;
 import net.minecraftforge.network.PacketDistributor;
 import java.util.List;
+import software.bernie.geckolib.animatable.GeoItem;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.AnimatableManager;
+import software.bernie.geckolib.core.animation.AnimationController;
+import software.bernie.geckolib.util.GeckoLibUtil;
+import java.util.function.Consumer;
 
-public class BrokenDiamondItem extends Item {
+public class BrokenDiamondItem extends Item implements GeoItem {
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+
     public BrokenDiamondItem(Properties properties) {
         super(properties.stacksTo(1));
     }
@@ -267,5 +275,32 @@ public class BrokenDiamondItem extends Item {
         tooltip.add(Component.translatable("item.xeb.broken_diamond.activa2", Component.keybind("key.xeb.activa_2")));
         tooltip.add(Component.translatable("item.xeb.broken_diamond.lore"));
         super.appendHoverText(stack, level, tooltip, flag);
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "controller", 0, event -> {
+            return event.setAndContinue(software.bernie.geckolib.core.animation.RawAnimation.begin().thenLoop("Idle"));
+        }));
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+
+    @Override
+    public void initializeClient(Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+        consumer.accept(new net.minecraftforge.client.extensions.common.IClientItemExtensions() {
+            private org.xeb.xeb.client.renderer.BrokenDiamondItemGeoRenderer renderer;
+
+            @Override
+            public net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (this.renderer == null) {
+                    this.renderer = new org.xeb.xeb.client.renderer.BrokenDiamondItemGeoRenderer();
+                }
+                return this.renderer;
+            }
+        });
     }
 }

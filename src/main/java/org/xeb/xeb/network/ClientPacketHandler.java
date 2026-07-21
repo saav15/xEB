@@ -275,6 +275,8 @@ public class ClientPacketHandler {
                 tag.putInt("xebHolyA1Cooldown", msg.getA1Cooldown());
                 tag.putInt("xebHolyA2Cooldown", msg.getA2Cooldown());
                 tag.putInt("xebHolyComboStage", msg.getComboStage());
+                tag.putInt("xebHolyAttackTicks", msg.getAttackTicks());
+                tag.putInt("xebHolyPlayingCombo", msg.getPlayingCombo());
             }
         }
     }

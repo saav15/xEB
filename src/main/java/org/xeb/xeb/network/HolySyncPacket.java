@@ -18,10 +18,12 @@ public class HolySyncPacket {
     private final int a1Cooldown;
     private final int a2Cooldown;
     private final int comboStage;
+    private final int attackTicks;
+    private final int playingCombo;
 
     public HolySyncPacket(int entityId, boolean shieldActive, boolean annihilationActive,
                            boolean blessedActive, int blessedTicks, int blastCharge, double blastRadius,
-                           int a1Cooldown, int a2Cooldown, int comboStage) {
+                           int a1Cooldown, int a2Cooldown, int comboStage, int attackTicks, int playingCombo) {
         this.entityId = entityId;
         this.shieldActive = shieldActive;
         this.annihilationActive = annihilationActive;
@@ -32,6 +34,8 @@ public class HolySyncPacket {
         this.a1Cooldown = a1Cooldown;
         this.a2Cooldown = a2Cooldown;
         this.comboStage = comboStage;
+        this.attackTicks = attackTicks;
+        this.playingCombo = playingCombo;
     }
 
     public int getEntityId() { return entityId; }
@@ -44,6 +48,8 @@ public class HolySyncPacket {
     public int getA1Cooldown() { return a1Cooldown; }
     public int getA2Cooldown() { return a2Cooldown; }
     public int getComboStage() { return comboStage; }
+    public int getAttackTicks() { return attackTicks; }
+    public int getPlayingCombo() { return playingCombo; }
 
     public static void encode(HolySyncPacket msg, FriendlyByteBuf buf) {
         buf.writeInt(msg.entityId);
@@ -56,6 +62,8 @@ public class HolySyncPacket {
         buf.writeInt(msg.a1Cooldown);
         buf.writeInt(msg.a2Cooldown);
         buf.writeInt(msg.comboStage);
+        buf.writeInt(msg.attackTicks);
+        buf.writeInt(msg.playingCombo);
     }
 
     public static HolySyncPacket decode(FriendlyByteBuf buf) {
@@ -67,6 +75,8 @@ public class HolySyncPacket {
                 buf.readInt(),
                 buf.readInt(),
                 buf.readDouble(),
+                buf.readInt(),
+                buf.readInt(),
                 buf.readInt(),
                 buf.readInt(),
                 buf.readInt()
@@ -81,3 +91,4 @@ public class HolySyncPacket {
         ctx.setPacketHandled(true);
     }
 }
+
