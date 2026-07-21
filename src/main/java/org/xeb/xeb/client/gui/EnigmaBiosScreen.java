@@ -21,9 +21,10 @@ public class EnigmaBiosScreen extends Screen {
     private int leftPos;
     private int topPos;
 
-    private int activeTab = 0; // 0: Analizador, 1-5: Bitácoras
+    private int activeTab = 0; // 0: Analizador, 1: Bestiario, 2-34: Bitácoras 1-33
     private ItemStack analyzedStack = ItemStack.EMPTY;
     private int selectedAbilityIndex = 0; // 0: Clic Izq, 1: Clic Der, 2: Activa 1, 3: Activa 2, 4: Extreme Burst
+    private int selectedBestiaryIndex = 0;
 
     // Lore Logs
     private final List<LogEntry> logs = new ArrayList<>();
@@ -32,10 +33,12 @@ public class EnigmaBiosScreen extends Screen {
     private float tabScrollAmount = 0.0F;
     private float contentScrollAmount = 0.0F;
     private float analyzerScrollAmount = 0.0F;
+    private float bestiaryScrollAmount = 0.0F;
 
     private boolean isDraggingTabScroll = false;
     private boolean isDraggingContentScroll = false;
     private boolean isDraggingAnalyzerScroll = false;
+    private boolean isDraggingBestiaryScroll = false;
 
     // Unknown item warning flash states
     private boolean lastAnalyzedUnknown = false;
@@ -177,7 +180,7 @@ public class EnigmaBiosScreen extends Screen {
         int startX = this.leftPos + 6;
         int viewportY = this.topPos + 18;
         int viewportH = 130;
-        int totalTabs = 1 + logs.size();
+        int totalTabs = 2 + logs.size();
         int contentHeight = totalTabs * 22;
         int maxTabScroll = Math.max(0, contentHeight - viewportH);
  
@@ -204,8 +207,9 @@ public class EnigmaBiosScreen extends Screen {
                     && y >= viewportY && y + 20 <= viewportY + viewportH;
  
             boolean isUnlocked = true;
-            if (i >= 1 && i <= logs.size() && this.minecraft != null && this.minecraft.player != null) {
-                isUnlocked = this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + i);
+            if (i >= 2 && this.minecraft != null && this.minecraft.player != null) {
+                int logNum = i - 1; // Bitácora #1 is i=2
+                isUnlocked = this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + logNum);
             }
 
             int bgColor;
@@ -228,9 +232,25 @@ public class EnigmaBiosScreen extends Screen {
             g.fill(startX, y, startX + 1, y + 20, borderColor);
             g.fill(startX + 59, y, startX + 60, y + 20, borderColor);
 
-            String title = (i == 0) ? translate("gui.xeb.enigma_bios.tab.analyze") : "BIT. #" + i;
+            String title;
+            if (i == 0) {
+                title = translate("gui.xeb.enigma_bios.tab.analyze");
+            } else if (i == 1) {
+                title = translate("gui.xeb.enigma_bios.tab.bestiary");
+            } else {
+                int logNum = i - 1;
+                title = "BIT. #" + logNum;
+                // Add medallion tier badge indicators for Bitácoras 6-33
+                if (logNum >= 6 && logNum <= 33) {
+                    int badgeColor = (logNum % 3 == 0) ? 0xFFFFCC00 : ((logNum % 3 == 1) ? 0xFFCD7F32 : 0xFFC0C0C0);
+                    String badge = (logNum % 3 == 0) ? "[G]" : ((logNum % 3 == 1) ? "[B]" : "[S]");
+                    g.drawString(this.font, badge, startX + 44, y + 6, badgeColor, false);
+                }
+            }
+
             int textW = this.font.width(title);
-            g.drawString(this.font, title, startX + (60 - textW) / 2, y + 6, textColor, false);
+            int drawX = (i >= 2 && (i - 1) >= 6 && (i - 1) <= 33) ? startX + 4 : startX + (60 - textW) / 2;
+            g.drawString(this.font, title, drawX, y + 6, textColor, false);
         }
         g.disableScissor();
     }
@@ -521,10 +541,115 @@ public class EnigmaBiosScreen extends Screen {
                     }
                     g.disableScissor();
                 }
+
+                // Customize HUD button for weapons / custom items
+                int hudBtnX = areaX + areaW - 98;
+                int hudBtnY = areaY + 6;
+                int hudBtnW = 90;
+                int hudBtnH = 14;
+                boolean hudHovered = mouseX >= hudBtnX && mouseX < hudBtnX + hudBtnW && mouseY >= hudBtnY && mouseY < hudBtnY + hudBtnH;
+
+                int hudBg = hudHovered ? 0xCC00FFCC : 0x2200FFCC;
+                int hudTxt = hudHovered ? 0xFF08111E : 0xFF00FFCC;
+                g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, hudBg);
+                g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + 1, 0xFF00FFCC);
+                g.fill(hudBtnX, hudBtnY + hudBtnH - 1, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
+                g.fill(hudBtnX, hudBtnY, hudBtnX + 1, hudBtnY + hudBtnH, 0xFF00FFCC);
+                g.fill(hudBtnX + hudBtnW - 1, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
+
+                String hudBtnText = translate("gui.xeb.enigma_bios.btn.customize_hud");
+                int hudTxtW = this.font.width(hudBtnText);
+                g.drawString(this.font, hudBtnText, hudBtnX + (hudBtnW - hudTxtW) / 2, hudBtnY + 3, hudTxt, false);
+            }
+        } else if (this.activeTab == 1) {
+            // RENDER ELITE BESTIARY
+            List<org.xeb.xeb.buff.EliteBuff> allBuffs = new java.util.ArrayList<>(org.xeb.xeb.buff.EliteBuffRegistry.getAll());
+            if (!allBuffs.isEmpty()) {
+                if (this.selectedBestiaryIndex < 0 || this.selectedBestiaryIndex >= allBuffs.size()) {
+                    this.selectedBestiaryIndex = 0;
+                }
+
+                // Left column: Scrollable list of buffs (width 90)
+                int listX = areaX + 6;
+                int listY = areaY + 6;
+                int listW = 90;
+                int listH = areaH - 12;
+
+                g.fill(listX, listY, listX + listW, listY + listH, 0x1A000000);
+                g.fill(listX, listY, listX + listW, listY + 1, borderColor);
+                g.fill(listX, listY + listH - 1, listX + listW, listY + listH, borderColor);
+                g.fill(listX, listY, listX + 1, listY + listH, borderColor);
+                g.fill(listX + listW - 1, listY, listX + listW, listY + listH, borderColor);
+
+                g.enableScissor(listX + 1, listY + 1, listX + listW - 1, listY + listH - 1);
+                for (int b = 0; b < allBuffs.size(); b++) {
+                    int by = listY + 2 + b * 16 - (int) bestiaryScrollAmount;
+                    if (by + 14 < listY || by > listY + listH) continue;
+
+                    org.xeb.xeb.buff.EliteBuff buff = allBuffs.get(b);
+                    boolean isSel = (this.selectedBestiaryIndex == b);
+                    boolean bHov = mouseX >= listX + 2 && mouseX < listX + listW - 2 && mouseY >= by && mouseY < by + 14;
+
+                    int itemBg = isSel ? 0xCC00FFCC : (bHov ? 0x4400FFCC : 0x1A00FFCC);
+                    int itemTxt = isSel ? 0xFF08111E : (bHov ? 0xFFFFFFFF : 0xFF888888);
+
+                    g.fill(listX + 2, by, listX + listW - 2, by + 14, itemBg);
+                    g.drawString(this.font, buff.getDisplayName().getString(), listX + 6, by + 3, itemTxt, false);
+                }
+                g.disableScissor();
+
+                // Right details panel
+                int detX = areaX + 102;
+                int detY = areaY + 6;
+                int detW = areaW - 108;
+
+                org.xeb.xeb.buff.EliteBuff selBuff = allBuffs.get(this.selectedBestiaryIndex);
+                g.drawString(this.font, selBuff.getDisplayName().getString(), detX, detY + 2, 0xFF00FFCC, false);
+
+                // Tier badge
+                String tierName = selBuff.getBuffType().name();
+                int badgeCol = selBuff.getColor() | 0xFF000000;
+                g.fill(detX, detY + 14, detX + 40, detY + 24, badgeCol);
+                g.drawString(this.font, tierName, detX + 4, detY + 15, 0xFF000000, false);
+
+                // Kills counter
+                int kills = 0;
+                if (this.minecraft != null && this.minecraft.player != null) {
+                    kills = this.minecraft.player.getPersistentData().getInt("xebKilled_" + selBuff.getId());
+                }
+                g.drawString(this.font, translate("gui.xeb.enigma_bios.bestiary.kills") + kills, detX + 46, detY + 15, 0xFFFFCC00, false);
+
+                g.fill(detX, detY + 28, detX + detW, detY + 29, 0x4400FFCC);
+
+                // Buff description
+                String descText = translate("xeb.buff." + selBuff.getId() + ".desc");
+                if (descText.equals("xeb.buff." + selBuff.getId() + ".desc")) {
+                    descText = "Medallón Élite (" + tierName + "): Confiere propiedades especiales de combate y defensivas a la entidad huésped.";
+                }
+                List<FormattedText> descLines = this.font.getSplitter().splitLines(descText, detW - 4, net.minecraft.network.chat.Style.EMPTY);
+                int dY = detY + 34;
+                for (FormattedText line : descLines) {
+                    if (dY < detY + 80) {
+                        g.drawString(this.font, line.getString(), detX, dY, 0xFFE0E0E0, false);
+                        dY += 10;
+                    }
+                }
+
+                // Counter strategy
+                g.drawString(this.font, translate("gui.xeb.enigma_bios.bestiary.strategy"), detX, detY + 84, 0xFF00FFCC, false);
+                String stratText = "Usa la reliquia o encantamiento adecuado para contrarrestar este buff.";
+                List<FormattedText> stratLines = this.font.getSplitter().splitLines(stratText, detW - 4, net.minecraft.network.chat.Style.EMPTY);
+                int sY = detY + 96;
+                for (FormattedText line : stratLines) {
+                    if (sY < detY + areaH - 4) {
+                        g.drawString(this.font, line.getString(), detX, sY, 0xFF888888, false);
+                        sY += 10;
+                    }
+                }
             }
         } else {
-            // RENDER LOG (Bitácoras 1-5)
-            int index = this.activeTab - 1;
+            // RENDER LOG (Bitácoras 1-33)
+            int index = this.activeTab - 2;
             if (index >= 0 && index < logs.size()) {
                 boolean isUnlocked = this.minecraft != null && this.minecraft.player != null &&
                         this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + (index + 1));
@@ -668,7 +793,7 @@ public class EnigmaBiosScreen extends Screen {
 
         // Hover left tabs
         if (scaledMouseX >= startX && scaledMouseX < startX + 65 && scaledMouseY >= viewportY && scaledMouseY < viewportY + viewportH) {
-            int maxTabScroll = Math.max(0, 6 * 22 - viewportH);
+            int maxTabScroll = Math.max(0, (2 + logs.size()) * 22 - viewportH);
             if (maxTabScroll > 0) {
                 this.tabScrollAmount = net.minecraft.util.Mth.clamp(this.tabScrollAmount - (float) delta * 11.0F, 0.0F, maxTabScroll);
                 return true;
@@ -730,9 +855,17 @@ public class EnigmaBiosScreen extends Screen {
                         return true;
                     }
                 }
+            } else if (this.activeTab == 1) {
+                // Bestiary list scrolling
+                int totalBuffs = org.xeb.xeb.buff.EliteBuffRegistry.getAll().size();
+                int maxScroll = Math.max(0, totalBuffs * 16 - (areaH - 12));
+                if (maxScroll > 0) {
+                    this.bestiaryScrollAmount = net.minecraft.util.Mth.clamp(this.bestiaryScrollAmount - (float) delta * 9.0F, 0.0F, maxScroll);
+                    return true;
+                }
             } else {
                 // Log content scrolling
-                int index = this.activeTab - 1;
+                int index = this.activeTab - 2;
                 if (index >= 0 && index < logs.size()) {
                     boolean isUnlocked = this.minecraft != null && this.minecraft.player != null &&
                             this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + (index + 1));
@@ -770,24 +903,62 @@ public class EnigmaBiosScreen extends Screen {
         int areaH = 130;
 
         // Check if tab scrollbar was clicked
-        int maxTabScroll = Math.max(0, (1 + logs.size()) * 22 - viewportH);
+        int maxTabScroll = Math.max(0, (2 + logs.size()) * 22 - viewportH);
         if (maxTabScroll > 0 && scaledMouseX >= startX + 61 && scaledMouseX < startX + 64 && scaledMouseY >= viewportY && scaledMouseY < viewportY + viewportH) {
             this.isDraggingTabScroll = true;
             return true;
         }
 
         // Tab item clicks
-        for (int i = 0; i < 1 + logs.size(); i++) {
+        for (int i = 0; i < 2 + logs.size(); i++) {
             int y = viewportY + i * 22 - (int) tabScrollAmount;
             if (scaledMouseX >= startX && scaledMouseX < startX + 60 && scaledMouseY >= y && scaledMouseY < y + 20
                     && y >= viewportY && y + 20 <= viewportY + viewportH) {
                 this.activeTab = i;
                 this.contentScrollAmount = 0.0F;
                 this.analyzerScrollAmount = 0.0F;
+                this.bestiaryScrollAmount = 0.0F;
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 }
                 return true;
+            }
+        }
+
+        // Analyzer customize HUD button click
+        if (this.activeTab == 0 && !this.analyzedStack.isEmpty()) {
+            int hudBtnX = areaX + areaW - 98;
+            int hudBtnY = areaY + 6;
+            int hudBtnW = 90;
+            int hudBtnH = 14;
+            if (scaledMouseX >= hudBtnX && scaledMouseX < hudBtnX + hudBtnW && scaledMouseY >= hudBtnY && scaledMouseY < hudBtnY + hudBtnH) {
+                if (this.minecraft != null) {
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    this.minecraft.setScreen(new HUDPositionScreen(this));
+                }
+                return true;
+            }
+        }
+
+        // Bestiary list item click
+        if (this.activeTab == 1) {
+            List<org.xeb.xeb.buff.EliteBuff> allBuffs = new java.util.ArrayList<>(org.xeb.xeb.buff.EliteBuffRegistry.getAll());
+            int listX = areaX + 6;
+            int listY = areaY + 6;
+            int listW = 90;
+            int listH = areaH - 12;
+
+            if (scaledMouseX >= listX && scaledMouseX < listX + listW && scaledMouseY >= listY && scaledMouseY < listY + listH) {
+                for (int b = 0; b < allBuffs.size(); b++) {
+                    int by = listY + 2 + b * 16 - (int) bestiaryScrollAmount;
+                    if (scaledMouseX >= listX + 2 && scaledMouseX < listX + listW - 2 && scaledMouseY >= by && scaledMouseY < by + 14) {
+                        this.selectedBestiaryIndex = b;
+                        if (this.minecraft != null) {
+                            this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                        }
+                        return true;
+                    }
+                }
             }
         }
 
@@ -871,8 +1042,8 @@ public class EnigmaBiosScreen extends Screen {
         }
 
         // Active log scrollbar check
-        if (this.activeTab >= 1 && this.activeTab <= logs.size()) {
-            int index = this.activeTab - 1;
+        if (this.activeTab >= 2 && this.activeTab <= 1 + logs.size()) {
+            int index = this.activeTab - 2;
             boolean isUnlocked = this.minecraft != null && this.minecraft.player != null &&
                     this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + (index + 1));
             if (isUnlocked) {

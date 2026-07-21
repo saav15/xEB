@@ -36,6 +36,13 @@ public class EnigmaBiosHandler {
         List<MedallionData> medallions = MedallionManager.getMedallions(deadEntity);
         if (medallions.isEmpty()) return;
 
+        // Track kills for each medallion buff for the Elite Bestiary
+        CompoundTag tag = serverPlayer.getPersistentData();
+        for (MedallionData m : medallions) {
+            String killKey = "xebKilled_" + m.getBuff().getId();
+            tag.putInt(killKey, tag.getInt(killKey) + 1);
+        }
+
         // Find the highest medallion tier
         MedallionType highestTier = MedallionType.COMMON;
         for (MedallionData m : medallions) {
@@ -134,6 +141,11 @@ public class EnigmaBiosHandler {
                 String key = "xebUnlockedBitacora" + i;
                 if (oldData.contains(key)) {
                     newData.putBoolean(key, oldData.getBoolean(key));
+                }
+            }
+            for (String key : oldData.getAllKeys()) {
+                if (key.startsWith("xebKilled_")) {
+                    newData.putInt(key, oldData.getInt(key));
                 }
             }
         }

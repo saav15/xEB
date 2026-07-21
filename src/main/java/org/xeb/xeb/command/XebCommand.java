@@ -225,10 +225,16 @@ public class XebCommand {
                     })
             );
 
-        devCommand.then(cooldownsCommand).then(curiosCommand).then(loggCommand).then(riftCommand);
+        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> voteCommand = Commands.literal("vote")
+            .then(Commands.literal("yes").executes(ctx -> {
+                net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+                org.xeb.xeb.world.MoonTearVoteManager.startOrAddVote(player);
+                return 1;
+            }));
 
         dispatcher.register(
             Commands.literal("xeb")
+                .then(voteCommand)
                 // Root is public, specific sub-commands require permissions
                 .then(
                     Commands.literal("summon")

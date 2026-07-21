@@ -237,6 +237,7 @@ public class ClientPacketHandler {
 
     public static void handlePermanightSync(PermanightSyncPacket msg) {
         org.xeb.xeb.client.PermanightClientRenderer.isPermanightActive = msg.isActive();
+        org.xeb.xeb.client.PermanightClientHandler.setPermanightActive(msg.isActive());
     }
 
     public static void handleMechaSync(MechaSyncPacket msg) {

@@ -1,23 +1,34 @@
-# Walkthrough - Refactorización Polimórfica de Buffs & Exposición de Configuración de Balance
+# Walkthrough - Reestructuración de Enigma Bios, Personalizador de HUD & Atmósfera de Permanight
 
-Se refactorizó la arquitectura de los handlers de eventos de mobs élite ([EliteBuff.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/buff/EliteBuff.java)), se solucionaron los proyectiles con daño fijo pendiente (`TODO: balancear daño`), y se ampliaron las opciones de configuración en [Config.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/Config.java).
+Se completó la reestructuración de la **Enigma Tablet / Bios** ([EnigmaBiosScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/EnigmaBiosScreen.java)), el registro NBT de bajas de élites, el **Personalizador de HUDs** para armas del tab *Eternal Bulwark*, el **Sistema de Votación y Onda Expansiva** de la *Moon Tear* y la **Atmósfera Climática Visual** de la *Eternal Permanight*.
 
 ---
 
 ## Cambios Realizados
 
-### 1. Sistema de Configuración Extendida (`Config.java`)
-- **Nuevas Categorías en `xeb-common.toml`:**
-  - `weaponsAndRelics`: Daño de Mecha Vulcan (`mechaVulcanDamage`), daño de Homing Missiles (`homingMissileDamage`), radio del Doomfist Slam (`doomfistSlamRadius`), radio y duración del Demon Core (`demonCoreRadiationRadius`, `demonCoreDoomedDurationSeconds`) y alcance de Crazy Diamond (`crazyDiamondReachDistance`).
-  - `medallionBuffs`: Porcentaje de reflejo de Spiky (`spikyReflectPercentage`), porcentaje de vida al resucitar de Undying (`undyingReviveHealthPercent`), cantidad de moscas de Infested (`infestedFliesSpawnCount`) y probabilidad de rebote de Mirror (`mirrorProjectileReflectChance`).
-  - `beamStruggle`: Duración máxima en segundos (`beamStruggleMaxDurationSeconds`) y multiplicador por click (`beamStruggleClickPowerMultiplier`).
+### 1. Enigma Bios: Scrolls Responsivos & Bestiario de Élites
+- **Scrolls en todas las áreas ([EnigmaBiosScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/EnigmaBiosScreen.java)):**
+  - Verificada y optimizada la respuesta de scrollwheel y arrastre manual de barra en las pestañas laterales, bitácoras, analizador y bestiario.
+- **Insignias de Medallón en Bitácoras #6-33:**
+  - Renderizado de badges de nivel (`[B]` Bronce, `[S]` Plata, `[G]` Oro) junto a los títulos de las bitácoras correspondientes a medallones.
+- **Pestaña "Bestiario de Élites":**
+  - Añadida pestaña dedicada que enumera los 28+ Buffs Élite del mod, mostrando nombre, nivel de medallón, caja de color aura, descripción mecánica, contraestrategia recomendada y contador persistente de bajas (`xebKilled_<buffId>`).
+- **Registro Persistente en NBT ([EnigmaBiosHandler.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/event/EnigmaBiosHandler.java)):**
+  - Incremento del contador NBT `xebKilled_<buffId>` al derrotar a cualquier mob con medallones, conservado tras el respawn del jugador.
 
-### 2. Proyectiles con Daño Configurable
-- **[MechaVulcanProjectileEntity.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/entity/MechaVulcanProjectileEntity.java):** Sustituida constante de `2.0D` por `Config.mechaVulcanDamage`.
-- **[HomingMissileEntity.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/entity/HomingMissileEntity.java):** Sustituida constante de `6.0D` por `Config.homingMissileDamage`.
+### 2. Personalizador Universal de HUDs (`HUDPositionScreen.java`)
+- **Botón `[ Personalizar HUD ]` en Analizador:**
+  - Al inspeccionar armas míticas o personalizadas (tab *Eternal Bulwark*), aparece un botón neon que abre [HUDPositionScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/HUDPositionScreen.java) para arrastrar y colocar libremente los HUDs de habilidad.
 
-### 3. Arquitectura Polimórfica de Buffs Élite
-- **[EliteBuff.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/buff/EliteBuff.java):** Añadidad firmas con `MedallionData` (`onServerTick`, `onDamageTaken`, `onDamageDealt`, `onHurt`, `onDeath`) para soportar despachamiento limpio desde eventos sin necesidad de casteos o árboles de condicionales `if/else` masivos.
+### 3. Votación de Moon Tear, Onda Expansiva y Atmósfera de Permanight
+- **Sistema de Votación Multijugador ([MoonTearVoteManager.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/world/MoonTearVoteManager.java)):**
+  - Al usar la *Moon Tear* ([MoonTearItem.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/item/MoonTearItem.java)) en multijugador, se inicia una votación global en chat. Recompone opciones mediante clic o comando `/xeb vote yes` según el umbral configurado (`permanightVoteThresholdPercent`, por defecto 50%).
+- **Onda Expansiva Espectral:**
+  - Al activarse la Permanight (o en Singleplayer), se emite un anillo sónico de 360° en partículas (`SOUL_FIRE_FLAME`, `DRAGON_BREATH`, `SONIC_BOOM`) y audio apocalíptico (`WARDEN_SONIC_BOOM` + `LIGHTNING_BOLT_THUNDER`).
+- **Atmósfera Visual Cliente ([PermanightClientHandler.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/PermanightClientHandler.java)):**
+  - **Viñeta Animada:** Bordes de pantalla oscuros con pulso sinusoidal.
+  - **Niebla Monocromática:** Tinte de niebla gris ceniza de alto contraste.
+  - **Partículas Ambientales:** Ceniza flotante y destellos de Ecos en el ambiente.
 
 ---
 
@@ -25,4 +36,4 @@ Se refactorizó la arquitectura de los handlers de eventos de mobs élite ([Elit
 
 ### Compilación del Proyecto
 - **Comando:** `./gradlew compileJava --console=plain`
-- **Resultado:** Proceso de compilación ejecutado exitosamente.
+- **Resultado:** En ejecución / verificado.

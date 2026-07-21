@@ -34,7 +34,7 @@ public class MoonTearItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
-        if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
+        if (!level.isClientSide() && level instanceof ServerLevel serverLevel && player instanceof ServerPlayer serverPlayer) {
             PermanightSavedData data = PermanightSavedData.get(serverLevel);
 
             if (data.isActive()) {
@@ -42,25 +42,8 @@ public class MoonTearItem extends Item {
                 return InteractionResultHolder.fail(stack);
             }
 
-            // Play epic thunder sound globally at player
-            serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
-                    SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.WEATHER, 5.0F, 0.5F);
-
-            // Trigger immediately!
-            data.setActive(true);
-            data.setTicksRemaining(24000); // lasts 24000 ticks (a full MC day)
-            data.setForceNextNight(false);
-            
-            // Force server time to night
-            serverLevel.setDayTime(18000L);
-            
-            // Broadcast announcement
-            serverLevel.players().forEach(p -> {
-                p.sendSystemMessage(Component.translatable("chat.xeb.permanight.start"));
-            });
-            
-            // Sync to all clients
-            XEBNetwork.CHANNEL.send(PacketDistributor.ALL.noArg(), new PermanightSyncPacket(true));
+            // Start or register vote / trigger shockwave
+            org.xeb.xeb.world.MoonTearVoteManager.startOrAddVote(serverPlayer);
 
             if (!player.isCreative()) {
                 stack.shrink(1);

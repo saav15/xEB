@@ -690,5 +690,9 @@
   "enchantment.xeb.purifying_beam": "Purifying Beam",
   "enchantment.xeb.purifying_beam.desc": "Laser weapon strikes deal up to 60% bonus damage against negative or parasitic medallion carriers.",
   "enchantment.xeb.aegis_shatter": "Aegis Shatter",
-  "enchantment.xeb.aegis_shatter.desc": "Weapon strikes bypass 100% of Shattered Rift boss parry/evade mechanics and Protected medallion stasis fields."
+  "enchantment.xeb.aegis_shatter.desc": "Weapon strikes bypass 100% of Shattered Rift boss parry/evade mechanics and Protected medallion stasis fields.",
+  "gui.xeb.enigma_bios.tab.bestiary": "BESTIARIO",
+  "gui.xeb.enigma_bios.btn.customize_hud": "Personalizar HUD",
+  "gui.xeb.enigma_bios.bestiary.kills": "Élites eliminados: ",
+  "gui.xeb.enigma_bios.bestiary.strategy": "Contraestrategia: "
 }

@@ -689,5 +689,9 @@
   "enchantment.xeb.purifying_beam": "Haz Purificador",
   "enchantment.xeb.purifying_beam.desc": "Los ataques de armas láser infligen hasta un 60% de daño adicional contra portadores de medallones negativos o parasitarios.",
   "enchantment.xeb.aegis_shatter": "Rompe-Égidas",
-  "enchantment.xeb.aegis_shatter.desc": "Los ataques del arma ignoran al 100% el escudo stasis de medallones Protected y las evasiones de jefes de Shattered Rift."
+  "enchantment.xeb.aegis_shatter.desc": "Los ataques del arma ignoran al 100% el escudo stasis de medallones Protected y las evasiones de jefes de Shattered Rift.",
+  "gui.xeb.enigma_bios.tab.bestiary": "BESTIARIO",
+  "gui.xeb.enigma_bios.btn.customize_hud": "Personalizar HUD",
+  "gui.xeb.enigma_bios.bestiary.kills": "Élites eliminados: ",
+  "gui.xeb.enigma_bios.bestiary.strategy": "Contraestrategia: "
 }

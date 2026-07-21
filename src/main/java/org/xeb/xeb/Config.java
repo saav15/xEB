@@ -165,6 +165,14 @@ public class Config {
             .comment("Chance per night for the Elite Permanight event to trigger (0.0 to 1.0).")
             .defineInRange("permanight.triggerChance", 0.03D, 0.0D, 1.0D);
 
+    public static final ForgeConfigSpec.IntValue PERMANIGHT_VOTE_THRESHOLD_PERCENT = BUILDER
+            .comment("Percentage of online players required to approve Moon Tear Permanight activation in multiplayer (0 to 100). Default: 50%.")
+            .defineInRange("permanight.voteThresholdPercent", 50, 0, 100);
+
+    public static final ForgeConfigSpec.IntValue PERMANIGHT_VOTE_DURATION_SECONDS = BUILDER
+            .comment("Duration in seconds of the Moon Tear vote in multiplayer.")
+            .defineInRange("permanight.voteDurationSeconds", 30, 5, 120);
+
     // HUD Group
     public static final ForgeConfigSpec.IntValue OPTIC_BLAST_HUD_X = BUILDER
             .comment("X offset of the active ability cooldowns HUD (Default 10, relative to bottom-left).")
@@ -300,6 +308,8 @@ public class Config {
     // Permanight config
     public static boolean permanightEnabled = true;
     public static double permanightChance = 0.03D;
+    public static int permanightVoteThresholdPercent = 50;
+    public static int permanightVoteDurationSeconds = 30;
 
     // HUD position config
     public static int opticBlastHudX = 10;
@@ -388,6 +398,8 @@ public class Config {
         // Load permanight config
         permanightEnabled = PERMANIGHT_ENABLED.get();
         permanightChance = PERMANIGHT_CHANCE.get();
+        permanightVoteThresholdPercent = PERMANIGHT_VOTE_THRESHOLD_PERCENT.get();
+        permanightVoteDurationSeconds = PERMANIGHT_VOTE_DURATION_SECONDS.get();
 
         // Load HUD config
         opticBlastHudX = OPTIC_BLAST_HUD_X.get();
