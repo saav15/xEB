@@ -1,7 +1,6 @@
 package org.xeb.xeb.client.gui;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -60,7 +59,7 @@ public class EnigmaBiosScreen extends Screen {
 
     @Override
     public boolean isPauseScreen() {
-        // Return false so singleplayer world ticks, mob animations, weapon models, and particles continue live in background!
+        // Return false so world, mob animations, weapon models, and particles continue live in background!
         return false;
     }
 
@@ -120,6 +119,9 @@ public class EnigmaBiosScreen extends Screen {
         // Draw Main Frame Background
         g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, 0xEE08111E);
 
+        // Futuristic Animated Scanlines & Tech Lines Background Effect
+        renderFuturisticBackgroundScanlines(g, borderColor);
+
         // Frame Border Lines
         g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + 2, borderColor);
         g.fill(this.leftPos, this.topPos + this.guiHeight - 2, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, borderColor);
@@ -139,6 +141,27 @@ public class EnigmaBiosScreen extends Screen {
 
         super.render(g, scaledMouseX, scaledMouseY, partialTick);
         g.pose().popPose();
+    }
+
+    private void renderFuturisticBackgroundScanlines(GuiGraphics g, int borderColor) {
+        // Animate moving cyan scanlines vertically
+        long time = System.currentTimeMillis();
+        int scanY = (int) ((time % 2000L) / 20.0F * (this.guiHeight / 100.0F));
+
+        g.enableScissor(this.leftPos + 2, this.topPos + 2, this.leftPos + this.guiWidth - 2, this.topPos + this.guiHeight - 2);
+
+        // Draw animated moving horizontal scanline band
+        for (int offset = 0; offset < this.guiHeight; offset += 30) {
+            int lineY = this.topPos + ((scanY + offset) % this.guiHeight);
+            g.fill(this.leftPos + 2, lineY, this.leftPos + this.guiWidth - 2, lineY + 1, 0x1100FFCC);
+        }
+
+        // Draw subtle static grid lines
+        for (int x = this.leftPos + 30; x < this.leftPos + this.guiWidth; x += 30) {
+            g.fill(x, this.topPos + 2, x + 1, this.topPos + this.guiHeight - 2, 0x0A00FFCC);
+        }
+
+        g.disableScissor();
     }
 
     private void renderTabs(GuiGraphics g, int mouseX, int mouseY) {
@@ -214,7 +237,7 @@ public class EnigmaBiosScreen extends Screen {
         }
 
         if (this.activeTab == 0) {
-            // RENDER ANALYZER (EXACT ORIGINAL DESIGN MATCHING SCREENSHOT)
+            // RENDER ANALYZER WITH AUTO-ADAPTED LAYOUT FOR WEAPONS VS NON-WEAPONS
             int slotX = areaX + 8;
             int slotY = areaY + 8;
 
@@ -239,114 +262,110 @@ public class EnigmaBiosScreen extends Screen {
                 int textColor = flashing ? 0xFFFF3333 : 0xFF00FFCC;
                 g.drawString(this.font, translate("gui.xeb.enigma_bios.label.name") + info.name, areaX + 34, areaY + 10, textColor, false);
 
-                // Customize HUD Button (compact top-right)
-                int hudBtnX = areaX + areaW - 84;
-                int hudBtnY = areaY + 6;
-                int hudBtnW = 78;
-                int hudBtnH = 12;
-                boolean hudHovered = mouseX >= hudBtnX && mouseX < hudBtnX + hudBtnW && mouseY >= hudBtnY && mouseY < hudBtnY + hudBtnH;
-
-                int hudBg = hudHovered ? 0xCC00FFCC : 0x2200FFCC;
-                int hudTxt = hudHovered ? 0xFF08111E : 0xFF00FFCC;
-                g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, hudBg);
-                g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + 1, 0xFF00FFCC);
-                g.fill(hudBtnX, hudBtnY + hudBtnH - 1, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
-                g.fill(hudBtnX, hudBtnY, hudBtnX + 1, hudBtnY + hudBtnH, 0xFF00FFCC);
-                g.fill(hudBtnX + hudBtnW - 1, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
-                g.drawString(this.font, translate("gui.xeb.enigma_bios.btn.customize_hud"), hudBtnX + 4, hudBtnY + 2, hudTxt, false);
-
-                // Full Lore Paragraph
-                String loreText = info.translationKey.equals("item.unknown")
-                        ? translate("item.unknown.enigma_lore." + this.unknownTextIndex)
-                        : translate(info.translationKey + ".enigma_lore");
-
-                List<FormattedText> loreLines = this.font.getSplitter().splitLines(loreText, areaW - 40, net.minecraft.network.chat.Style.EMPTY);
-                int textY = areaY + 26;
-                for (FormattedText line : loreLines) {
-                    if (textY < areaY + 54) {
-                        g.drawString(this.font, line.getString(), areaX + 34, textY, 0xFFFFFFFF, false);
-                        textY += 9;
-                    }
-                }
-
-                // 5 Ability Selector Buttons Bar: Left Click | Right Click | Active 1 | Active 2 | Ultimate
-                String[] btnKeys = {
-                        "gui.xeb.enigma_bios.btn.left_click",
-                        "gui.xeb.enigma_bios.btn.right_click",
-                        "gui.xeb.enigma_bios.btn.active1",
-                        "gui.xeb.enigma_bios.btn.active2",
-                        "gui.xeb.enigma_bios.btn.extreme_burst"
-                };
-
-                int btnW = 50;
-                int btnH = 14;
-                int btnY = areaY + 56;
-
-                for (int k = 0; k < 5; k++) {
-                    int bx = areaX + 12 + k * 52;
-                    boolean active = (this.selectedAbilityIndex == k);
-                    boolean hovered = mouseX >= bx && mouseX < bx + btnW && mouseY >= btnY && mouseY < btnY + btnH;
-                    boolean disabled = info.isAbilityDisabled(k);
-
-                    int btnBg;
-                    int btnTextCol;
-                    int btnBorder = disabled ? 0x33666666 : (flashing ? 0xFFFF3333 : 0xFF00FFCC);
-
-                    if (disabled) {
-                        btnBg = 0x1A444444;
-                        btnTextCol = 0xFF555555;
-                    } else if (active) {
-                        btnBg = flashing ? 0xCCFF3333 : 0xCC00FFCC;
-                        btnTextCol = 0xFF08111E;
-                    } else if (hovered) {
-                        btnBg = flashing ? 0x44FF3333 : 0x4400FFCC;
-                        btnTextCol = 0xFFFFFFFF;
-                    } else {
-                        btnBg = flashing ? 0x1AFF3333 : 0x1A00FFCC;
-                        btnTextCol = flashing ? 0xFF884444 : 0xFF888888;
-                    }
-
-                    g.fill(bx, btnY, bx + btnW, btnY + btnH, btnBg);
-                    g.fill(bx, btnY, bx + btnW, btnY + 1, btnBorder);
-                    g.fill(bx, btnY + btnH - 1, bx + btnW, btnY + btnH, btnBorder);
-                    g.fill(bx, btnY, bx + 1, btnY + btnH, btnBorder);
-                    g.fill(bx + btnW - 1, btnY, bx + btnW, btnY + btnH, btnBorder);
-
-                    String btnText = translate(btnKeys[k]);
-                    if (btnText.equals(btnKeys[k])) {
-                        btnText = switch (k) {
-                            case 0 -> "Left Click";
-                            case 1 -> "Right Click";
-                            case 2 -> "Active 1";
-                            case 3 -> "Active 2";
-                            default -> "Ultimate";
-                        };
-                    }
-                    int btnTextW = this.font.width(btnText);
-                    int pad = 2;
-                    int avail = btnW - pad * 2;
-                    if (btnTextW <= avail) {
-                        g.drawString(this.font, btnText, bx + (btnW - btnTextW) / 2, btnY + 3, btnTextCol, false);
-                    } else {
-                        float btnScale = (float) avail / (float) btnTextW;
-                        g.pose().pushPose();
-                        float cx = bx + btnW / 2.0f;
-                        float cy = btnY + 3 + this.font.lineHeight / 2.0f;
-                        g.pose().translate(cx, cy, 0);
-                        g.pose().scale(btnScale, btnScale, 1.0f);
-                        g.pose().translate(-cx, -cy, 0);
-                        g.drawString(this.font, btnText, bx + (btnW - btnTextW) / 2, btnY + 3, btnTextCol, false);
-                        g.pose().popPose();
-                    }
-                }
-
-                // Render Selected Move Details (Move Title in Cyan + Damage/Cooldown in Bright Yellow + Description in White)
-                int detailY = areaY + 74;
-                int idx = this.selectedAbilityIndex;
-
                 if (info.hasAbilities) {
+                    // WEAPON ITEM WITH ABILITIES: RENDER CUSTOMIZE HUD BUTTON + 5 ABILITY BUTTONS + STATS
+                    int hudBtnX = areaX + areaW - 84;
+                    int hudBtnY = areaY + 6;
+                    int hudBtnW = 78;
+                    int hudBtnH = 12;
+                    boolean hudHovered = mouseX >= hudBtnX && mouseX < hudBtnX + hudBtnW && mouseY >= hudBtnY && mouseY < hudBtnY + hudBtnH;
+
+                    int hudBg = hudHovered ? 0xCC00FFCC : 0x2200FFCC;
+                    int hudTxt = hudHovered ? 0xFF08111E : 0xFF00FFCC;
+                    g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, hudBg);
+                    g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + 1, 0xFF00FFCC);
+                    g.fill(hudBtnX, hudBtnY + hudBtnH - 1, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
+                    g.fill(hudBtnX, hudBtnY, hudBtnX + 1, hudBtnY + hudBtnH, 0xFF00FFCC);
+                    g.fill(hudBtnX + hudBtnW - 1, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
+                    g.drawString(this.font, translate("gui.xeb.enigma_bios.btn.customize_hud"), hudBtnX + 4, hudBtnY + 2, hudTxt, false);
+
+                    // Lore Text (compact)
+                    String loreText = translate(info.translationKey + ".enigma_lore");
+                    List<FormattedText> loreLines = this.font.getSplitter().splitLines(loreText, areaW - 40, net.minecraft.network.chat.Style.EMPTY);
+                    int textY = areaY + 26;
+                    for (FormattedText line : loreLines) {
+                        if (textY < areaY + 54) {
+                            g.drawString(this.font, line.getString(), areaX + 34, textY, 0xFFFFFFFF, false);
+                            textY += 9;
+                        }
+                    }
+
+                    // 5 Ability Buttons: Left Click | Right Click | Active 1 | Active 2 | Ultimate
+                    String[] btnKeys = {
+                            "gui.xeb.enigma_bios.btn.left_click",
+                            "gui.xeb.enigma_bios.btn.right_click",
+                            "gui.xeb.enigma_bios.btn.active1",
+                            "gui.xeb.enigma_bios.btn.active2",
+                            "gui.xeb.enigma_bios.btn.extreme_burst"
+                    };
+
+                    int btnW = 50;
+                    int btnH = 14;
+                    int btnY = areaY + 56;
+
+                    for (int k = 0; k < 5; k++) {
+                        int bx = areaX + 12 + k * 52;
+                        boolean active = (this.selectedAbilityIndex == k);
+                        boolean hovered = mouseX >= bx && mouseX < bx + btnW && mouseY >= btnY && mouseY < btnY + btnH;
+                        boolean disabled = info.isAbilityDisabled(k);
+
+                        int btnBg;
+                        int btnTextCol;
+                        int btnBorder = disabled ? 0x33666666 : (flashing ? 0xFFFF3333 : 0xFF00FFCC);
+
+                        if (disabled) {
+                            btnBg = 0x1A444444;
+                            btnTextCol = 0xFF555555;
+                        } else if (active) {
+                            btnBg = flashing ? 0xCCFF3333 : 0xCC00FFCC;
+                            btnTextCol = 0xFF08111E;
+                        } else if (hovered) {
+                            btnBg = flashing ? 0x44FF3333 : 0x4400FFCC;
+                            btnTextCol = 0xFFFFFFFF;
+                        } else {
+                            btnBg = flashing ? 0x1AFF3333 : 0x1A00FFCC;
+                            btnTextCol = flashing ? 0xFF884444 : 0xFF888888;
+                        }
+
+                        g.fill(bx, btnY, bx + btnW, btnY + btnH, btnBg);
+                        g.fill(bx, btnY, bx + btnW, btnY + 1, btnBorder);
+                        g.fill(bx, btnY + btnH - 1, bx + btnW, btnY + btnH, btnBorder);
+                        g.fill(bx, btnY, bx + 1, btnY + btnH, btnBorder);
+                        g.fill(bx + btnW - 1, btnY, bx + btnW, btnY + btnH, btnBorder);
+
+                        String btnText = translate(btnKeys[k]);
+                        if (btnText.equals(btnKeys[k])) {
+                            btnText = switch (k) {
+                                case 0 -> "Left Click";
+                                case 1 -> "Right Click";
+                                case 2 -> "Active 1";
+                                case 3 -> "Active 2";
+                                default -> "Ultimate";
+                            };
+                        }
+                        int btnTextW = this.font.width(btnText);
+                        int pad = 2;
+                        int avail = btnW - pad * 2;
+                        if (btnTextW <= avail) {
+                            g.drawString(this.font, btnText, bx + (btnW - btnTextW) / 2, btnY + 3, btnTextCol, false);
+                        } else {
+                            float btnScale = (float) avail / (float) btnTextW;
+                            g.pose().pushPose();
+                            float cx = bx + btnW / 2.0f;
+                            float cy = btnY + 3 + this.font.lineHeight / 2.0f;
+                            g.pose().translate(cx, cy, 0);
+                            g.pose().scale(btnScale, btnScale, 1.0f);
+                            g.pose().translate(-cx, -cy, 0);
+                            g.drawString(this.font, btnText, bx + (btnW - btnTextW) / 2, btnY + 3, btnTextCol, false);
+                            g.pose().popPose();
+                        }
+                    }
+
+                    // Render Selected Move Details (Move Title in Cyan + Damage/Cooldown in Bright Yellow + Description in White)
+                    int detailY = areaY + 74;
+                    int idx = this.selectedAbilityIndex;
+
                     if (idx == 4) {
-                        // Ultimate / Extreme Burst
                         ExtremeBurstRegistry.ExtremeBurstEntry burstEntry = null;
                         Item item = this.analyzedStack.getItem();
                         if (item == ModItems.GOLDEN_FLOWER.get()) {
@@ -401,19 +420,41 @@ public class EnigmaBiosScreen extends Screen {
                         }
                     }
                 } else {
+                    // NON-WEAPON ITEM: AUTO-ADAPTED EXPANDED FULL VIEWPORT WITH SCROLLBAR (NO ABILITY BUTTONS, NO CUSTOM HUD BUTTON)
+                    int descY = areaY + 26;
+                    int descH = areaY + areaH - 6 - descY;
+
                     String effectKey = info.translationKey.equals("item.unknown")
                             ? "item.unknown.enigma_effect." + this.unknownTextIndex
                             : info.translationKey + ".enigma_effect";
                     String effectText = translate(effectKey);
-                    g.drawString(this.font, "Special Effect / Lore Result", areaX + 12, detailY, 0xFF00FFCC, false);
-                    List<FormattedText> effectLines = this.font.getSplitter().splitLines(effectText, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
-                    int dy = detailY + 11;
-                    for (FormattedText line : effectLines) {
-                        if (dy < areaY + areaH - 4) {
-                            g.drawString(this.font, line.getString(), areaX + 12, dy, 0xFFFFFFFF, false);
-                            dy += 9;
-                        }
+                    if (effectText.equals(effectKey) || effectText.isEmpty()) {
+                        effectText = translate(info.translationKey + ".enigma_lore");
                     }
+                    if (effectText.equals(info.translationKey + ".enigma_lore") || effectText.isEmpty()) {
+                        effectText = "Objeto analizado: Sin propiedades de combate reliquia detectadas.";
+                    }
+
+                    List<FormattedText> effectLines = this.font.getSplitter().splitLines(effectText, areaW - 28, net.minecraft.network.chat.Style.EMPTY);
+                    int totalHeight = effectLines.size() * 10;
+                    int maxScroll = Math.max(0, totalHeight - descH);
+
+                    if (maxScroll > 0) {
+                        int scrollX = areaX + areaW - 6;
+                        g.fill(scrollX, descY, scrollX + 3, descY + descH, 0x3300FFCC);
+                        int thumbH = Math.max(8, (int) ((float) descH * descH / totalHeight));
+                        int thumbY = descY + (int) ((float) analyzerScrollAmount * (descH - thumbH) / maxScroll);
+                        thumbY = net.minecraft.util.Mth.clamp(thumbY, descY, descY + descH - thumbH);
+                        g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, 0xFF00FFCC);
+                    }
+
+                    g.enableScissor(areaX + 12, descY, areaX + areaW - 12, areaY + areaH - 4);
+                    int dy = descY - (int) analyzerScrollAmount;
+                    for (FormattedText line : effectLines) {
+                        g.drawString(this.font, line.getString(), areaX + 12, dy, 0xFFFFFFFF, false);
+                        dy += 10;
+                    }
+                    g.disableScissor();
                 }
             }
         } else if (this.activeTab == 1) {
@@ -686,7 +727,24 @@ public class EnigmaBiosScreen extends Screen {
         }
 
         if (scaledMouseX >= areaX && scaledMouseX < areaX + areaW && scaledMouseY >= areaY && scaledMouseY < areaY + areaH) {
-            if (this.activeTab == 1) {
+            if (this.activeTab == 0 && !this.analyzedStack.isEmpty()) {
+                AnalyzedInfo info = analyzeItem(this.analyzedStack);
+                if (!info.hasAbilities) {
+                    int descY = areaY + 26;
+                    int descH = areaY + areaH - 6 - descY;
+                    String effectKey = info.translationKey.equals("item.unknown")
+                            ? "item.unknown.enigma_effect." + this.unknownTextIndex
+                            : info.translationKey + ".enigma_effect";
+                    String effectText = translate(effectKey);
+                    if (effectText.equals(effectKey) || effectText.isEmpty()) effectText = translate(info.translationKey + ".enigma_lore");
+                    List<FormattedText> lines = this.font.getSplitter().splitLines(effectText, areaW - 28, net.minecraft.network.chat.Style.EMPTY);
+                    int maxScroll = Math.max(0, lines.size() * 10 - descH);
+                    if (maxScroll > 0) {
+                        this.analyzerScrollAmount = net.minecraft.util.Mth.clamp(this.analyzerScrollAmount - (float) delta * 10.0F, 0.0F, maxScroll);
+                        return true;
+                    }
+                }
+            } else if (this.activeTab == 1) {
                 int totalBuffs = EliteBuffRegistry.getAll().size();
                 int maxScroll = Math.max(0, totalBuffs * 16 - (areaH - 12));
                 if (maxScroll > 0) {
@@ -753,30 +811,33 @@ public class EnigmaBiosScreen extends Screen {
         }
 
         if (this.activeTab == 0 && !this.analyzedStack.isEmpty()) {
-            int hudBtnX = areaX + areaW - 84;
-            int hudBtnY = areaY + 6;
-            int hudBtnW = 78;
-            int hudBtnH = 12;
-            if (scaledMouseX >= hudBtnX && scaledMouseX < hudBtnX + hudBtnW && scaledMouseY >= hudBtnY && scaledMouseY < hudBtnY + hudBtnH) {
-                if (this.minecraft != null) {
-                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-                    this.minecraft.setScreen(new HUDPositionScreen(this, this.analyzedStack));
-                }
-                return true;
-            }
-
-            // Click check for move selector buttons 0..4
-            int btnW = 50;
-            int btnH = 14;
-            int btnY = areaY + 56;
-            for (int b = 0; b < 5; b++) {
-                int bx = areaX + 12 + b * 52;
-                if (scaledMouseX >= bx && scaledMouseX < bx + btnW && scaledMouseY >= btnY && scaledMouseY < btnY + btnH) {
-                    this.selectedAbilityIndex = b;
+            AnalyzedInfo info = analyzeItem(this.analyzedStack);
+            if (info.hasAbilities) {
+                int hudBtnX = areaX + areaW - 84;
+                int hudBtnY = areaY + 6;
+                int hudBtnW = 78;
+                int hudBtnH = 12;
+                if (scaledMouseX >= hudBtnX && scaledMouseX < hudBtnX + hudBtnW && scaledMouseY >= hudBtnY && scaledMouseY < hudBtnY + hudBtnH) {
                     if (this.minecraft != null) {
                         this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                        this.minecraft.setScreen(new HUDPositionScreen(this, this.analyzedStack));
                     }
                     return true;
+                }
+
+                // Click check for move selector buttons 0..4
+                int btnW = 50;
+                int btnH = 14;
+                int btnY = areaY + 56;
+                for (int b = 0; b < 5; b++) {
+                    int bx = areaX + 12 + b * 52;
+                    if (scaledMouseX >= bx && scaledMouseX < bx + btnW && scaledMouseY >= btnY && scaledMouseY < btnY + btnH) {
+                        this.selectedAbilityIndex = b;
+                        if (this.minecraft != null) {
+                            this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                        }
+                        return true;
+                    }
                 }
             }
         }
@@ -830,7 +891,8 @@ public class EnigmaBiosScreen extends Screen {
                 this.lastAnalyzedTime = System.currentTimeMillis();
                 this.unknownTextIndex = (int) (Math.random() * 5);
                 if (this.minecraft != null) {
-                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.ANVIL_LAND, 0.8F));
+                    // Play sci-fi deactivation error sound tone!
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BEACON_DEACTIVATE, 0.5F));
                 }
             } else {
                 this.lastAnalyzedUnknown = false;

@@ -29,7 +29,7 @@ import java.util.UUID;
 public class XebCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> devCommand = Commands.literal("dev")
-            .requires(source -> source.hasPermission(4));
+            .requires(source -> source.hasPermission(2));
 
         com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> cooldownsCommand = Commands.literal("cooldowns")
             .then(

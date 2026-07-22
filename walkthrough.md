@@ -1,42 +1,36 @@
-# Walkthrough - Corrección de Analizador Enigma Bios, Render 3D Flotante de Medallones Mob & Personalización de HUDs Dinámicos de Recursos
+# Walkthrough - Restauración Definitiva de ENIGMA BIOS v1.0, Tooltips de Inventario y Bestiario 3D
 
-Se completó el refinamiento y corrección del sistema **Enigma Bios**, el **Renderizado 3D de Medallones de Mobs** y la **Personalización de HUDs Dinámicos de Recursos** para todas las armas míticas del tab *Eternal Bulwark*.
+Se completó la restauración idéntica del diseño original de **ENIGMA BIOS v1.0** (basada en la captura del usuario), incluyendo la tipografía, encabezado `ENIGMA BIOS v1.0 | STATUS: LINKED`, párrafos de lore extenso, botones de habilidades con estado de `Ultimate`, líneas de estadísticas `Damage: X | Cooldown: Xs` en amarillo vibrante, soporte de tooltips flotantes en el inventario del jugador, animación de alerta "ERROR" en rojo para ítems desconocidos y el Bestiario 3D con medallones flotantes de mobs a escala 2.2x.
 
 ---
 
 ## Cambios Realizados
 
-### 1. Restauración Completa del Analizador de Armas ([EnigmaBiosScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/EnigmaBiosScreen.java))
-- **Visualizador de Habilidades Restaurado:**
-  - Restaurados los 5 botones selecctores de ataques (`Clic Izquierdo`, `Clic Derecho`, `Activa 1`, `Activa 2`, `Extreme Burst`).
-  - Viewport animado de descripción, tiempos de recarga y tipo de daño para cada movimiento seleccionado (`selectedAbilityIndex`).
-  - Se eliminó cualquier congelamiento de pantalla al analizar armas o ítems.
+### 1. Interfaz Exacta de ENIGMA BIOS v1.0 ([EnigmaBiosScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/EnigmaBiosScreen.java))
+- **Encabezado:** `ENIGMA BIOS v1.0` (izquierda) y `STATUS: LINKED` (derecha en cian).
+- **Área Superior:** Ícono del objeto analizado + `Name: <Nombre>` + Párrafo de lore extenso continuo.
+- **Selector de Habilidades (5 botones):**
+  - `Left Click` | `Right Click` | `Active 1` | `Active 2` | `Ultimate`.
+  - Botón activo relleno en cian con texto oscuro (`0xFF08111E`).
+  - Botón `Ultimate` grisado (`0xFF555555`) si el objeto no tiene Ráfaga Extrema o curio asignado. Si posee curio o definitivo (`Dogma`, `Omega Flowery`, etc.), muestra su tipo, versión, tiempo de recarga y efecto definitivo.
+- **Visualizador de Movimiento:**
+  - Nombre del movimiento en cian (`0xFF00FFCC`).
+  - **Línea de Estadísticas en Amarillo (`0xFFFFCC00`):** `Damage: <dmg> | Cooldown: <cd>`.
+  - Párrafo descriptivo en texto blanco.
+- **Alerta de Error Animada:** Al colocar un objeto no identificado, el marco y botones parpadean en rojo (`0xFFFF3333`) y suena una alarma.
 
-### 2. Renderizado 3D de Medallones Fiel a los Mobs ([MedallionRenderLayer.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/render/MedallionRenderLayer.java) y [EnigmaBiosScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/EnigmaBiosScreen.java))
-- **Sin Recuadro de Fondo:** El medallón 3D se renderiza flotando libremente en la interfaz sin marcos negros cuadrados.
-- **Malla 3D y Texturas Reales:**
-  - Utilización de `MedallionRenderLayer.SHARED_MODEL` de los mobs.
-  - Texturas reales de los marcos: `medallion_bronze.png`, `medallion_silver.png` y `medallion_gold.png` (junto con el brillo dorado translúcido en nivel Oro).
-  - Carga dinámica del icono PNG transparente correspondiente al buff seleccionado (`textures/entity/medallion/<tier>/icon_<buffId>.png`) para *sticky*, *slightly depressing*, *spiky*, etc.
-- **Rotación Continua sobre Eje Y:** Rotación constante idéntica a la que tienen los medallones flotando sobre las cabezas de los mobs en el juego.
-- **Conmutación de Niveles (BRONZE, SILVER, GOLD):**
-  - Renombrados los niveles a **BRONZE**, **SILVER** y **GOLD**.
-  - Al hacer clic en el medallón 3D flotante, ciclea entre **BRONZE** -> **SILVER** -> **GOLD** -> **BRONZE**, actualizando el modelo, el PNG y los valores mecánicos.
+### 2. Inventario & Tooltips de Minecraft
+- Las casillas del jugador en la parte inferior permiten interacción normal e incluyen tooltips flotantes estándar de Minecraft (`g.renderTooltip(...)`) al colocar el puntero sobre cualquier objeto.
 
-### 3. Personalización de HUDs Dinámicos de Recursos ([HUDPositionScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/HUDPositionScreen.java))
-- **Previsualización y Ajuste por Arma Mítica:**
-  - **Mecha Overdrive:** Indicador futurista de 5 segmentos **O.CLOCK / Momentum y Sobrecarga**.
-  - **Golden Flower:** Anillo de 6 pétalos de carga de recurso.
-  - **Optic Blast:** Barra curva de calor e indicador de sobrecalentamiento.
-  - **Crazy Diamond:** Panal de 3 puñetazos de carga Dora.
-  - **Holy Duality Blade:** Barra de carga de Holy Blast y Escudo Sagrado.
-  - **The Tears / Dogma:** Anillo de imbuición circular.
-  - **Doomfist:** Barra de mitigación de Power Block.
-- **Arrastre y Escala:** Posicionamiento X/Y y escala ajustable entre `0.5x` y `2.0x` guardado en `Config.java`.
+### 3. Desactivación de Pausa de Juego (`isPauseScreen() = false`)
+- El mundo en segundo plano, animaciones de armas, mobs y partículas continúan ejecutándose activamente mientras se utiliza la tablet Enigma Bios o el Personalizador de HUDs.
+
+### 4. Bestiario 3D Agrandado (2.2x)
+- Medallón 3D de mob flotando sin recuadro con rotación continua sobre la malla `MedallionModel`, texturas de marco reales (`medallion_bronze.png`, `medallion_silver.png`, `medallion_gold.png`), iconos PNG y conmutación de niveles **BRONZE**, **SILVER** y **GOLD**.
 
 ---
 
 ## Verificación
 
 - **Compilación Java:** `./gradlew compileJava` (**BUILD SUCCESSFUL**).
-- **Git Push:** Sincronizado en commit `a69d60f` con el repositorio remoto (`https://github.com/saav15/xEB.git`).
+- **Git Push:** Sincronizado en commit `3f48d9e` con el repositorio remoto (`https://github.com/saav15/xEB.git`).

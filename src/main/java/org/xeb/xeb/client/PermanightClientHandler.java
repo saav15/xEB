@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
@@ -19,6 +20,7 @@ import java.util.Random;
 @Mod.EventBusSubscriber(modid = Xeb.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class PermanightClientHandler {
     private static final Random RANDOM = new Random();
+    private static final ResourceLocation VIGNETTE_TEXTURE = new ResourceLocation("textures/misc/vignette.png");
     private static boolean isPermanightActive = false;
 
     public static void setPermanightActive(boolean active) {
@@ -42,25 +44,22 @@ public class PermanightClientHandler {
         int height = mc.getWindow().getGuiScaledHeight();
 
         long time = mc.level.getGameTime();
-        float pulse = (float) (Math.sin(time * 0.08D) * 0.15D + 0.35D); // Smooth pulsing pulse 0.20 to 0.50
+        float pulse = (float) (Math.sin(time * 0.08D) * 0.05D + 0.25D); // Smooth subtle pulse 0.20 to 0.30 alpha
 
-        int alpha = (int) (pulse * 255);
-        int borderSize = Math.max(12, height / 10);
-
-        // Render apocalyptic dark vignette border
-        int darkColor = (alpha << 24) | 0x05000A;
-
-        g.fill(0, 0, width, borderSize, darkColor);
-        g.fill(0, height - borderSize, width, height, darkColor);
-        g.fill(0, 0, borderSize, height, darkColor);
-        g.fill(width - borderSize, 0, width, height, darkColor);
+        // Render soft, smooth, non-intrusive vignette texture overlay instead of hard solid black boxes
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(0.08F, 0.04F, 0.12F, pulse);
+        g.blit(VIGNETTE_TEXTURE, 0, 0, 0, 0.0F, 0.0F, width, height, width, height);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.disableBlend();
     }
 
     @SubscribeEvent
     public static void onComputeFogColor(ViewportEvent.ComputeFogColor event) {
         if (!isPermanightActive) return;
 
-        // Tint fog to apocalyptic slate dark gray
+        // Tint fog to subtle apocalyptic slate dark gray
         event.setRed(0.06F);
         event.setGreen(0.06F);
         event.setBlue(0.10F);
