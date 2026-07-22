@@ -1,5 +1,6 @@
 package org.xeb.xeb.client.gui;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -33,15 +34,12 @@ public class HUDPositionScreen extends Screen {
     private HUDCategory currentCategory = HUDCategory.DOOMFIST;
 
     private int hudX;
-    private int hudY; // Distance from screen bottom
+    private int hudY; // Offset or position
     private float hudScale = 1.0f;
 
     private boolean dragging = false;
     private int dragOffsetX = 0;
     private int dragOffsetY = 0;
-
-    private static final int GROUP_WIDTH = 84;
-    private static final int GROUP_HEIGHT = 24;
 
     public HUDPositionScreen(Screen parent, ItemStack targetStack) {
         super(Component.literal("xEB Custom Weapon HUD Configuration"));
@@ -72,6 +70,12 @@ public class HUDPositionScreen extends Screen {
 
     public HUDPositionScreen(Screen parent) {
         this(parent, ItemStack.EMPTY);
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        // Return false so world, mob ticks, and item hold animations don't freeze while customizing HUD!
+        return false;
     }
 
     private void loadCategoryConfig() {
@@ -205,7 +209,7 @@ public class HUDPositionScreen extends Screen {
         this.renderBackground(g);
 
         g.drawCenteredString(this.font, "Arrastra el HUD para posicionar | Usa +/- para re-escalar", this.width / 2, 35, 0xFFFFFFFF);
-        g.drawCenteredString(this.font, String.format("Posición X: %d | Y (desde abajo): %d | Escala: %.1fx", this.hudX, this.hudY, this.hudScale), this.width / 2, 48, 0x88FFFFFF);
+        g.drawCenteredString(this.font, String.format("Posición X: %d | Y: %d | Escala: %.1fx", this.hudX, this.hudY, this.hudScale), this.width / 2, 48, 0x88FFFFFF);
 
         // Center crosshair
         int centerX = this.width / 2;
@@ -213,124 +217,138 @@ public class HUDPositionScreen extends Screen {
         g.fill(centerX - 4, centerY, centerX + 5, centerY + 1, 0x88FFFFFF);
         g.fill(centerX, centerY - 4, centerX + 1, centerY + 5, 0x88FFFFFF);
 
-        int x = this.hudX;
-        int y = this.height - this.hudY;
+        int renderX = centerX + this.hudX;
+        int renderY = centerY + this.hudY;
 
         g.pose().pushPose();
-        g.pose().translate(x, y, 0);
+        g.pose().translate(renderX, renderY, 0);
         g.pose().scale(this.hudScale, this.hudScale, 1.0f);
 
-        // Render preview boxes and dynamic resource gauges
-        switch (this.currentCategory) {
-            case DOOMFIST -> {
-                renderPreviewBox(g, 0, 0, "ACT1", "UPPER");
-                renderPreviewBox(g, 30, 0, "ACT2", "SLAM");
-                // Power Block Mitigation Bar Preview
-                g.fill(0, 26, 54, 30, 0x66000000);
-                g.fill(1, 27, 40, 29, 0xFFFFCC00);
-                g.drawString(this.font, "BLOCK 75%", 0, 32, 0xFFFFCC00, false);
-            }
-            case OPTIC_BLAST -> {
-                // Curved Heat Gauge Bar Preview
-                g.fill(0, 0, 54, 8, 0x66000000);
-                g.fill(1, 1, 42, 7, 0xFFFF3300);
-                g.drawString(this.font, "HEAT 80%", 0, 10, 0xFFFF3300, false);
-            }
-            case MECHA -> {
-                renderPreviewBox(g, 0, 0, "JET", "VULCAN");
-                renderPreviewBox(g, 30, 0, "DASH", "OVER");
-                // Slanted 5-Segment O.CLOCK Gauge Preview
-                for (int i = 0; i < 5; i++) {
-                    int segX = 60 + i * 7;
-                    int segY = 16 - i * 4;
-                    g.fill(segX - 1, segY - 1, segX + 5 + 1, segY + 4 + 1, 0x66000000);
-                    g.fill(segX, segY, segX + 5, segY + 4, 0xFFFF8800);
-                }
-                g.drawString(this.font, "O.CLOCK", 60, -8, 0xFFFFD700, false);
-            }
-            case HOLY -> {
-                renderPreviewBox(g, 0, 0, "SHLD", "CREAT");
-                renderPreviewBox(g, 30, 0, "ANNI", "ANNIL");
-                // Holy Blast Charge Bar Preview
-                g.fill(0, 26, 54, 30, 0x66000000);
-                g.fill(1, 27, 48, 29, 0xFF00FFFF);
-                g.drawString(this.font, "HOLY BLAST", 0, 32, 0xFF00FFFF, false);
-            }
-            case GOLDEN_FLOWER -> {
-                // 6-Petal Resource Ring Preview
-                for (int i = 0; i < 6; i++) {
-                    double angle = Math.toRadians(i * 60);
-                    int px = 27 + (int) (18 * Math.cos(angle));
-                    int py = 12 + (int) (18 * Math.sin(angle));
-                    g.fill(px - 3, py - 3, px + 4, py + 4, 0xFFFFD700);
-                }
-                g.drawString(this.font, "6 PETALS", 0, 34, 0xFFFFD700, false);
-            }
-            case CRAZY_DIAMOND -> {
-                renderPreviewBox(g, 0, 0, "DORA", "BARRAGE");
-                renderPreviewBox(g, 30, 0, "RESTO", "RESTORE");
-                // Honeycomb 3-fist charges preview
-                g.fill(60, 2, 70, 10, 0xFFFF55AA);
-                g.fill(72, 2, 82, 10, 0xFFFF55AA);
-                g.fill(84, 2, 94, 10, 0xFFFF55AA);
-                g.drawString(this.font, "DORA x3", 60, 14, 0xFFFF55AA, false);
-            }
-            case THE_TEARS -> {
-                renderPreviewBox(g, 0, 0, "COOKI", "IMBUE");
-                renderPreviewBox(g, 30, 0, "CAMO", "UNDIES");
-                // Circular Imbue Ring Preview
-                g.fill(60, 2, 72, 14, 0xAA003322);
-                g.fill(63, 5, 69, 11, 0xFF00FFCC);
-                g.drawString(this.font, "PURP IMBUE", 60, 16, 0xFF00FFCC, false);
-            }
-        }
+        // Render authentic pixel-perfect in-game crosshair resource gauge overlays
+        renderCrosshairHUDPreview(g);
 
         g.pose().popPose();
 
-        // Highlight box
-        int effectiveW = (int) (GROUP_WIDTH * this.hudScale);
-        int effectiveH = (int) (GROUP_HEIGHT * this.hudScale);
-        boolean hovered = mouseX >= x && mouseX <= x + effectiveW && mouseY >= y && mouseY <= y + effectiveH;
+        // Highlight box around customizable HUD
+        int boxWidth = 60;
+        int boxHeight = 40;
+        int boundX = renderX - 10;
+        int boundY = renderY - 10;
+        int effectiveW = (int) (boxWidth * this.hudScale);
+        int effectiveH = (int) (boxHeight * this.hudScale);
+
+        boolean hovered = mouseX >= boundX && mouseX <= boundX + effectiveW && mouseY >= boundY && mouseY <= boundY + effectiveH;
         if (hovered || this.dragging) {
-            g.fill(x - 2, y - 2, x + effectiveW + 2, y - 1, 0xFFFFAA00);
-            g.fill(x - 2, y + effectiveH + 1, x + effectiveW + 2, y + effectiveH + 2, 0xFFFFAA00);
-            g.fill(x - 2, y - 2, x - 1, y + effectiveH + 2, 0xFFFFAA00);
-            g.fill(x + effectiveW + 1, y - 2, x + effectiveW + 2, y + effectiveH + 2, 0xFFFFAA00);
+            g.fill(boundX - 2, boundY - 2, boundX + effectiveW + 2, boundY - 1, 0xFFFFAA00);
+            g.fill(boundX - 2, boundY + effectiveH + 1, boundX + effectiveW + 2, boundY + effectiveH + 2, 0xFFFFAA00);
+            g.fill(boundX - 2, boundY - 2, boundX - 1, boundY + effectiveH + 2, 0xFFFFAA00);
+            g.fill(boundX + effectiveW + 1, boundY - 2, boundX + effectiveW + 2, boundY + effectiveH + 2, 0xFFFFAA00);
         }
 
         super.render(g, mouseX, mouseY, partialTick);
     }
 
-    private void renderPreviewBox(GuiGraphics g, int bx, int by, String key, String label) {
-        int boxW = 24;
-        int boxH = 24;
+    private void renderCrosshairHUDPreview(GuiGraphics g) {
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
 
-        g.fill(bx - 1, by - 1, bx + boxW + 1, by + boxH + 1, 0xFF000000);
-        g.fill(bx, by, bx + boxW, by + boxH, 0x6600FFCC);
+        switch (this.currentCategory) {
+            case DOOMFIST -> {
+                // Doomfist Power Block mitigation bar preview
+                g.fill(0, 0, 54, 6, 0x66000000);
+                g.fill(1, 1, 40, 5, 0xFFFFCC00);
+                g.drawString(this.font, "MITIGATE 75%", 0, 10, 0xFFFFCC00, true);
+            }
+            case OPTIC_BLAST -> {
+                // Curved Heat Gauge Bar Preview
+                g.fill(0, 0, 50, 8, 0x66000000);
+                g.fill(1, 1, 38, 7, 0xFFFF3300);
+                g.drawString(this.font, "HEAT 76%", 0, 12, 0xFFFF3300, true);
+            }
+            case MECHA -> {
+                // Slanted 5-Segment O.CLOCK Gauge Preview (exact rendering from DoomfistHUDOverlay)
+                for (int i = 0; i < 5; i++) {
+                    int segX = i * 7;
+                    int segY = -i * 8;
+                    g.fill(segX - 1, segY - 1, segX + 7, segY + 6, 0x66000000);
+                    int fillColor = switch (i) {
+                        case 0 -> 0xFFFF3300;
+                        case 1 -> 0xFFFF6600;
+                        case 2 -> 0xFFFF9900;
+                        case 3 -> 0xFFFFCC00;
+                        default -> 0xFFFFFF00;
+                    };
+                    g.fill(segX, segY, segX + 6, segY + 5, fillColor);
+                }
+                g.drawString(this.font, "O.CLOCK", 0, -42, 0xFFFFD700, true);
+            }
+            case HOLY -> {
+                // Holy Blast Charge Bar Preview
+                g.fill(-20, 12, 20, 16, 0x66000000);
+                g.fill(-19, 13, 12, 15, 0xFF00FFFF);
+                g.drawString(this.font, "HOLY BLAST", -20, 20, 0xFF00FFFF, true);
+            }
+            case GOLDEN_FLOWER -> {
+                // 6-Petal Resource Ring Orbit Preview (exact rendering from GoldenFlowerHUDOverlay)
+                for (int i = 0; i < 6; i++) {
+                    double angle = Math.toRadians(i * 60);
+                    int px = (int) (20 * Math.cos(angle));
+                    int py = (int) (20 * Math.sin(angle));
+                    g.fill(px - 3, py - 3, px + 4, py + 4, 0xFFFFD700);
+                }
+                g.drawString(this.font, "FLOWERY", -16, 26, 0xFFFFD700, true);
+            }
+            case CRAZY_DIAMOND -> {
+                // Honeycomb 3-fist charges preview (exact rendering from DoomfistHUDOverlay)
+                drawHoneycombCellPreview(g, 0, -4, true);
+                drawHoneycombCellPreview(g, 8, -9, true);
+                drawHoneycombCellPreview(g, 8, 1, false);
+                g.drawString(this.font, "DORA x2", 0, 12, 0xFFFF55AA, true);
+            }
+            case THE_TEARS -> {
+                // Circular Imbue Ring Preview (exact rendering from DoomfistHUDOverlay)
+                g.fill(0, 0, 12, 12, 0xAA003322);
+                g.fill(3, 3, 9, 9, 0xFF00FFCC);
+                g.drawString(this.font, "IMBUE", 0, 16, 0xFF00FFCC, true);
+            }
+        }
 
-        g.fill(bx, by, bx + boxW, by + 1, 0xBBFFFFFF);
-        g.fill(bx, by + boxH - 1, bx + boxW, by + boxH, 0xBBFFFFFF);
-        g.fill(bx, by, bx + 1, by + boxH, 0xBBFFFFFF);
-        g.fill(bx + boxW - 1, by, bx + boxW, by + boxH, 0xBBFFFFFF);
+        RenderSystem.disableBlend();
+    }
 
-        int textWidth = this.font.width(key);
-        int keyX = bx + (boxW - textWidth) / 2;
-        int keyY = by + (boxH - this.font.lineHeight) / 2;
-        g.drawString(this.font, key, keyX, keyY, 0xFFFFFFFF, false);
-        g.drawString(this.font, label, bx, by - 9, 0x88FFFFFF, false);
+    private void drawHoneycombCellPreview(GuiGraphics g, int x, int y, boolean charged) {
+        g.fill(x + 3, y,     x + 7, y + 1, 0xFF000000);
+        g.fill(x + 2, y + 1, x + 8, y + 2, 0xFF000000);
+        g.fill(x + 1, y + 2, x + 9, y + 3, 0xFF000000);
+        g.fill(x,     y + 3, x + 10, y + 5, 0xFF000000);
+        g.fill(x + 1, y + 5, x + 9, y + 6, 0xFF000000);
+        g.fill(x + 2, y + 6, x + 8, y + 7, 0xFF000000);
+        g.fill(x + 3, y + 7, x + 7, y + 8, 0xFF000000);
+
+        int fillColor = charged ? 0xFFFF55AA : 0x44000000;
+        g.fill(x + 3, y + 1, x + 7, y + 2, fillColor);
+        g.fill(x + 2, y + 2, x + 8, y + 3, fillColor);
+        g.fill(x + 1, y + 3, x + 9, y + 5, fillColor);
+        g.fill(x + 2, y + 5, x + 8, y + 6, fillColor);
+        g.fill(x + 3, y + 6, x + 7, y + 7, fillColor);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int x = this.hudX;
-        int y = this.height - this.hudY;
-        int effectiveW = (int) (GROUP_WIDTH * this.hudScale);
-        int effectiveH = (int) (GROUP_HEIGHT * this.hudScale);
+        int centerX = this.width / 2;
+        int centerY = this.height / 2;
+        int renderX = centerX + this.hudX;
+        int renderY = centerY + this.hudY;
 
-        if (mouseX >= x && mouseX <= x + effectiveW && mouseY >= y && mouseY <= y + effectiveH) {
+        int boundX = renderX - 10;
+        int boundY = renderY - 10;
+        int effectiveW = (int) (60 * this.hudScale);
+        int effectiveH = (int) (40 * this.hudScale);
+
+        if (mouseX >= boundX && mouseX <= boundX + effectiveW && mouseY >= boundY && mouseY <= boundY + effectiveH) {
             this.dragging = true;
-            this.dragOffsetX = (int) (mouseX - x);
-            this.dragOffsetY = (int) (mouseY - y);
+            this.dragOffsetX = (int) (mouseX - renderX);
+            this.dragOffsetY = (int) (mouseY - renderY);
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -345,18 +363,14 @@ public class HUDPositionScreen extends Screen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (this.dragging) {
-            int effectiveW = (int) (GROUP_WIDTH * this.hudScale);
-            int effectiveH = (int) (GROUP_HEIGHT * this.hudScale);
+            int centerX = this.width / 2;
+            int centerY = this.height / 2;
 
-            int newX = (int) (mouseX - this.dragOffsetX);
-            newX = Math.max(0, Math.min(this.width - effectiveW, newX));
+            int newRenderX = (int) (mouseX - this.dragOffsetX);
+            int newRenderY = (int) (mouseY - this.dragOffsetY);
 
-            int newScreenY = (int) (mouseY - this.dragOffsetY);
-            newScreenY = Math.max(0, Math.min(this.height - effectiveH, newScreenY));
-            int newY = this.height - newScreenY;
-
-            this.hudX = newX;
-            this.hudY = newY;
+            this.hudX = newRenderX - centerX;
+            this.hudY = newRenderY - centerY;
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);

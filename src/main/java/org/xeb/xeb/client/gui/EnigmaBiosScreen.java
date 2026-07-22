@@ -57,6 +57,12 @@ public class EnigmaBiosScreen extends Screen {
         initLogs();
     }
 
+    @Override
+    public boolean isPauseScreen() {
+        // Return false so singleplayer world, weapon animations, entity ticks, and particles keep ticking live in background!
+        return false;
+    }
+
     private void initLogs() {
         logs.add(new LogEntry("gui.xeb.enigma_bios.log1.title", "gui.xeb.enigma_bios.log1.content"));
         logs.add(new LogEntry("gui.xeb.enigma_bios.log2.title", "gui.xeb.enigma_bios.log2.content"));
@@ -274,19 +280,19 @@ public class EnigmaBiosScreen extends Screen {
                 }
 
                 // Ability Move Details Viewport
-                int moveBoxY = areaY + 54;
-                int moveBoxH = areaH - 60;
+                int moveBoxY = areaY + 52;
+                int moveBoxH = areaH - 58;
                 g.fill(areaX + 12, moveBoxY, areaX + areaW - 12, moveBoxY + moveBoxH, 0x33000000);
                 g.fill(areaX + 12, moveBoxY, areaX + areaW - 12, moveBoxY + 1, 0x3300FFCC);
 
-                String moveTitle = getMoveTitle(this.selectedAbilityIndex);
+                String moveTitle = getMoveTitle(info, this.selectedAbilityIndex);
                 String moveDesc = getMoveDescription(info, this.selectedAbilityIndex);
 
                 g.drawString(this.font, moveTitle, areaX + 16, moveBoxY + 4, 0xFF00FFCC, false);
                 g.fill(areaX + 16, moveBoxY + 14, areaX + areaW - 16, moveBoxY + 15, 0x4400FFCC);
 
                 List<FormattedText> moveLines = this.font.getSplitter().splitLines(moveDesc, areaW - 36, net.minecraft.network.chat.Style.EMPTY);
-                int mY = moveBoxY + 20;
+                int mY = moveBoxY + 18;
                 for (FormattedText line : moveLines) {
                     if (mY < moveBoxY + moveBoxH - 4) {
                         g.drawString(this.font, line.getString(), areaX + 16, mY, 0xFFE0E0E0, false);
@@ -363,27 +369,27 @@ public class EnigmaBiosScreen extends Screen {
                 }
                 g.drawString(this.font, translate("gui.xeb.enigma_bios.bestiary.kills") + kills, detX + 52, detY + 15, 0xFFFFCC00, false);
 
-                // FLOATING 3D MEDALLION MODEL RENDER IN GUI (NO RECUADRO, FLOATING FREELY)
+                // FLOATING 3D MEDALLION MODEL RENDER IN GUI (ENLARGED TO 2.2X SCALE)
                 float rotAngle = (System.currentTimeMillis() % 3600L) / 10.0F;
-                int renderCenterX = detX + detW - 28;
-                int renderCenterY = detY + 28;
+                int renderCenterX = detX + detW - 32;
+                int renderCenterY = detY + 36;
 
                 g.pose().pushPose();
                 g.pose().translate(renderCenterX, renderCenterY, 150.0F);
-                g.pose().scale(1.2F, 1.2F, 1.2F);
+                g.pose().scale(2.2F, 2.2F, 2.2F);
 
                 // Render authentic 3D mob medallion with rotAngle, tier texture, and buff icon PNG
                 MedallionRenderLayer.renderSingleMedallionGUI(g.pose(), g.bufferSource(), tier, selBuff.getId(), rotAngle, 0xF000F0);
                 g.pose().popPose();
 
-                g.fill(detX, detY + 28, detX + detW - 55, detY + 29, 0x4400FFCC);
+                g.fill(detX, detY + 28, detX + detW - 65, detY + 29, 0x4400FFCC);
 
                 // Mechanical Mob Details & Counter-Strategy Text
                 String descText = translate("xeb.buff." + selBuff.getId() + ".desc");
                 if (descText.equals("xeb.buff." + selBuff.getId() + ".desc")) {
                     descText = "Medallón Élite (" + tierName + "): Confiere propiedades especiales de combate y defensivas a la entidad huésped.";
                 }
-                List<FormattedText> descLines = this.font.getSplitter().splitLines(descText, detW - 55, net.minecraft.network.chat.Style.EMPTY);
+                List<FormattedText> descLines = this.font.getSplitter().splitLines(descText, detW - 65, net.minecraft.network.chat.Style.EMPTY);
                 int dY = detY + 34;
                 for (FormattedText line : descLines) {
                     if (dY < detY + 80) {
@@ -457,27 +463,73 @@ public class EnigmaBiosScreen extends Screen {
         }
     }
 
-    private String getMoveTitle(int index) {
+    private String getMoveTitle(AnalyzedInfo info, int index) {
+        String baseKey = info.translationKey;
         return switch (index) {
-            case 0 -> "[ Clic Izquierdo ] - Ataque Básico";
-            case 1 -> "[ Clic Derecho ] - Habilidad Secundaria";
-            case 2 -> "[ Activa 1 ] - Movimiento Especial A";
-            case 3 -> "[ Activa 2 ] - Movimiento Especial B";
-            case 4 -> "[ EXTREME BURST ] - Definitiva";
+            case 0 -> {
+                String name = translate(baseKey + ".ability.left_click.name");
+                yield !name.equals(baseKey + ".ability.left_click.name") ? "[ Clic Izq. ] " + name : "[ Clic Izquierdo ] - Ataque Básico";
+            }
+            case 1 -> {
+                String name = translate(baseKey + ".ability.right_click.name");
+                yield !name.equals(baseKey + ".ability.right_click.name") ? "[ Clic Der. ] " + name : "[ Clic Derecho ] - Habilidad Secundaria";
+            }
+            case 2 -> {
+                String name = translate(baseKey + ".ability.active1.name");
+                yield !name.equals(baseKey + ".ability.active1.name") ? "[ Activa 1 ] " + name : "[ Activa 1 ] - Movimiento Especial A";
+            }
+            case 3 -> {
+                String name = translate(baseKey + ".ability.active2.name");
+                yield !name.equals(baseKey + ".ability.active2.name") ? "[ Activa 2 ] " + name : "[ Activa 2 ] - Movimiento Especial B";
+            }
+            case 4 -> {
+                if (info.translationKey.contains("omega_flowery")) {
+                    yield "[ EXTREME BURST ] - Estado Omega Flowery";
+                } else if (info.translationKey.contains("dogma")) {
+                    yield "[ EXTREME BURST ] - Haz Brimstone Dogma";
+                }
+                yield "[ EXTREME BURST ] - Definitiva Reliquia";
+            }
             default -> "Movimiento Desconocido";
         };
     }
 
     private String getMoveDescription(AnalyzedInfo info, int index) {
-        String baseKey = info.translationKey + ".move." + index;
-        String desc = translate(baseKey);
-        if (desc.equals(baseKey)) {
+        String baseKey = info.translationKey;
+        if (index == 4) {
+            // Extreme Burst Details
+            String burstEffect = translate(baseKey + ".enigma_effect");
+            if (!burstEffect.equals(baseKey + ".enigma_effect")) {
+                return "ESTADO DEFINITIVO: " + burstEffect;
+            }
+            if (baseKey.contains("omega_flowery")) {
+                return translate("item.xeb.omega_flowery.enigma_effect");
+            } else if (baseKey.contains("dogma")) {
+                return translate("item.xeb.dogma.enigma_effect");
+            }
+            return "RÁFAGA EXTREMA: Desata la potencia máxima del núcleo reliquia. Otorga invulnerabilidad temporal y potencia masivamente todas las activas.";
+        }
+
+        String moveKey = switch (index) {
+            case 0 -> baseKey + ".ability.left_click.desc";
+            case 1 -> baseKey + ".ability.right_click.desc";
+            case 2 -> baseKey + ".ability.active1.desc";
+            case 3 -> baseKey + ".ability.active2.desc";
+            default -> "";
+        };
+
+        String desc = translate(moveKey);
+        if (desc.equals(moveKey) || desc.isEmpty()) {
+            // Check enigma lore fallback
+            String lore = translate(baseKey + ".enigma_lore");
+            if (!lore.equals(baseKey + ".enigma_lore")) {
+                return lore;
+            }
             return switch (index) {
                 case 0 -> "Ejecuta un combo de tajos rápidos que infligen daño físico y empuje moderado.";
                 case 1 -> "Canaliza la energía del arma para lanzar un proyectil o barrera defensiva.";
                 case 2 -> "Inicia una maniobra de alta movilidad o embestida direccional.";
                 case 3 -> "Desata un ataque de carga pesada que rompe la guardia enemiga.";
-                case 4 -> "Desata la máxima potencia contenida en el núcleo reliquia, devastando el área.";
                 default -> "Información de ataque no disponible.";
             };
         }
@@ -698,11 +750,11 @@ public class EnigmaBiosScreen extends Screen {
             int detX = areaX + 106;
             int detY = areaY + 6;
             int detW = areaW - 112;
-            int renderCenterX = detX + detW - 28;
-            int renderCenterY = detY + 28;
+            int renderCenterX = detX + detW - 32;
+            int renderCenterY = detY + 36;
 
             double dist = Math.hypot(scaledMouseX - renderCenterX, scaledMouseY - renderCenterY);
-            if (dist <= 26.0) {
+            if (dist <= 36.0) {
                 this.selectedBestiaryTierIndex = (this.selectedBestiaryTierIndex + 1) % 3;
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.2F));
