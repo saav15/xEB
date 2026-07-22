@@ -16,19 +16,20 @@ import org.xeb.xeb.medallion.MedallionType;
 import org.xeb.xeb.buff.EliteBuff;
 import org.xeb.xeb.buff.EliteBuffRegistry;
 import org.xeb.xeb.render.MedallionRenderLayer;
+import org.xeb.xeb.extremeburst.ExtremeBurstRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class EnigmaBiosScreen extends Screen {
-    private final int guiWidth = 400;
+    private final int guiWidth = 360;
     private final int guiHeight = 260;
     private int leftPos;
     private int topPos;
 
-    private int activeTab = 0; // 0: Analizador, 1: Bestiario, 2-6: Bitácoras 1-5
+    private int activeTab = 0; // 0: Analyzer, 1: Bestiary, 2-6: Bitácoras 1-5
     private ItemStack analyzedStack = ItemStack.EMPTY;
-    private int selectedAbilityIndex = 0; // 0: Clic Izq, 1: Clic Der, 2: Activa 1, 3: Activa 2, 4: Extreme Burst
+    private int selectedAbilityIndex = 0; // 0: Left Click, 1: Right Click, 2: Active 1, 3: Active 2, 4: Extreme Burst
 
     private int selectedBestiaryIndex = 0;
     private int selectedBestiaryTierIndex = 0; // 0: BRONZE, 1: SILVER, 2: GOLD
@@ -59,7 +60,7 @@ public class EnigmaBiosScreen extends Screen {
 
     @Override
     public boolean isPauseScreen() {
-        // Return false so singleplayer world, weapon animations, entity ticks, and particles keep ticking live in background!
+        // Return false so singleplayer world ticks, mob animations, weapon models, and particles continue live in background!
         return false;
     }
 
@@ -106,7 +107,7 @@ public class EnigmaBiosScreen extends Screen {
 
         int borderColor = 0xFF00FFCC;
 
-        // Flash red if last analyzed item was unknown
+        // Flash red if last analyzed item was unknown ("ERROR")
         long elapsed = System.currentTimeMillis() - this.lastAnalyzedTime;
         boolean flashing = this.lastAnalyzedUnknown && (elapsed < 800L);
         if (flashing) {
@@ -116,7 +117,7 @@ public class EnigmaBiosScreen extends Screen {
             }
         }
 
-        // Draw Frame Background
+        // Draw Main Frame Background
         g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, 0xEE08111E);
 
         // Frame Border Lines
@@ -125,9 +126,12 @@ public class EnigmaBiosScreen extends Screen {
         g.fill(this.leftPos, this.topPos, this.leftPos + 2, this.topPos + this.guiHeight, borderColor);
         g.fill(this.leftPos + this.guiWidth - 2, this.topPos, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, borderColor);
 
-        // Header Title Bar
+        // Header Title Bar: ENIGMA BIOS v1.0 | STATUS: LINKED
         g.fill(this.leftPos + 4, this.topPos + 4, this.leftPos + this.guiWidth - 4, this.topPos + 16, 0x3300FFCC);
-        g.drawString(this.font, translate("gui.xeb.enigma_bios.title"), this.leftPos + 8, this.topPos + 6, borderColor, false);
+        g.drawString(this.font, "ENIGMA BIOS v1.0", this.leftPos + 8, this.topPos + 6, borderColor, false);
+        String statusText = translate("gui.xeb.enigma_bios.status");
+        if (statusText.equals("gui.xeb.enigma_bios.status")) statusText = "STATUS: LINKED";
+        g.drawString(this.font, statusText, this.leftPos + this.guiWidth - 8 - this.font.width(statusText), this.topPos + 6, borderColor, false);
 
         renderTabs(g, scaledMouseX, scaledMouseY);
         renderContent(g, scaledMouseX, scaledMouseY, borderColor, flashing, elapsed);
@@ -140,7 +144,7 @@ public class EnigmaBiosScreen extends Screen {
     private void renderTabs(GuiGraphics g, int mouseX, int mouseY) {
         int startX = this.leftPos + 6;
         int viewportY = this.topPos + 18;
-        int viewportH = 135;
+        int viewportH = 130;
         int totalTabs = 2 + logs.size(); // 0: Analyzer, 1: Bestiary, 2-6: Bitácoras 1-5
         int contentHeight = totalTabs * 22;
         int maxTabScroll = Math.max(0, contentHeight - viewportH);
@@ -194,8 +198,8 @@ public class EnigmaBiosScreen extends Screen {
     private void renderContent(GuiGraphics g, int mouseX, int mouseY, int borderColor, boolean flashing, long elapsed) {
         int areaX = this.leftPos + 72;
         int areaY = this.topPos + 18;
-        int areaW = 320;
-        int areaH = 135;
+        int areaW = 280;
+        int areaH = 130;
 
         g.fill(areaX, areaY, areaX + areaW, areaY + areaH, 0x1A000000);
         g.fill(areaX, areaY, areaX + areaW, areaY + 1, borderColor);
@@ -210,8 +214,8 @@ public class EnigmaBiosScreen extends Screen {
         }
 
         if (this.activeTab == 0) {
-            // RENDER ANALYZER
-            int slotX = areaX + 12;
+            // RENDER ANALYZER (EXACT ORIGINAL DESIGN MATCHING SCREENSHOT)
+            int slotX = areaX + 8;
             int slotY = areaY + 8;
 
             g.fill(slotX - 1, slotY - 1, slotX + 21, slotY + 21, borderColor);
@@ -233,13 +237,13 @@ public class EnigmaBiosScreen extends Screen {
                 AnalyzedInfo info = analyzeItem(this.analyzedStack);
 
                 int textColor = flashing ? 0xFFFF3333 : 0xFF00FFCC;
-                g.drawString(this.font, translate("gui.xeb.enigma_bios.label.name") + info.name, areaX + 38, areaY + 14, textColor, false);
+                g.drawString(this.font, translate("gui.xeb.enigma_bios.label.name") + info.name, areaX + 34, areaY + 10, textColor, false);
 
-                // Customize HUD button
-                int hudBtnX = areaX + areaW - 98;
+                // Customize HUD Button (compact top-right)
+                int hudBtnX = areaX + areaW - 84;
                 int hudBtnY = areaY + 6;
-                int hudBtnW = 90;
-                int hudBtnH = 14;
+                int hudBtnW = 78;
+                int hudBtnH = 12;
                 boolean hudHovered = mouseX >= hudBtnX && mouseX < hudBtnX + hudBtnW && mouseY >= hudBtnY && mouseY < hudBtnY + hudBtnH;
 
                 int hudBg = hudHovered ? 0xCC00FFCC : 0x2200FFCC;
@@ -249,59 +253,171 @@ public class EnigmaBiosScreen extends Screen {
                 g.fill(hudBtnX, hudBtnY + hudBtnH - 1, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
                 g.fill(hudBtnX, hudBtnY, hudBtnX + 1, hudBtnY + hudBtnH, 0xFF00FFCC);
                 g.fill(hudBtnX + hudBtnW - 1, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
+                g.drawString(this.font, translate("gui.xeb.enigma_bios.btn.customize_hud"), hudBtnX + 4, hudBtnY + 2, hudTxt, false);
 
-                String hudBtnText = translate("gui.xeb.enigma_bios.btn.customize_hud");
-                int hudTxtW = this.font.width(hudBtnText);
-                g.drawString(this.font, hudBtnText, hudBtnX + (hudBtnW - hudTxtW) / 2, hudBtnY + 3, hudTxt, false);
+                // Full Lore Paragraph
+                String loreText = info.translationKey.equals("item.unknown")
+                        ? translate("item.unknown.enigma_lore." + this.unknownTextIndex)
+                        : translate(info.translationKey + ".enigma_lore");
 
-                // Render 5 Move Selector Buttons
-                String[] btnLabels = {"Clic Izq.", "Clic Der.", "Activa 1", "Activa 2", "Ex. Burst"};
-                int btnW = 56;
-                int btnH = 14;
-                int btnStartX = areaX + 12;
-                int btnY = areaY + 34;
-
-                for (int b = 0; b < 5; b++) {
-                    int bx = btnStartX + b * 60;
-                    boolean isSel = (this.selectedAbilityIndex == b);
-                    boolean bHov = mouseX >= bx && mouseX < bx + btnW && mouseY >= btnY && mouseY < btnY + btnH;
-
-                    int bg = isSel ? 0xCC00FFCC : (bHov ? 0x4400FFCC : 0x1A00FFCC);
-                    int txt = isSel ? 0xFF08111E : (bHov ? 0xFFFFFFFF : 0xFF888888);
-
-                    g.fill(bx, btnY, bx + btnW, btnY + btnH, bg);
-                    g.fill(bx, btnY, bx + btnW, btnY + 1, 0x5500FFCC);
-                    g.fill(bx, btnY + btnH - 1, bx + btnW, btnY + btnH, 0x5500FFCC);
-                    g.fill(bx, btnY, bx + 1, btnY + btnH, 0x5500FFCC);
-                    g.fill(bx + btnW - 1, btnY, bx + btnW, btnY + btnH, 0x5500FFCC);
-
-                    int tw = this.font.width(btnLabels[b]);
-                    g.drawString(this.font, btnLabels[b], bx + (btnW - tw) / 2, btnY + 3, txt, false);
+                List<FormattedText> loreLines = this.font.getSplitter().splitLines(loreText, areaW - 40, net.minecraft.network.chat.Style.EMPTY);
+                int textY = areaY + 26;
+                for (FormattedText line : loreLines) {
+                    if (textY < areaY + 54) {
+                        g.drawString(this.font, line.getString(), areaX + 34, textY, 0xFFFFFFFF, false);
+                        textY += 9;
+                    }
                 }
 
-                // Ability Move Details Viewport
-                int moveBoxY = areaY + 52;
-                int moveBoxH = areaH - 58;
-                g.fill(areaX + 12, moveBoxY, areaX + areaW - 12, moveBoxY + moveBoxH, 0x33000000);
-                g.fill(areaX + 12, moveBoxY, areaX + areaW - 12, moveBoxY + 1, 0x3300FFCC);
+                // 5 Ability Selector Buttons Bar: Left Click | Right Click | Active 1 | Active 2 | Ultimate
+                String[] btnKeys = {
+                        "gui.xeb.enigma_bios.btn.left_click",
+                        "gui.xeb.enigma_bios.btn.right_click",
+                        "gui.xeb.enigma_bios.btn.active1",
+                        "gui.xeb.enigma_bios.btn.active2",
+                        "gui.xeb.enigma_bios.btn.extreme_burst"
+                };
 
-                String moveTitle = getMoveTitle(info, this.selectedAbilityIndex);
-                String moveDesc = getMoveDescription(info, this.selectedAbilityIndex);
+                int btnW = 50;
+                int btnH = 14;
+                int btnY = areaY + 56;
 
-                g.drawString(this.font, moveTitle, areaX + 16, moveBoxY + 4, 0xFF00FFCC, false);
-                g.fill(areaX + 16, moveBoxY + 14, areaX + areaW - 16, moveBoxY + 15, 0x4400FFCC);
+                for (int k = 0; k < 5; k++) {
+                    int bx = areaX + 12 + k * 52;
+                    boolean active = (this.selectedAbilityIndex == k);
+                    boolean hovered = mouseX >= bx && mouseX < bx + btnW && mouseY >= btnY && mouseY < btnY + btnH;
+                    boolean disabled = info.isAbilityDisabled(k);
 
-                List<FormattedText> moveLines = this.font.getSplitter().splitLines(moveDesc, areaW - 36, net.minecraft.network.chat.Style.EMPTY);
-                int mY = moveBoxY + 18;
-                for (FormattedText line : moveLines) {
-                    if (mY < moveBoxY + moveBoxH - 4) {
-                        g.drawString(this.font, line.getString(), areaX + 16, mY, 0xFFE0E0E0, false);
-                        mY += 10;
+                    int btnBg;
+                    int btnTextCol;
+                    int btnBorder = disabled ? 0x33666666 : (flashing ? 0xFFFF3333 : 0xFF00FFCC);
+
+                    if (disabled) {
+                        btnBg = 0x1A444444;
+                        btnTextCol = 0xFF555555;
+                    } else if (active) {
+                        btnBg = flashing ? 0xCCFF3333 : 0xCC00FFCC;
+                        btnTextCol = 0xFF08111E;
+                    } else if (hovered) {
+                        btnBg = flashing ? 0x44FF3333 : 0x4400FFCC;
+                        btnTextCol = 0xFFFFFFFF;
+                    } else {
+                        btnBg = flashing ? 0x1AFF3333 : 0x1A00FFCC;
+                        btnTextCol = flashing ? 0xFF884444 : 0xFF888888;
+                    }
+
+                    g.fill(bx, btnY, bx + btnW, btnY + btnH, btnBg);
+                    g.fill(bx, btnY, bx + btnW, btnY + 1, btnBorder);
+                    g.fill(bx, btnY + btnH - 1, bx + btnW, btnY + btnH, btnBorder);
+                    g.fill(bx, btnY, bx + 1, btnY + btnH, btnBorder);
+                    g.fill(bx + btnW - 1, btnY, bx + btnW, btnY + btnH, btnBorder);
+
+                    String btnText = translate(btnKeys[k]);
+                    if (btnText.equals(btnKeys[k])) {
+                        btnText = switch (k) {
+                            case 0 -> "Left Click";
+                            case 1 -> "Right Click";
+                            case 2 -> "Active 1";
+                            case 3 -> "Active 2";
+                            default -> "Ultimate";
+                        };
+                    }
+                    int btnTextW = this.font.width(btnText);
+                    int pad = 2;
+                    int avail = btnW - pad * 2;
+                    if (btnTextW <= avail) {
+                        g.drawString(this.font, btnText, bx + (btnW - btnTextW) / 2, btnY + 3, btnTextCol, false);
+                    } else {
+                        float btnScale = (float) avail / (float) btnTextW;
+                        g.pose().pushPose();
+                        float cx = bx + btnW / 2.0f;
+                        float cy = btnY + 3 + this.font.lineHeight / 2.0f;
+                        g.pose().translate(cx, cy, 0);
+                        g.pose().scale(btnScale, btnScale, 1.0f);
+                        g.pose().translate(-cx, -cy, 0);
+                        g.drawString(this.font, btnText, bx + (btnW - btnTextW) / 2, btnY + 3, btnTextCol, false);
+                        g.pose().popPose();
+                    }
+                }
+
+                // Render Selected Move Details (Move Title in Cyan + Damage/Cooldown in Bright Yellow + Description in White)
+                int detailY = areaY + 74;
+                int idx = this.selectedAbilityIndex;
+
+                if (info.hasAbilities) {
+                    if (idx == 4) {
+                        // Ultimate / Extreme Burst
+                        ExtremeBurstRegistry.ExtremeBurstEntry burstEntry = null;
+                        Item item = this.analyzedStack.getItem();
+                        if (item == ModItems.GOLDEN_FLOWER.get()) {
+                            burstEntry = ExtremeBurstRegistry.getEntry(ModItems.OMEGA_FLOWERY.get());
+                        } else if (item == ModItems.THE_TEARS.get()) {
+                            burstEntry = ExtremeBurstRegistry.getEntry(ModItems.DOGMA.get());
+                        }
+
+                        if (burstEntry != null) {
+                            g.drawString(this.font, burstEntry.curioItem.getDescriptionId(), areaX + 12, detailY, 0xFF00FFCC, false);
+
+                            String typeStr = (burstEntry.type == ExtremeBurstRegistry.BurstType.UNIVERSAL ? "Universal" : "Limited");
+                            String verStr = (burstEntry.version == ExtremeBurstRegistry.BurstVersion.INSTANT ? "Instant" : "Instance");
+                            String statLine = String.format("Type: %s | Version: %s | Cooldown: %ds", typeStr, verStr, burstEntry.cooldownTicks / 20);
+                            g.drawString(this.font, statLine, areaX + 12, detailY + 11, 0xFFFFCC00, false);
+
+                            String desc = translate(info.translationKey + ".enigma_effect");
+                            g.drawString(this.font, desc, areaX + 12, detailY + 22, 0xFFFFFFFF, false);
+                        } else {
+                            g.drawString(this.font, "Ultimate / Extreme Burst", areaX + 12, detailY, 0xFF00FFCC, false);
+                            g.drawString(this.font, "No Extreme Burst assigned for this item", areaX + 12, detailY + 11, 0xFFFF5555, false);
+                        }
+                    } else {
+                        String abilityNameKey = switch (idx) {
+                            case 0 -> "left_click";
+                            case 1 -> "right_click";
+                            case 2 -> "active1";
+                            case 3 -> "active2";
+                            default -> "";
+                        };
+
+                        String abName = translate(info.translationKey + ".ability." + abilityNameKey + ".name");
+                        String abDesc = translate(info.translationKey + ".ability." + abilityNameKey + ".desc");
+
+                        String dmg = (info.damages != null && idx < info.damages.length && !info.damages[idx].isEmpty()) ? info.damages[idx] : "N/A";
+                        String cd = (info.cooldowns != null && idx < info.cooldowns.length && !info.cooldowns[idx].isEmpty()) ? info.cooldowns[idx] : "N/A";
+
+                        g.drawString(this.font, abName, areaX + 12, detailY, 0xFF00FFCC, false);
+
+                        // Bright Yellow Stats Line: Damage: X | Cooldown: Ys
+                        String statLine = String.format("Damage: %s | Cooldown: %s", dmg, cd);
+                        g.drawString(this.font, statLine, areaX + 12, detailY + 11, 0xFFFFCC00, false);
+
+                        // Description paragraph in white text
+                        List<FormattedText> descLines = this.font.getSplitter().splitLines(abDesc, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                        int dy = detailY + 22;
+                        for (FormattedText line : descLines) {
+                            if (dy < areaY + areaH - 4) {
+                                g.drawString(this.font, line.getString(), areaX + 12, dy, 0xFFFFFFFF, false);
+                                dy += 9;
+                            }
+                        }
+                    }
+                } else {
+                    String effectKey = info.translationKey.equals("item.unknown")
+                            ? "item.unknown.enigma_effect." + this.unknownTextIndex
+                            : info.translationKey + ".enigma_effect";
+                    String effectText = translate(effectKey);
+                    g.drawString(this.font, "Special Effect / Lore Result", areaX + 12, detailY, 0xFF00FFCC, false);
+                    List<FormattedText> effectLines = this.font.getSplitter().splitLines(effectText, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                    int dy = detailY + 11;
+                    for (FormattedText line : effectLines) {
+                        if (dy < areaY + areaH - 4) {
+                            g.drawString(this.font, line.getString(), areaX + 12, dy, 0xFFFFFFFF, false);
+                            dy += 9;
+                        }
                     }
                 }
             }
         } else if (this.activeTab == 1) {
-            // RENDER ELITE BESTIARIO
+            // RENDER ELITE BESTIARIO (AGRANDADO A 2.2X SCALE, SIN RECUADRO)
             List<EliteBuff> allBuffs = new ArrayList<>(EliteBuffRegistry.getAll());
             if (!allBuffs.isEmpty()) {
                 if (this.selectedBestiaryIndex < 0 || this.selectedBestiaryIndex >= allBuffs.size()) {
@@ -369,7 +485,7 @@ public class EnigmaBiosScreen extends Screen {
                 }
                 g.drawString(this.font, translate("gui.xeb.enigma_bios.bestiary.kills") + kills, detX + 52, detY + 15, 0xFFFFCC00, false);
 
-                // FLOATING 3D MEDALLION MODEL RENDER IN GUI (ENLARGED TO 2.2X SCALE)
+                // FLOATING 3D MEDALLION MODEL RENDER IN GUI (ENLARGED TO 2.2X SCALE, FLOATING FREELY NO RECUADRO)
                 float rotAngle = (System.currentTimeMillis() % 3600L) / 10.0F;
                 int renderCenterX = detX + detW - 32;
                 int renderCenterY = detY + 36;
@@ -463,85 +579,14 @@ public class EnigmaBiosScreen extends Screen {
         }
     }
 
-    private String getMoveTitle(AnalyzedInfo info, int index) {
-        String baseKey = info.translationKey;
-        return switch (index) {
-            case 0 -> {
-                String name = translate(baseKey + ".ability.left_click.name");
-                yield !name.equals(baseKey + ".ability.left_click.name") ? "[ Clic Izq. ] " + name : "[ Clic Izquierdo ] - Ataque Básico";
-            }
-            case 1 -> {
-                String name = translate(baseKey + ".ability.right_click.name");
-                yield !name.equals(baseKey + ".ability.right_click.name") ? "[ Clic Der. ] " + name : "[ Clic Derecho ] - Habilidad Secundaria";
-            }
-            case 2 -> {
-                String name = translate(baseKey + ".ability.active1.name");
-                yield !name.equals(baseKey + ".ability.active1.name") ? "[ Activa 1 ] " + name : "[ Activa 1 ] - Movimiento Especial A";
-            }
-            case 3 -> {
-                String name = translate(baseKey + ".ability.active2.name");
-                yield !name.equals(baseKey + ".ability.active2.name") ? "[ Activa 2 ] " + name : "[ Activa 2 ] - Movimiento Especial B";
-            }
-            case 4 -> {
-                if (info.translationKey.contains("omega_flowery")) {
-                    yield "[ EXTREME BURST ] - Estado Omega Flowery";
-                } else if (info.translationKey.contains("dogma")) {
-                    yield "[ EXTREME BURST ] - Haz Brimstone Dogma";
-                }
-                yield "[ EXTREME BURST ] - Definitiva Reliquia";
-            }
-            default -> "Movimiento Desconocido";
-        };
-    }
-
-    private String getMoveDescription(AnalyzedInfo info, int index) {
-        String baseKey = info.translationKey;
-        if (index == 4) {
-            // Extreme Burst Details
-            String burstEffect = translate(baseKey + ".enigma_effect");
-            if (!burstEffect.equals(baseKey + ".enigma_effect")) {
-                return "ESTADO DEFINITIVO: " + burstEffect;
-            }
-            if (baseKey.contains("omega_flowery")) {
-                return translate("item.xeb.omega_flowery.enigma_effect");
-            } else if (baseKey.contains("dogma")) {
-                return translate("item.xeb.dogma.enigma_effect");
-            }
-            return "RÁFAGA EXTREMA: Desata la potencia máxima del núcleo reliquia. Otorga invulnerabilidad temporal y potencia masivamente todas las activas.";
-        }
-
-        String moveKey = switch (index) {
-            case 0 -> baseKey + ".ability.left_click.desc";
-            case 1 -> baseKey + ".ability.right_click.desc";
-            case 2 -> baseKey + ".ability.active1.desc";
-            case 3 -> baseKey + ".ability.active2.desc";
-            default -> "";
-        };
-
-        String desc = translate(moveKey);
-        if (desc.equals(moveKey) || desc.isEmpty()) {
-            // Check enigma lore fallback
-            String lore = translate(baseKey + ".enigma_lore");
-            if (!lore.equals(baseKey + ".enigma_lore")) {
-                return lore;
-            }
-            return switch (index) {
-                case 0 -> "Ejecuta un combo de tajos rápidos que infligen daño físico y empuje moderado.";
-                case 1 -> "Canaliza la energía del arma para lanzar un proyectil o barrera defensiva.";
-                case 2 -> "Inicia una maniobra de alta movilidad o embestida direccional.";
-                case 3 -> "Desata un ataque de carga pesada que rompe la guardia enemiga.";
-                default -> "Información de ataque no disponible.";
-            };
-        }
-        return desc;
-    }
-
     private void renderInventory(GuiGraphics g, int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
         int invLeft = this.leftPos + (this.guiWidth - 162) / 2;
         int invTop = this.topPos + 160;
+
+        ItemStack hoveredStack = ItemStack.EMPTY;
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
@@ -557,6 +602,9 @@ public class EnigmaBiosScreen extends Screen {
                 if (!stack.isEmpty()) {
                     g.renderFakeItem(stack, x + 1, y + 1);
                     g.renderItemDecorations(this.font, stack, x + 1, y + 1);
+                    if (mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18) {
+                        hoveredStack = stack;
+                    }
                 }
             }
         }
@@ -574,7 +622,15 @@ public class EnigmaBiosScreen extends Screen {
             if (!stack.isEmpty()) {
                 g.renderFakeItem(stack, x + 1, y + 1);
                 g.renderItemDecorations(this.font, stack, x + 1, y + 1);
+                if (mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18) {
+                    hoveredStack = stack;
+                }
             }
+        }
+
+        // Render floating Minecraft item tooltip on inventory hover!
+        if (!hoveredStack.isEmpty()) {
+            g.renderTooltip(this.font, hoveredStack, mouseX, mouseY);
         }
     }
 
@@ -614,12 +670,12 @@ public class EnigmaBiosScreen extends Screen {
 
         int startX = this.leftPos + 6;
         int viewportY = this.topPos + 18;
-        int viewportH = 135;
+        int viewportH = 130;
 
         int areaX = this.leftPos + 72;
         int areaY = this.topPos + 18;
-        int areaW = 320;
-        int areaH = 135;
+        int areaW = 280;
+        int areaH = 130;
 
         if (scaledMouseX >= startX && scaledMouseX < startX + 65 && scaledMouseY >= viewportY && scaledMouseY < viewportY + viewportH) {
             int maxTabScroll = Math.max(0, (2 + logs.size()) * 22 - viewportH);
@@ -668,12 +724,12 @@ public class EnigmaBiosScreen extends Screen {
 
         int startX = this.leftPos + 6;
         int viewportY = this.topPos + 18;
-        int viewportH = 135;
+        int viewportH = 130;
 
         int areaX = this.leftPos + 72;
         int areaY = this.topPos + 18;
-        int areaW = 320;
-        int areaH = 135;
+        int areaW = 280;
+        int areaH = 130;
 
         int maxTabScroll = Math.max(0, (2 + logs.size()) * 22 - viewportH);
         if (maxTabScroll > 0 && scaledMouseX >= startX + 61 && scaledMouseX < startX + 64 && scaledMouseY >= viewportY && scaledMouseY < viewportY + viewportH) {
@@ -697,10 +753,10 @@ public class EnigmaBiosScreen extends Screen {
         }
 
         if (this.activeTab == 0 && !this.analyzedStack.isEmpty()) {
-            int hudBtnX = areaX + areaW - 98;
+            int hudBtnX = areaX + areaW - 84;
             int hudBtnY = areaY + 6;
-            int hudBtnW = 90;
-            int hudBtnH = 14;
+            int hudBtnW = 78;
+            int hudBtnH = 12;
             if (scaledMouseX >= hudBtnX && scaledMouseX < hudBtnX + hudBtnW && scaledMouseY >= hudBtnY && scaledMouseY < hudBtnY + hudBtnH) {
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
@@ -710,12 +766,11 @@ public class EnigmaBiosScreen extends Screen {
             }
 
             // Click check for move selector buttons 0..4
-            int btnW = 56;
+            int btnW = 50;
             int btnH = 14;
-            int btnStartX = areaX + 12;
-            int btnY = areaY + 34;
+            int btnY = areaY + 56;
             for (int b = 0; b < 5; b++) {
-                int bx = btnStartX + b * 60;
+                int bx = areaX + 12 + b * 52;
                 if (scaledMouseX >= bx && scaledMouseX < bx + btnW && scaledMouseY >= btnY && scaledMouseY < btnY + btnH) {
                     this.selectedAbilityIndex = b;
                     if (this.minecraft != null) {
@@ -768,8 +823,20 @@ public class EnigmaBiosScreen extends Screen {
             this.analyzedStack = clickedStack.copy();
             this.activeTab = 0;
             this.analyzerScrollAmount = 0.0F;
-            if (this.minecraft != null) {
-                this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BEACON_ACTIVATE, 1.5F));
+            AnalyzedInfo info = analyzeItem(this.analyzedStack);
+
+            if (info.translationKey.equals("item.unknown")) {
+                this.lastAnalyzedUnknown = true;
+                this.lastAnalyzedTime = System.currentTimeMillis();
+                this.unknownTextIndex = (int) (Math.random() * 5);
+                if (this.minecraft != null) {
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.ANVIL_LAND, 0.8F));
+                }
+            } else {
+                this.lastAnalyzedUnknown = false;
+                if (this.minecraft != null) {
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BEACON_ACTIVATE, 1.5F));
+                }
             }
             return true;
         }
@@ -787,29 +854,115 @@ public class EnigmaBiosScreen extends Screen {
     }
 
     private AnalyzedInfo analyzeItem(ItemStack stack) {
-        if (stack.isEmpty()) return new AnalyzedInfo("item.empty", translate("gui.xeb.enigma_bios.empty.1"), false);
-        return new AnalyzedInfo(stack.getItem().getDescriptionId(), stack.getHoverName().getString(), true);
+        Item item = stack.getItem();
+        String name = stack.getHoverName().getString();
+
+        if (item == ModItems.GOLDEN_FLOWER.get()) {
+            return new AnalyzedInfo(name, "item.xeb.golden_flower", true,
+                    new String[]{"2", "6", "4", "5", ""},
+                    new String[]{"2s", "Passive", "8s", "12s", ""});
+        }
+        if (item == ModItems.DOOMFIST_V2.get()) {
+            return new AnalyzedInfo(name, "item.xeb.doomfist_v2", true,
+                    new String[]{"8", "8-15", "6", "0", ""},
+                    new String[]{"0.5s", "3s", "6s", "8s", ""},
+                    new boolean[]{false, false, false, false, false});
+        }
+        if (item == ModItems.DOOMFIST.get()) {
+            return new AnalyzedInfo(name, "item.xeb.doomfist", true,
+                    new String[]{"10", "6-12", "5", "6", ""},
+                    new String[]{"0.5s", "3s", "5s", "6s", ""},
+                    new boolean[]{false, false, false, false, true});
+        }
+        if (item == ModItems.OPTIC_BLAST.get()) {
+            return new AnalyzedInfo(name, "item.xeb.optic_blast", true,
+                    new String[]{"3", "5 / tick", "4", "6", ""},
+                    new String[]{"0.5s", "Energy", "10s", "8s", ""},
+                    new boolean[]{false, false, false, false, true});
+        }
+        if (item == ModItems.HOLY_DUALITY_BLADE.get()) {
+            return new AnalyzedInfo(name, "item.xeb.holy_duality_blade", true,
+                    new String[]{"8", "18", "10", "12", ""},
+                    new String[]{"Standard", "20s", "10s", "15s", ""},
+                    new boolean[]{false, false, false, false, true});
+        }
+        if (item == ModItems.MECHA_OVERDRIVE.get()) {
+            return new AnalyzedInfo(name, "item.xeb.mecha_overdrive", true,
+                    new String[]{"", "2", "8", "7", ""},
+                    new String[]{"", "0s", "4s", "8s", ""},
+                    new boolean[]{true, false, false, false, true});
+        }
+        if (item == ModItems.BROKEN_DIAMOND.get()) {
+            return new AnalyzedInfo(name, "item.xeb.broken_diamond", true,
+                    new String[]{"", "8", "8", "0", ""},
+                    new String[]{"", "Variable", "5s", "15s", ""},
+                    new boolean[]{true, false, false, false, true});
+        }
+        if (item == ModItems.THE_TEARS.get()) {
+            return new AnalyzedInfo(name, "item.xeb.the_tears", true,
+                    new String[]{"4", "8", "5", "0", ""},
+                    new String[]{"0.4s", "2s", "10s", "15s", ""});
+        }
+
+        if (item == ModItems.MOON_TEAR.get()) {
+            return new AnalyzedInfo(name, "item.xeb.moon_tear", false, null, null);
+        }
+        if (item == ModItems.TINFOIL_HAT.get()) {
+            return new AnalyzedInfo(name, "item.xeb.tinfoil_hat", false, null, null);
+        }
+        if (item == ModItems.HOLY_MANTLE.get()) {
+            return new AnalyzedInfo(name, "item.xeb.holy_mantle", false, null, null);
+        }
+        if (item == ModItems.BRASS_KNUCKLES.get()) {
+            return new AnalyzedInfo(name, "item.xeb.brass_knuckles", false, null, null);
+        }
+        if (item == ModItems.DEMON_CORE.get()) {
+            return new AnalyzedInfo(name, "item.xeb.demon_core", false, null, null);
+        }
+        if (item == ModItems.MOB_ENERGY.get()) {
+            return new AnalyzedInfo(name, "item.xeb.mob_energy", false, null, null);
+        }
+
+        // Unknown fallback
+        return new AnalyzedInfo(name, "item.unknown", false, null, null);
     }
 
     private static class LogEntry {
-        public final String titleKey;
-        public final String contentKey;
+        final String titleKey;
+        final String contentKey;
 
-        public LogEntry(String titleKey, String contentKey) {
+        LogEntry(String titleKey, String contentKey) {
             this.titleKey = titleKey;
             this.contentKey = contentKey;
         }
     }
 
     private static class AnalyzedInfo {
-        public final String translationKey;
-        public final String name;
-        public final boolean hasAbilities;
+        final String name;
+        final String translationKey;
+        final boolean hasAbilities;
+        final String[] damages;
+        final String[] cooldowns;
+        final boolean[] disabledAbilities;
 
-        public AnalyzedInfo(String translationKey, String name, boolean hasAbilities) {
-            this.translationKey = translationKey;
+        AnalyzedInfo(String name, String translationKey, boolean hasAbilities, String[] damages, String[] cooldowns) {
+            this(name, translationKey, hasAbilities, damages, cooldowns, new boolean[]{false, false, false, false, false});
+        }
+
+        AnalyzedInfo(String name, String translationKey, boolean hasAbilities, String[] damages, String[] cooldowns, boolean[] disabledAbilities) {
             this.name = name;
+            this.translationKey = translationKey;
             this.hasAbilities = hasAbilities;
+            this.damages = damages;
+            this.cooldowns = cooldowns;
+            this.disabledAbilities = disabledAbilities;
+        }
+
+        public boolean isAbilityDisabled(int index) {
+            if (disabledAbilities == null || index < 0 || index >= disabledAbilities.length) {
+                return false;
+            }
+            return disabledAbilities[index];
         }
     }
 }
