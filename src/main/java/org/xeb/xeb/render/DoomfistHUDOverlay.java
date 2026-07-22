@@ -170,10 +170,15 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.opticBlastHudX;
-        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
+        int xStart = org.xeb.xeb.Config.doomfistHudX;
+        int yStart = height - org.xeb.xeb.Config.doomfistHudY;
+        float scale = org.xeb.xeb.Config.doomfistHudScale;
         
         GuiGraphics g = event.getGuiGraphics();
+        g.pose().pushPose();
+        g.pose().translate(xStart, yStart, 0);
+        g.pose().scale(scale, scale, 1.0f);
+
         net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
         
         int uppercutCD = tag.contains("xebUppercutCooldownTicks") ? tag.getInt("xebUppercutCooldownTicks") : 0;
@@ -187,17 +192,18 @@ public class DoomfistHUDOverlay {
         
         if (isV2) {
             // Earthquake Slam: 7s cooldown (140 ticks)
-            renderAbilityIconBox(g, mc, xStart, yStart, key1, "ESLAM", uppercutCD, 140, true);
+            renderAbilityIconBox(g, mc, 0, 0, key1, "ESLAM", uppercutCD, 140, true);
             // Power Block: 7s cooldown (140 ticks)
-            renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "BLOCK", slamCD, 140, true);
+            renderAbilityIconBox(g, mc, 30, 0, key2, "BLOCK", slamCD, 140, true);
         } else {
             // Rising Uppercut: 5s cooldown (100 ticks)
-            renderAbilityIconBox(g, mc, xStart, yStart, key1, "UPPER", uppercutCD, 100, false);
+            renderAbilityIconBox(g, mc, 0, 0, key1, "UPPER", uppercutCD, 100, false);
             // Seismic Slam: 6s cooldown (120 ticks)
-            renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "SLAM", slamCD, 120, false);
+            renderAbilityIconBox(g, mc, 30, 0, key2, "SLAM", slamCD, 120, false);
         }
         
         RenderSystem.disableBlend();
+        g.pose().popPose();
     }
     
     private static void renderAbilityIconBox(GuiGraphics g, Minecraft mc, int x, int y, String key, String label, int cd, int maxCd, boolean isV2) {
@@ -361,10 +367,15 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.opticBlastHudX;
-        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
+        int xStart = org.xeb.xeb.Config.crazyDiamondHudX;
+        int yStart = height - org.xeb.xeb.Config.crazyDiamondHudY;
+        float scale = org.xeb.xeb.Config.crazyDiamondHudScale;
         
         GuiGraphics g = event.getGuiGraphics();
+        g.pose().pushPose();
+        g.pose().translate(xStart, yStart, 0);
+        g.pose().scale(scale, scale, 1.0f);
+
         net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
         
         int a1CD = tag.contains("xebCDA1CooldownTicks") ? tag.getInt("xebCDA1CooldownTicks") : 0;
@@ -377,11 +388,12 @@ public class DoomfistHUDOverlay {
         String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         
         // "Dora!": max cooldown is 300 ticks (15s)
-        renderAbilityIconBox(g, mc, xStart, yStart, key1, "DORA", a1CD, 300, false);
+        renderAbilityIconBox(g, mc, 0, 0, key1, "DORA", a1CD, 300, false);
         // "Restore!": max cooldown is 300 ticks (15s)
-        renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "RESTO", a2CD, 300, false);
+        renderAbilityIconBox(g, mc, 30, 0, key2, "RESTO", a2CD, 300, false);
         
         RenderSystem.disableBlend();
+        g.pose().popPose();
     }
 
     private static void renderCrazyDiamondFistCharges(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player) {
@@ -473,10 +485,15 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.opticBlastHudX;
-        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
+        int xStart = org.xeb.xeb.Config.theTearsHudX;
+        int yStart = height - org.xeb.xeb.Config.theTearsHudY;
+        float scale = org.xeb.xeb.Config.theTearsHudScale;
         
         GuiGraphics g = event.getGuiGraphics();
+        g.pose().pushPose();
+        g.pose().translate(xStart, yStart, 0);
+        g.pose().scale(scale, scale, 1.0f);
+
         net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
         
         int a1CD = tag.contains("xebTearsA1Cooldown") ? tag.getInt("xebTearsA1Cooldown") : 0;
@@ -500,13 +517,13 @@ public class DoomfistHUDOverlay {
             else if (imbueType == 4) { label = "COLD"; color = 0xFF90E0FF; }
             
             String secsLeft = String.format("%.1fs", imbueDur / 20.0F);
-            renderAbilityIconBoxWithCustomColor(g, mc, xStart, yStart, secsLeft, label, color);
+            renderAbilityIconBoxWithCustomColor(g, mc, 0, 0, secsLeft, label, color);
         } else {
-            renderAbilityIconBox(g, mc, xStart, yStart, key1, "COOKI", a1CD, 300, false);
+            renderAbilityIconBox(g, mc, 0, 0, key1, "COOKI", a1CD, 300, false);
         }
         
         // Activa 2: Camo Undies
-        renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "CAMO", a2CD, 400, false);
+        renderAbilityIconBox(g, mc, 30, 0, key2, "CAMO", a2CD, 400, false);
         
         // Circular crosshair HUD next to crosshair (dark donut green fill)
         int centerX = width / 2;
@@ -546,6 +563,7 @@ public class DoomfistHUDOverlay {
         }
         
         RenderSystem.disableBlend();
+        g.pose().popPose();
     }
 
     private static void renderAbilityIconBoxWithCustomColor(GuiGraphics g, Minecraft mc, int x, int y, String key, String label, int color) {
@@ -611,10 +629,15 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.opticBlastHudX;
-        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
+        int xStart = org.xeb.xeb.Config.mechaHudX;
+        int yStart = height - org.xeb.xeb.Config.mechaHudY;
+        float scale = org.xeb.xeb.Config.mechaHudScale;
         
         GuiGraphics g = event.getGuiGraphics();
+        g.pose().pushPose();
+        g.pose().translate(xStart, yStart, 0);
+        g.pose().scale(scale, scale, 1.0f);
+
         net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
         
         int a1CD = tag.getInt("xebMechaA1Cooldown");
@@ -634,10 +657,10 @@ public class DoomfistHUDOverlay {
         String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         
         // Activa 1: Jet Dash (JETS)
-        renderAbilityIconBox(g, mc, xStart, yStart, key1, "JETS", a1CD, 160, jetActive);
+        renderAbilityIconBox(g, mc, 0, 0, key1, "JETS", a1CD, 160, jetActive);
         
         // Activa 2: Spindash Missile (SPMS)
-        renderSpindashBox(g, mc, xStart + 30, yStart, key2, "SPMS", spindashCharges, spindashTimer, spindashActive);
+        renderSpindashBox(g, mc, 30, 0, key2, "SPMS", spindashCharges, spindashTimer, spindashActive);
         
         // Render Momentum Bar next to crosshair
         int centerX = width / 2;
@@ -704,16 +727,22 @@ public class DoomfistHUDOverlay {
         }
         
         RenderSystem.disableBlend();
+        g.pose().popPose();
     }
 
     private static void renderHolyAbilityCooldowns(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player) {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.opticBlastHudX;
-        int yStart = height - org.xeb.xeb.Config.opticBlastHudY;
+        int xStart = org.xeb.xeb.Config.holyHudX;
+        int yStart = height - org.xeb.xeb.Config.holyHudY;
+        float scale = org.xeb.xeb.Config.holyHudScale;
         
         GuiGraphics g = event.getGuiGraphics();
+        g.pose().pushPose();
+        g.pose().translate(xStart, yStart, 0);
+        g.pose().scale(scale, scale, 1.0f);
+
         net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
         
         int a1CD = tag.getInt("xebHolyA1Cooldown");
@@ -729,8 +758,8 @@ public class DoomfistHUDOverlay {
         String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         
         // Action boxes bottom left
-        renderAbilityIconBox(g, mc, xStart, yStart, key1, "CREAT", a1CD, 320, shieldActive);
-        renderAbilityIconBox(g, mc, xStart + 30, yStart, key2, "ANNIL", a2CD, 133, annihilationActive);
+        renderAbilityIconBox(g, mc, 0, 0, key1, "CREAT", a1CD, 320, shieldActive);
+        renderAbilityIconBox(g, mc, 30, 0, key2, "ANNIL", a2CD, 133, annihilationActive);
         
         // Render Holy Blast Charge Bar below crosshair
         if (blastCharge > 0) {
@@ -760,6 +789,7 @@ public class DoomfistHUDOverlay {
         }
         
         RenderSystem.disableBlend();
+        g.pose().popPose();
     }
 
     private static void renderSpindashBox(GuiGraphics g, Minecraft mc, int x, int y,

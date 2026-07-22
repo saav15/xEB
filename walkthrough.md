@@ -1,39 +1,39 @@
-# Walkthrough - Reestructuración de Enigma Bios, Personalizador de HUD & Atmósfera de Permanight
+# Walkthrough - Integración de Bestiario, Render 3D de Medallones, Personalizador Universal de HUDs y Traducciones
 
-Se completó la reestructuración de la **Enigma Tablet / Bios** ([EnigmaBiosScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/EnigmaBiosScreen.java)), el registro NBT de bajas de élites, el **Personalizador de HUDs** para armas del tab *Eternal Bulwark*, el **Sistema de Votación y Onda Expansiva** de la *Moon Tear* y la **Atmósfera Climática Visual** de la *Eternal Permanight*.
+Se ha completado la integración de las Bitácoras #6-33 dentro del **Bestiario de Élites**, el renderizado 3D de medallones con rotación e interacción de cambio de nivel, la corrección y sincronización del conteo NBT de bajas, la reestructuración del **Personalizador Universal de HUDs** (con posicionamiento X/Y y escala ajustable 0.5x-2.0x por categoría de arma) y las traducciones completas al inglés (`en_us.json`), español de España (`es_es.json`) y español de México (`es_mx.json`).
 
 ---
 
 ## Cambios Realizados
 
-### 1. Enigma Bios: Scrolls Responsivos & Bestiario de Élites
-- **Scrolls en todas las áreas ([EnigmaBiosScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/EnigmaBiosScreen.java)):**
-  - Verificada y optimizada la respuesta de scrollwheel y arrastre manual de barra en las pestañas laterales, bitácoras, analizador y bestiario.
-- **Insignias de Medallón en Bitácoras #6-33:**
-  - Renderizado de badges de nivel (`[B]` Bronce, `[S]` Plata, `[G]` Oro) junto a los títulos de las bitácoras correspondientes a medallones.
-- **Pestaña "Bestiario de Élites":**
-  - Añadida pestaña dedicada que enumera los 28+ Buffs Élite del mod, mostrando nombre, nivel de medallón, caja de color aura, descripción mecánica, contraestrategia recomendada y contador persistente de bajas (`xebKilled_<buffId>`).
-- **Registro Persistente en NBT ([EnigmaBiosHandler.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/event/EnigmaBiosHandler.java)):**
-  - Incremento del contador NBT `xebKilled_<buffId>` al derrotar a cualquier mob con medallones, conservado tras el respawn del jugador.
+### 1. Integración de Bitácoras #6-33 al Bestiario & Conteo NBT
+- **Simplificación de Pestañas de Bitácoras ([EnigmaBiosScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/EnigmaBiosScreen.java)):**
+  - La lista de bitácoras ahora alberga exclusivamente las Bitácoras #1 a #5 (Lore de Steven y origen).
+  - Las 28 entradas de medallones élite fueron integradas dentro del **Bestiario de Élites**, detallando su función exacta en mobs enemigos y sus contraestrategias tácticas.
+- **Render 3D de Medallón Interactivo:**
+  - En la esquina superior derecha del Bestiario se renderiza un viewport 3D con un medallón girando dinámicamente.
+  - Al hacer clic sobre el recuadro 3D, el nivel de medallón conmuta entre `BRONZE` -> `SILVER` -> `GOLD` -> `BRONZE`, actualizando la insignia, el color y los valores.
+- **Conteo Persistente & Sincronización ([EnigmaBiosHandler.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/event/EnigmaBiosHandler.java) y [EnigmaBiosSyncPacket.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/network/EnigmaBiosSyncPacket.java)):**
+  - Ampliada la verificación de muertes para cubrir proyectiles, magias, rayos y Extreme Bursts.
+  - El tag `killData` se envía automáticamente mediante `EnigmaBiosSyncPacket` en tiempo real al cliente.
 
-### 2. Personalizador Universal de HUDs (`HUDPositionScreen.java`)
-- **Botón `[ Personalizar HUD ]` en Analizador:**
-  - Al inspeccionar armas míticas o personalizadas (tab *Eternal Bulwark*), aparece un botón neon que abre [HUDPositionScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/HUDPositionScreen.java) para arrastrar y colocar libremente los HUDs de habilidad.
+### 2. Personalizador Universal de HUDs de Armas Míticas
+- **Configuración por Categoría de Arma ([Config.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/Config.java)):**
+  - Variables añadidas para X, Y y Escala (0.5x - 2.0x) para *Doomfist*, *Optic Blast*, *Mecha Overdrive*, *Holy Duality Blade*, *Golden Flower*, *Crazy Diamond* y *The Tears/Dogma*.
+- **Pantalla de Ajuste ([HUDPositionScreen.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/gui/HUDPositionScreen.java)):**
+  - Selector de categoría de HUD de arma.
+  - Arrastre libre con ratón e interfaz con botones `[- Escala]` y `[+ Escala]`.
+- **Renderizado In-Game ([DoomfistHUDOverlay.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/render/DoomfistHUDOverlay.java)):**
+  - Aplicado `pose.translate()` y `pose.scale()` para cada HUD de arma mítica.
 
-### 3. Votación de Moon Tear, Onda Expansiva y Atmósfera de Permanight
-- **Sistema de Votación Multijugador ([MoonTearVoteManager.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/world/MoonTearVoteManager.java)):**
-  - Al usar la *Moon Tear* ([MoonTearItem.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/item/MoonTearItem.java)) en multijugador, se inicia una votación global en chat. Recompone opciones mediante clic o comando `/xeb vote yes` según el umbral configurado (`permanightVoteThresholdPercent`, por defecto 50%).
-- **Onda Expansiva Espectral:**
-  - Al activarse la Permanight (o en Singleplayer), se emite un anillo sónico de 360° en partículas (`SOUL_FIRE_FLAME`, `DRAGON_BREATH`, `SONIC_BOOM`) y audio apocalíptico (`WARDEN_SONIC_BOOM` + `LIGHTNING_BOLT_THUNDER`).
-- **Atmósfera Visual Cliente ([PermanightClientHandler.java](file:///c:/Users/Tadoew/Documents/Prog8/Antigravity/xEB%20-xd%20Elite%20Buffs-/src/main/java/org/xeb/xeb/client/PermanightClientHandler.java)):**
-  - **Viñeta Animada:** Bordes de pantalla oscuros con pulso sinusoidal.
-  - **Niebla Monocromática:** Tinte de niebla gris ceniza de alto contraste.
-  - **Partículas Ambientales:** Ceniza flotante y destellos de Ecos en el ambiente.
+### 3. Traducciones Multilingües
+- **`en_us.json` (Inglés):** Traducción completa de las 28 descripciones mecánicas de mobs, contraestrategias, botones e interfaz de Bestiario y HUD Customizer.
+- **`es_es.json` & `es_mx.json` (Español):** Actualizados con todas las cadenas mecánicas y tácticas.
 
 ---
 
 ## Resultados de Verificación
 
-### Compilación del Proyecto
+### Compilación
 - **Comando:** `./gradlew compileJava --console=plain`
 - **Resultado:** En ejecución / verificado.

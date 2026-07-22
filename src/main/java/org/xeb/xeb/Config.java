@@ -311,9 +311,34 @@ public class Config {
     public static int permanightVoteThresholdPercent = 50;
     public static int permanightVoteDurationSeconds = 30;
 
-    // HUD position config
+    // HUD position & scale config
+    public static int doomfistHudX = 10;
+    public static int doomfistHudY = 42;
+    public static float doomfistHudScale = 1.0f;
+
     public static int opticBlastHudX = 10;
     public static int opticBlastHudY = 42;
+    public static float opticBlastHudScale = 1.0f;
+
+    public static int mechaHudX = 10;
+    public static int mechaHudY = 42;
+    public static float mechaHudScale = 1.0f;
+
+    public static int holyHudX = 10;
+    public static int holyHudY = 42;
+    public static float holyHudScale = 1.0f;
+
+    public static int goldenFlowerHudX = 10;
+    public static int goldenFlowerHudY = 42;
+    public static float goldenFlowerHudScale = 1.0f;
+
+    public static int crazyDiamondHudX = 10;
+    public static int crazyDiamondHudY = 42;
+    public static float crazyDiamondHudScale = 1.0f;
+
+    public static int theTearsHudX = 10;
+    public static int theTearsHudY = 42;
+    public static float theTearsHudScale = 1.0f;
 
     // Elite Loot config static variables
     public static boolean lootDropsEnabled = true;

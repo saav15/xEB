@@ -21,6 +21,7 @@ import java.util.Random;
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class EnigmaBiosHandler {
     private static final Random RANDOM = new Random();
+    public static final int TOTAL_LOGS = 33;
 
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
@@ -29,8 +30,16 @@ public class EnigmaBiosHandler {
         LivingEntity deadEntity = event.getEntity();
         if (deadEntity == null || deadEntity.level().isClientSide) return;
 
-        Entity attacker = event.getSource().getEntity();
-        if (!(attacker instanceof ServerPlayer serverPlayer)) return;
+        ServerPlayer serverPlayer = null;
+        if (event.getSource().getEntity() instanceof ServerPlayer p) {
+            serverPlayer = p;
+        } else if (event.getSource().getDirectEntity() instanceof ServerPlayer p) {
+            serverPlayer = p;
+        } else if (deadEntity.getLastHurtByMob() instanceof ServerPlayer p) {
+            serverPlayer = p;
+        }
+
+        if (serverPlayer == null) return;
 
         // Check if the dead entity has medallion data
         List<MedallionData> medallions = MedallionManager.getMedallions(deadEntity);
@@ -42,6 +51,9 @@ public class EnigmaBiosHandler {
             String killKey = "xebKilled_" + m.getBuff().getId();
             tag.putInt(killKey, tag.getInt(killKey) + 1);
         }
+
+        // Immediately sync updated kill stats to client
+        syncBitacoras(serverPlayer, -1);
 
         // Find the highest medallion tier
         MedallionType highestTier = MedallionType.COMMON;
@@ -91,8 +103,6 @@ public class EnigmaBiosHandler {
             }
         }
     }
-
-    public static final int TOTAL_LOGS = 33;
 
     public static void unlockRandomLog(ServerPlayer player) {
         CompoundTag tag = player.getPersistentData();
@@ -157,9 +167,17 @@ public class EnigmaBiosHandler {
         for (int i = 0; i < TOTAL_LOGS; i++) {
             unlocked[i] = tag.getBoolean("xebUnlockedBitacora" + (i + 1));
         }
+
+        CompoundTag killData = new CompoundTag();
+        for (String key : tag.getAllKeys()) {
+            if (key.startsWith("xebKilled_")) {
+                killData.putInt(key, tag.getInt(key));
+            }
+        }
+
         XEBNetwork.CHANNEL.send(
                 net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-                new org.xeb.xeb.network.EnigmaBiosSyncPacket(unlocked, newlyUnlocked)
+                new org.xeb.xeb.network.EnigmaBiosSyncPacket(unlocked, newlyUnlocked, killData)
         );
     }
 }
