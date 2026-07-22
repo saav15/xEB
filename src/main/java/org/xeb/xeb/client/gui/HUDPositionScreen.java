@@ -220,31 +220,68 @@ public class HUDPositionScreen extends Screen {
         g.pose().translate(x, y, 0);
         g.pose().scale(this.hudScale, this.hudScale, 1.0f);
 
-        // Render preview boxes
+        // Render preview boxes and dynamic resource gauges
         switch (this.currentCategory) {
             case DOOMFIST -> {
                 renderPreviewBox(g, 0, 0, "ACT1", "UPPER");
                 renderPreviewBox(g, 30, 0, "ACT2", "SLAM");
+                // Power Block Mitigation Bar Preview
+                g.fill(0, 26, 54, 30, 0x66000000);
+                g.fill(1, 27, 40, 29, 0xFFFFCC00);
+                g.drawString(this.font, "BLOCK 75%", 0, 32, 0xFFFFCC00, false);
             }
             case OPTIC_BLAST -> {
-                renderPreviewBox(g, 0, 0, "BEAM", "CHARGE");
+                // Curved Heat Gauge Bar Preview
+                g.fill(0, 0, 54, 8, 0x66000000);
+                g.fill(1, 1, 42, 7, 0xFFFF3300);
+                g.drawString(this.font, "HEAT 80%", 0, 10, 0xFFFF3300, false);
             }
             case MECHA -> {
                 renderPreviewBox(g, 0, 0, "JET", "VULCAN");
                 renderPreviewBox(g, 30, 0, "DASH", "OVER");
+                // Slanted 5-Segment O.CLOCK Gauge Preview
+                for (int i = 0; i < 5; i++) {
+                    int segX = 60 + i * 7;
+                    int segY = 16 - i * 4;
+                    g.fill(segX - 1, segY - 1, segX + 5 + 1, segY + 4 + 1, 0x66000000);
+                    g.fill(segX, segY, segX + 5, segY + 4, 0xFFFF8800);
+                }
+                g.drawString(this.font, "O.CLOCK", 60, -8, 0xFFFFD700, false);
             }
             case HOLY -> {
-                renderPreviewBox(g, 0, 0, "STANCE", "SHIELD");
-                renderPreviewBox(g, 30, 0, "BLAST", "COMBO");
+                renderPreviewBox(g, 0, 0, "SHLD", "CREAT");
+                renderPreviewBox(g, 30, 0, "ANNI", "ANNIL");
+                // Holy Blast Charge Bar Preview
+                g.fill(0, 26, 54, 30, 0x66000000);
+                g.fill(1, 27, 48, 29, 0xFF00FFFF);
+                g.drawString(this.font, "HOLY BLAST", 0, 32, 0xFF00FFFF, false);
             }
             case GOLDEN_FLOWER -> {
-                renderPreviewBox(g, 0, 0, "PETAL", "BURST");
+                // 6-Petal Resource Ring Preview
+                for (int i = 0; i < 6; i++) {
+                    double angle = Math.toRadians(i * 60);
+                    int px = 27 + (int) (18 * Math.cos(angle));
+                    int py = 12 + (int) (18 * Math.sin(angle));
+                    g.fill(px - 3, py - 3, px + 4, py + 4, 0xFFFFD700);
+                }
+                g.drawString(this.font, "6 PETALS", 0, 34, 0xFFFFD700, false);
             }
             case CRAZY_DIAMOND -> {
-                renderPreviewBox(g, 0, 0, "FIST", "DORA");
+                renderPreviewBox(g, 0, 0, "DORA", "BARRAGE");
+                renderPreviewBox(g, 30, 0, "RESTO", "RESTORE");
+                // Honeycomb 3-fist charges preview
+                g.fill(60, 2, 70, 10, 0xFFFF55AA);
+                g.fill(72, 2, 82, 10, 0xFFFF55AA);
+                g.fill(84, 2, 94, 10, 0xFFFF55AA);
+                g.drawString(this.font, "DORA x3", 60, 14, 0xFFFF55AA, false);
             }
             case THE_TEARS -> {
-                renderPreviewBox(g, 0, 0, "DOGMA", "RING");
+                renderPreviewBox(g, 0, 0, "COOKI", "IMBUE");
+                renderPreviewBox(g, 30, 0, "CAMO", "UNDIES");
+                // Circular Imbue Ring Preview
+                g.fill(60, 2, 72, 14, 0xAA003322);
+                g.fill(63, 5, 69, 11, 0xFF00FFCC);
+                g.drawString(this.font, "PURP IMBUE", 60, 16, 0xFF00FFCC, false);
             }
         }
 

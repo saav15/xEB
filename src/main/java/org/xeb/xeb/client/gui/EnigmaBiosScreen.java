@@ -1,6 +1,7 @@
 package org.xeb.xeb.client.gui;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -14,6 +15,7 @@ import org.xeb.xeb.item.ModItems;
 import org.xeb.xeb.medallion.MedallionType;
 import org.xeb.xeb.buff.EliteBuff;
 import org.xeb.xeb.buff.EliteBuffRegistry;
+import org.xeb.xeb.render.MedallionRenderLayer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +31,7 @@ public class EnigmaBiosScreen extends Screen {
     private int selectedAbilityIndex = 0; // 0: Clic Izq, 1: Clic Der, 2: Activa 1, 3: Activa 2, 4: Extreme Burst
 
     private int selectedBestiaryIndex = 0;
-    private int selectedBestiaryTierIndex = 0; // 0: Bronze, 1: Silver, 2: Gold
+    private int selectedBestiaryTierIndex = 0; // 0: BRONZE, 1: SILVER, 2: GOLD
 
     // Lore Logs (Bitácoras 1 to 5)
     private final List<LogEntry> logs = new ArrayList<>();
@@ -39,7 +41,6 @@ public class EnigmaBiosScreen extends Screen {
     private float contentScrollAmount = 0.0F;
     private float analyzerScrollAmount = 0.0F;
     private float bestiaryScrollAmount = 0.0F;
-    private float bestiaryDetailScrollAmount = 0.0F;
 
     private boolean isDraggingTabScroll = false;
     private boolean isDraggingContentScroll = false;
@@ -168,13 +169,13 @@ public class EnigmaBiosScreen extends Screen {
                     : (active ? 0xCC00FFCC : (hovered ? 0x4400FFCC : 0x1A00FFCC));
             int textColor = !isUnlocked ? (active ? 0xFFFFFFFF : (hovered ? 0xFFFF7777 : 0xFF884444))
                     : (active ? 0xFF08111E : (hovered ? 0xFFFFFFFF : 0xFF888888));
-            int borderColor = !isUnlocked ? 0x33FF5555 : 0x3300FFCC;
+            int bColor = !isUnlocked ? 0x33FF5555 : 0x3300FFCC;
 
             g.fill(startX, y, startX + 60, y + 20, bgColor);
-            g.fill(startX, y, startX + 60, y + 1, borderColor);
-            g.fill(startX, y + 19, startX + 60, y + 20, borderColor);
-            g.fill(startX, y, startX + 1, y + 20, borderColor);
-            g.fill(startX + 59, y, startX + 60, y + 20, borderColor);
+            g.fill(startX, y, startX + 60, y + 1, bColor);
+            g.fill(startX, y + 19, startX + 60, y + 20, bColor);
+            g.fill(startX, y, startX + 1, y + 20, bColor);
+            g.fill(startX + 59, y, startX + 60, y + 20, bColor);
 
             String title = (i == 0) ? translate("gui.xeb.enigma_bios.tab.analyze")
                     : ((i == 1) ? translate("gui.xeb.enigma_bios.tab.bestiary") : "BIT. #" + (i - 1));
@@ -228,19 +229,6 @@ public class EnigmaBiosScreen extends Screen {
                 int textColor = flashing ? 0xFFFF3333 : 0xFF00FFCC;
                 g.drawString(this.font, translate("gui.xeb.enigma_bios.label.name") + info.name, areaX + 38, areaY + 14, textColor, false);
 
-                String loreText = info.translationKey.equals("item.unknown")
-                        ? translate("item.unknown.enigma_lore." + this.unknownTextIndex)
-                        : translate(info.translationKey + ".enigma_lore");
-
-                int textY = areaY + 32;
-                List<FormattedText> loreLines = this.font.getSplitter().splitLines(loreText, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
-                for (FormattedText line : loreLines) {
-                    if (textY < areaY + 62) {
-                        g.drawString(this.font, line.getString(), areaX + 12, textY, 0xFFE0E0E0, false);
-                        textY += 10;
-                    }
-                }
-
                 // Customize HUD button
                 int hudBtnX = areaX + areaW - 98;
                 int hudBtnY = areaY + 6;
@@ -259,9 +247,55 @@ public class EnigmaBiosScreen extends Screen {
                 String hudBtnText = translate("gui.xeb.enigma_bios.btn.customize_hud");
                 int hudTxtW = this.font.width(hudBtnText);
                 g.drawString(this.font, hudBtnText, hudBtnX + (hudBtnW - hudTxtW) / 2, hudBtnY + 3, hudTxt, false);
+
+                // Render 5 Move Selector Buttons
+                String[] btnLabels = {"Clic Izq.", "Clic Der.", "Activa 1", "Activa 2", "Ex. Burst"};
+                int btnW = 56;
+                int btnH = 14;
+                int btnStartX = areaX + 12;
+                int btnY = areaY + 34;
+
+                for (int b = 0; b < 5; b++) {
+                    int bx = btnStartX + b * 60;
+                    boolean isSel = (this.selectedAbilityIndex == b);
+                    boolean bHov = mouseX >= bx && mouseX < bx + btnW && mouseY >= btnY && mouseY < btnY + btnH;
+
+                    int bg = isSel ? 0xCC00FFCC : (bHov ? 0x4400FFCC : 0x1A00FFCC);
+                    int txt = isSel ? 0xFF08111E : (bHov ? 0xFFFFFFFF : 0xFF888888);
+
+                    g.fill(bx, btnY, bx + btnW, btnY + btnH, bg);
+                    g.fill(bx, btnY, bx + btnW, btnY + 1, 0x5500FFCC);
+                    g.fill(bx, btnY + btnH - 1, bx + btnW, btnY + btnH, 0x5500FFCC);
+                    g.fill(bx, btnY, bx + 1, btnY + btnH, 0x5500FFCC);
+                    g.fill(bx + btnW - 1, btnY, bx + btnW, btnY + btnH, 0x5500FFCC);
+
+                    int tw = this.font.width(btnLabels[b]);
+                    g.drawString(this.font, btnLabels[b], bx + (btnW - tw) / 2, btnY + 3, txt, false);
+                }
+
+                // Ability Move Details Viewport
+                int moveBoxY = areaY + 54;
+                int moveBoxH = areaH - 60;
+                g.fill(areaX + 12, moveBoxY, areaX + areaW - 12, moveBoxY + moveBoxH, 0x33000000);
+                g.fill(areaX + 12, moveBoxY, areaX + areaW - 12, moveBoxY + 1, 0x3300FFCC);
+
+                String moveTitle = getMoveTitle(this.selectedAbilityIndex);
+                String moveDesc = getMoveDescription(info, this.selectedAbilityIndex);
+
+                g.drawString(this.font, moveTitle, areaX + 16, moveBoxY + 4, 0xFF00FFCC, false);
+                g.fill(areaX + 16, moveBoxY + 14, areaX + areaW - 16, moveBoxY + 15, 0x4400FFCC);
+
+                List<FormattedText> moveLines = this.font.getSplitter().splitLines(moveDesc, areaW - 36, net.minecraft.network.chat.Style.EMPTY);
+                int mY = moveBoxY + 20;
+                for (FormattedText line : moveLines) {
+                    if (mY < moveBoxY + moveBoxH - 4) {
+                        g.drawString(this.font, line.getString(), areaX + 16, mY, 0xFFE0E0E0, false);
+                        mY += 10;
+                    }
+                }
             }
         } else if (this.activeTab == 1) {
-            // RENDER ELITE BESTIARY
+            // RENDER ELITE BESTIARIO
             List<EliteBuff> allBuffs = new ArrayList<>(EliteBuffRegistry.getAll());
             if (!allBuffs.isEmpty()) {
                 if (this.selectedBestiaryIndex < 0 || this.selectedBestiaryIndex >= allBuffs.size()) {
@@ -305,65 +339,51 @@ public class EnigmaBiosScreen extends Screen {
                 EliteBuff selBuff = allBuffs.get(this.selectedBestiaryIndex);
                 g.drawString(this.font, selBuff.getDisplayName().getString(), detX, detY + 2, 0xFF00FFCC, false);
 
-                // Tier cycling logic (Bronze, Silver, Gold)
+                // Tier cycling (BRONZE, SILVER, GOLD)
                 MedallionType tier = MedallionType.values()[this.selectedBestiaryTierIndex % MedallionType.values().length];
-                String tierName = tier.name();
+                String tierName = switch (tier) {
+                    case COMMON -> "BRONZE";
+                    case RARE -> "SILVER";
+                    case LEGENDARY -> "GOLD";
+                };
                 int tierColor = switch (tier) {
-                    case COMMON -> 0xFFCD7F32; // Bronze
-                    case RARE -> 0xFFC0C0C0;   // Silver
+                    case COMMON -> 0xFFCD7F32;   // Bronze
+                    case RARE -> 0xFFC0C0C0;     // Silver
                     case LEGENDARY -> 0xFFFFD700; // Gold
                 };
 
                 // Render Tier Badge
-                g.fill(detX, detY + 14, detX + 44, detY + 24, tierColor);
+                g.fill(detX, detY + 14, detX + 46, detY + 24, tierColor);
                 g.drawString(this.font, tierName, detX + 4, detY + 15, 0xFF08111E, false);
 
-                // Interactive 3D Spinning Medallion Box in top right
-                int box3DX = detX + detW - 36;
-                int box3DY = detY + 2;
-                int box3DS = 32;
-
-                boolean box3DHovered = mouseX >= box3DX && mouseX < box3DX + box3DS && mouseY >= box3DY && mouseY < box3DY + box3DS;
-                int box3DBorder = box3DHovered ? 0xFF00FFCC : tierColor;
-
-                g.fill(box3DX, box3DY, box3DX + box3DS, box3DY + box3DS, 0x44000000);
-                g.fill(box3DX, box3DY, box3DX + box3DS, box3DY + 1, box3DBorder);
-                g.fill(box3DX, box3DY + box3DS - 1, box3DX + box3DS, box3DY + box3DS, box3DBorder);
-                g.fill(box3DX, box3DY, box3DX + 1, box3DY + box3DS, box3DBorder);
-                g.fill(box3DX + box3DS - 1, box3DY, box3DX + box3DS, box3DY + box3DS, box3DBorder);
-
-                // Spin 3D Medallion model / item stack inside box
-                long rotTime = System.currentTimeMillis();
-                float angle = (rotTime % 3600L) / 10.0F;
-
-                g.pose().pushPose();
-                g.pose().translate(box3DX + 16, box3DY + 16, 100);
-                g.pose().mulPose(com.mojang.math.Axis.YP.rotationDegrees(angle));
-                g.pose().scale(1.2F, 1.2F, 1.2F);
-
-                ItemStack medallionStack = switch (tier) {
-                    case COMMON -> new ItemStack(net.minecraft.world.item.Items.RAW_COPPER);
-                    case RARE -> new ItemStack(net.minecraft.world.item.Items.IRON_INGOT);
-                    case LEGENDARY -> new ItemStack(net.minecraft.world.item.Items.GOLD_INGOT);
-                };
-                g.renderFakeItem(medallionStack, -8, -8);
-                g.pose().popPose();
-
-                // Kill counter
+                // Defeated Elites kill counter
                 int kills = 0;
                 if (this.minecraft != null && this.minecraft.player != null) {
                     kills = this.minecraft.player.getPersistentData().getInt("xebKilled_" + selBuff.getId());
                 }
-                g.drawString(this.font, translate("gui.xeb.enigma_bios.bestiary.kills") + kills, detX + 50, detY + 15, 0xFFFFCC00, false);
+                g.drawString(this.font, translate("gui.xeb.enigma_bios.bestiary.kills") + kills, detX + 52, detY + 15, 0xFFFFCC00, false);
 
-                g.fill(detX, detY + 28, detX + detW, detY + 29, 0x4400FFCC);
+                // FLOATING 3D MEDALLION MODEL RENDER IN GUI (NO RECUADRO, FLOATING FREELY)
+                float rotAngle = (System.currentTimeMillis() % 3600L) / 10.0F;
+                int renderCenterX = detX + detW - 28;
+                int renderCenterY = detY + 28;
+
+                g.pose().pushPose();
+                g.pose().translate(renderCenterX, renderCenterY, 150.0F);
+                g.pose().scale(1.2F, 1.2F, 1.2F);
+
+                // Render authentic 3D mob medallion with rotAngle, tier texture, and buff icon PNG
+                MedallionRenderLayer.renderSingleMedallionGUI(g.pose(), g.bufferSource(), tier, selBuff.getId(), rotAngle, 0xF000F0);
+                g.pose().popPose();
+
+                g.fill(detX, detY + 28, detX + detW - 55, detY + 29, 0x4400FFCC);
 
                 // Mechanical Mob Details & Counter-Strategy Text
                 String descText = translate("xeb.buff." + selBuff.getId() + ".desc");
                 if (descText.equals("xeb.buff." + selBuff.getId() + ".desc")) {
                     descText = "Medallón Élite (" + tierName + "): Confiere propiedades especiales de combate y defensivas a la entidad huésped.";
                 }
-                List<FormattedText> descLines = this.font.getSplitter().splitLines(descText, detW - 4, net.minecraft.network.chat.Style.EMPTY);
+                List<FormattedText> descLines = this.font.getSplitter().splitLines(descText, detW - 55, net.minecraft.network.chat.Style.EMPTY);
                 int dY = detY + 34;
                 for (FormattedText line : descLines) {
                     if (dY < detY + 80) {
@@ -435,6 +455,33 @@ public class EnigmaBiosScreen extends Screen {
                 }
             }
         }
+    }
+
+    private String getMoveTitle(int index) {
+        return switch (index) {
+            case 0 -> "[ Clic Izquierdo ] - Ataque Básico";
+            case 1 -> "[ Clic Derecho ] - Habilidad Secundaria";
+            case 2 -> "[ Activa 1 ] - Movimiento Especial A";
+            case 3 -> "[ Activa 2 ] - Movimiento Especial B";
+            case 4 -> "[ EXTREME BURST ] - Definitiva";
+            default -> "Movimiento Desconocido";
+        };
+    }
+
+    private String getMoveDescription(AnalyzedInfo info, int index) {
+        String baseKey = info.translationKey + ".move." + index;
+        String desc = translate(baseKey);
+        if (desc.equals(baseKey)) {
+            return switch (index) {
+                case 0 -> "Ejecuta un combo de tajos rápidos que infligen daño físico y empuje moderado.";
+                case 1 -> "Canaliza la energía del arma para lanzar un proyectil o barrera defensiva.";
+                case 2 -> "Inicia una maniobra de alta movilidad o embestida direccional.";
+                case 3 -> "Desata un ataque de carga pesada que rompe la guardia enemiga.";
+                case 4 -> "Desata la máxima potencia contenida en el núcleo reliquia, devastando el área.";
+                default -> "Información de ataque no disponible.";
+            };
+        }
+        return desc;
     }
 
     private void renderInventory(GuiGraphics g, int mouseX, int mouseY) {
@@ -609,6 +656,22 @@ public class EnigmaBiosScreen extends Screen {
                 }
                 return true;
             }
+
+            // Click check for move selector buttons 0..4
+            int btnW = 56;
+            int btnH = 14;
+            int btnStartX = areaX + 12;
+            int btnY = areaY + 34;
+            for (int b = 0; b < 5; b++) {
+                int bx = btnStartX + b * 60;
+                if (scaledMouseX >= bx && scaledMouseX < bx + btnW && scaledMouseY >= btnY && scaledMouseY < btnY + btnH) {
+                    this.selectedAbilityIndex = b;
+                    if (this.minecraft != null) {
+                        this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    }
+                    return true;
+                }
+            }
         }
 
         if (this.activeTab == 1) {
@@ -631,15 +694,15 @@ public class EnigmaBiosScreen extends Screen {
                 }
             }
 
-            // Click check for 3D spinning medallion tier cycle box
+            // Click check for 3D floating medallion model tier cycle
             int detX = areaX + 106;
             int detY = areaY + 6;
             int detW = areaW - 112;
-            int box3DX = detX + detW - 36;
-            int box3DY = detY + 2;
-            int box3DS = 32;
+            int renderCenterX = detX + detW - 28;
+            int renderCenterY = detY + 28;
 
-            if (scaledMouseX >= box3DX && scaledMouseX < box3DX + box3DS && scaledMouseY >= box3DY && scaledMouseY < box3DY + box3DS) {
+            double dist = Math.hypot(scaledMouseX - renderCenterX, scaledMouseY - renderCenterY);
+            if (dist <= 26.0) {
                 this.selectedBestiaryTierIndex = (this.selectedBestiaryTierIndex + 1) % 3;
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.2F));

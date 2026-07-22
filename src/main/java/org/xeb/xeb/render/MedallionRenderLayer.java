@@ -223,11 +223,56 @@ public class MedallionRenderLayer<T extends LivingEntity, M extends EntityModel<
                 case LEGENDARY -> 3.0F;   // Gold Diamond (fills the 6.0F wide opening)
             };
 
-            // Icon in the center (Z = 0.0F, rendered once and visible from both sides due to noCull)
             drawQuad(pose, medallionConsumer, -innerSize, innerSize, -innerSize, innerSize, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, packedLight, 1.0F, 1.0F, 1.0F, 1.0F, false);
 
             poseStack.popPose();
         }
+    }
+
+    public static void renderSingleMedallionGUI(PoseStack poseStack, MultiBufferSource bufferSource, MedallionType tier, String buffId, float rotation, int packedLight) {
+        poseStack.pushPose();
+        poseStack.mulPose(Axis.YP.rotationDegrees(rotation));
+
+        ResourceLocation caseTexture = switch (tier) {
+            case COMMON -> BRONZE_TEXTURE;
+            case RARE -> SILVER_TEXTURE;
+            case LEGENDARY -> GOLD_TEXTURE;
+        };
+        VertexConsumer caseConsumer = bufferSource.getBuffer(RenderType.entityCutoutNoCull(caseTexture));
+        poseStack.pushPose();
+        poseStack.scale(16.0F, 16.0F, 16.0F);
+        switch (tier) {
+            case COMMON -> SHARED_MODEL.renderBronze(poseStack, caseConsumer, packedLight, OverlayTexture.NO_OVERLAY, 1.0F);
+            case RARE -> SHARED_MODEL.renderSilver(poseStack, caseConsumer, packedLight, OverlayTexture.NO_OVERLAY, 1.0F);
+            case LEGENDARY -> SHARED_MODEL.renderGold(poseStack, caseConsumer, packedLight, OverlayTexture.NO_OVERLAY, 1.0F);
+        }
+        poseStack.popPose();
+
+        if (tier == MedallionType.LEGENDARY) {
+            float time = (float) (System.currentTimeMillis() % 10000L) / 50.0F;
+            float progress = (time % 80.0F) / 80.0F;
+            renderGoldShine(poseStack, bufferSource, packedLight, progress, time);
+        }
+
+        String tierFolder = switch (tier) {
+            case COMMON -> "bronze";
+            case RARE -> "silver";
+            case LEGENDARY -> "gold";
+        };
+        ResourceLocation medallionTexture = new ResourceLocation(Xeb.MODID, "textures/entity/medallion/" + tierFolder + "/icon_" + buffId + ".png");
+
+        VertexConsumer medallionConsumer = bufferSource.getBuffer(RenderType.entityCutout(medallionTexture));
+        PoseStack.Pose pose = poseStack.last();
+        
+        float innerSize = switch (tier) {
+            case COMMON -> 2.5F;
+            case RARE -> 2.0F;
+            case LEGENDARY -> 3.0F;
+        };
+
+        drawQuad(pose, medallionConsumer, -innerSize, innerSize, -innerSize, innerSize, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, packedLight, 1.0F, 1.0F, 1.0F, 1.0F, false);
+
+        poseStack.popPose();
     }
 
     private static void renderGoldShine(PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, float progress, float time) {
