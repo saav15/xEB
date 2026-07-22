@@ -28,7 +28,7 @@ public class EnigmaBiosScreen extends Screen {
 
     private int activeTab = 0; // 0: Analyzer, 1: Bestiary, 2-6: Bitácoras 1-5
     private ItemStack analyzedStack = ItemStack.EMPTY;
-    private int selectedAbilityIndex = 0; // 0: Left Click, 1: Right Click, 2: Active 1, 3: Active 2, 4: Extreme Burst
+    private int selectedAbilityIndex = 0; // Set to first enabled ability index
 
     private int selectedBestiaryIndex = 0;
     private int selectedBestiaryTierIndex = 0; // 0: BRONZE, 1: SILVER, 2: GOLD
@@ -36,16 +36,18 @@ public class EnigmaBiosScreen extends Screen {
     // Lore Logs (Bitácoras 1 to 5)
     private final List<LogEntry> logs = new ArrayList<>();
 
-    // Scrolling states
+    // Independent Scrolling states
     private float tabScrollAmount = 0.0F;
     private float contentScrollAmount = 0.0F;
     private float analyzerScrollAmount = 0.0F;
-    private float bestiaryScrollAmount = 0.0F;
+    private float bestiaryListScrollAmount = 0.0F;
+    private float bestiaryDetailsScrollAmount = 0.0F;
 
-    private boolean isDraggingTabScroll = false;
-    private boolean isDraggingContentScroll = false;
-    private boolean isDraggingAnalyzerScroll = false;
-    private boolean isDraggingBestiaryScroll = false;
+    private long lastTabScrollTime = 0L;
+    private long lastAnalyzerScrollTime = 0L;
+    private long lastBestiaryListScrollTime = 0L;
+    private long lastBestiaryDetailsScrollTime = 0L;
+    private long lastLogScrollTime = 0L;
 
     // Unknown item warning flash states
     private boolean lastAnalyzedUnknown = false;
@@ -59,7 +61,6 @@ public class EnigmaBiosScreen extends Screen {
 
     @Override
     public boolean isPauseScreen() {
-        // Return false so world, mob animations, weapon models, and particles continue live in background!
         return false;
     }
 
@@ -75,16 +76,6 @@ public class EnigmaBiosScreen extends Screen {
         return Component.translatable(key).getString();
     }
 
-    private float getScaleFactor() {
-        float scale = 1.0F;
-        if (this.width >= 720 && this.height >= 520) {
-            scale = 2.0F;
-        } else if (this.width >= 540 && this.height >= 390) {
-            scale = 1.5F;
-        }
-        return scale;
-    }
-
     @Override
     protected void init() {
         super.init();
@@ -92,15 +83,9 @@ public class EnigmaBiosScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        float scale = getScaleFactor();
-        int scaledMouseX = (int) (mouseX / scale);
-        int scaledMouseY = (int) (mouseY / scale);
-
-        this.leftPos = (int) ((this.width / scale - this.guiWidth) / 2);
-        this.topPos = (int) ((this.height / scale - this.guiHeight) / 2);
-
-        g.pose().pushPose();
-        g.pose().scale(scale, scale, 1.0F);
+        // Native Minecraft GUI scaling ensures 100% GL Scissor clipping on all GUI scales!
+        this.leftPos = (this.width - this.guiWidth) / 2;
+        this.topPos = (this.height - this.guiHeight) / 2;
 
         this.renderBackground(g);
 
@@ -119,7 +104,7 @@ public class EnigmaBiosScreen extends Screen {
         // Draw Main Frame Background
         g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, 0xEE08111E);
 
-        // Futuristic Animated Scanlines & Tech Lines Background Effect
+        // Futuristic Calm Sci-Fi Scanlines & Grid Lines
         renderFuturisticBackgroundScanlines(g, borderColor);
 
         // Frame Border Lines
@@ -132,33 +117,29 @@ public class EnigmaBiosScreen extends Screen {
         g.fill(this.leftPos + 4, this.topPos + 4, this.leftPos + this.guiWidth - 4, this.topPos + 16, 0x3300FFCC);
         g.drawString(this.font, "ENIGMA BIOS v1.0", this.leftPos + 8, this.topPos + 6, borderColor, false);
         String statusText = translate("gui.xeb.enigma_bios.status");
-        if (statusText.equals("gui.xeb.enigma_bios.status")) statusText = "STATUS: LINKED";
+        if (statusText.equals("gui.xeb.enigma_bios.status")) statusText = "SYSTEM ACTIVE";
         g.drawString(this.font, statusText, this.leftPos + this.guiWidth - 8 - this.font.width(statusText), this.topPos + 6, borderColor, false);
 
-        renderTabs(g, scaledMouseX, scaledMouseY);
-        renderContent(g, scaledMouseX, scaledMouseY, borderColor, flashing, elapsed);
-        renderInventory(g, scaledMouseX, scaledMouseY);
+        renderTabs(g, mouseX, mouseY);
+        renderContent(g, mouseX, mouseY, borderColor, flashing, elapsed);
+        renderInventory(g, mouseX, mouseY);
 
-        super.render(g, scaledMouseX, scaledMouseY, partialTick);
-        g.pose().popPose();
+        super.render(g, mouseX, mouseY, partialTick);
     }
 
     private void renderFuturisticBackgroundScanlines(GuiGraphics g, int borderColor) {
-        // Animate moving cyan scanlines vertically
         long time = System.currentTimeMillis();
-        int scanY = (int) ((time % 2000L) / 20.0F * (this.guiHeight / 100.0F));
+        int scanY = (int) ((time % 8000L) / 80.0F * (this.guiHeight / 100.0F));
 
         g.enableScissor(this.leftPos + 2, this.topPos + 2, this.leftPos + this.guiWidth - 2, this.topPos + this.guiHeight - 2);
 
-        // Draw animated moving horizontal scanline band
-        for (int offset = 0; offset < this.guiHeight; offset += 30) {
+        for (int offset = 0; offset < this.guiHeight; offset += 36) {
             int lineY = this.topPos + ((scanY + offset) % this.guiHeight);
-            g.fill(this.leftPos + 2, lineY, this.leftPos + this.guiWidth - 2, lineY + 1, 0x1100FFCC);
+            g.fill(this.leftPos + 2, lineY, this.leftPos + this.guiWidth - 2, lineY + 1, 0x0E00FFCC);
         }
 
-        // Draw subtle static grid lines
-        for (int x = this.leftPos + 30; x < this.leftPos + this.guiWidth; x += 30) {
-            g.fill(x, this.topPos + 2, x + 1, this.topPos + this.guiHeight - 2, 0x0A00FFCC);
+        for (int x = this.leftPos + 36; x < this.leftPos + this.guiWidth; x += 36) {
+            g.fill(x, this.topPos + 2, x + 1, this.topPos + this.guiHeight - 2, 0x0600FFCC);
         }
 
         g.disableScissor();
@@ -168,17 +149,23 @@ public class EnigmaBiosScreen extends Screen {
         int startX = this.leftPos + 6;
         int viewportY = this.topPos + 18;
         int viewportH = 130;
-        int totalTabs = 2 + logs.size(); // 0: Analyzer, 1: Bestiary, 2-6: Bitácoras 1-5
+        int totalTabs = 2 + logs.size();
         int contentHeight = totalTabs * 22;
         int maxTabScroll = Math.max(0, contentHeight - viewportH);
 
-        if (maxTabScroll > 0) {
+        long scrollElapsed = System.currentTimeMillis() - this.lastTabScrollTime;
+        if (maxTabScroll > 0 && scrollElapsed < 2000L) {
+            float fade = 1.0F - (scrollElapsed / 2000.0F);
+            int alpha = (int) (255 * fade);
+            int trackCol = (alpha / 4 << 24) | 0x00FFCC;
+            int thumbCol = (alpha << 24) | 0x00FFCC;
+
             int scrollbarX = startX + 61;
-            g.fill(scrollbarX, viewportY, scrollbarX + 3, viewportY + viewportH, 0x3300FFCC);
+            g.fill(scrollbarX, viewportY, scrollbarX + 3, viewportY + viewportH, trackCol);
             int thumbH = Math.max(10, (int) ((float) viewportH * viewportH / contentHeight));
             int thumbY = viewportY + (int) ((float) tabScrollAmount * (viewportH - thumbH) / maxTabScroll);
             thumbY = net.minecraft.util.Mth.clamp(thumbY, viewportY, viewportY + viewportH - thumbH);
-            g.fill(scrollbarX, thumbY, scrollbarX + 3, thumbY + thumbH, 0xFF00FFCC);
+            g.fill(scrollbarX, thumbY, scrollbarX + 3, thumbY + thumbH, thumbCol);
         }
 
         g.enableScissor(startX, viewportY, startX + 65, viewportY + viewportH);
@@ -237,7 +224,7 @@ public class EnigmaBiosScreen extends Screen {
         }
 
         if (this.activeTab == 0) {
-            // RENDER ANALYZER WITH AUTO-ADAPTED LAYOUT FOR WEAPONS VS NON-WEAPONS
+            // RENDER ANALYZER WITH PRECISE NON-OVERLAPPING LAYOUT AND SCISSORS
             int slotX = areaX + 8;
             int slotY = areaY + 8;
 
@@ -263,34 +250,40 @@ public class EnigmaBiosScreen extends Screen {
                 g.drawString(this.font, translate("gui.xeb.enigma_bios.label.name") + info.name, areaX + 34, areaY + 10, textColor, false);
 
                 if (info.hasAbilities) {
-                    // WEAPON ITEM WITH ABILITIES: RENDER CUSTOMIZE HUD BUTTON + 5 ABILITY BUTTONS + STATS
-                    int hudBtnX = areaX + areaW - 84;
-                    int hudBtnY = areaY + 6;
-                    int hudBtnW = 78;
-                    int hudBtnH = 12;
-                    boolean hudHovered = mouseX >= hudBtnX && mouseX < hudBtnX + hudBtnW && mouseY >= hudBtnY && mouseY < hudBtnY + hudBtnH;
+                    // RENDER [ Customize HUD ] BUTTON ONLY FOR WEAPONS WITH CUSTOM IN-GAME HUDS!
+                    if (info.hasCustomHUD) {
+                        int hudBtnX = areaX + areaW - 84;
+                        int hudBtnY = areaY + 6;
+                        int hudBtnW = 78;
+                        int hudBtnH = 12;
+                        boolean hudHovered = mouseX >= hudBtnX && mouseX < hudBtnX + hudBtnW && mouseY >= hudBtnY && mouseY < hudBtnY + hudBtnH;
 
-                    int hudBg = hudHovered ? 0xCC00FFCC : 0x2200FFCC;
-                    int hudTxt = hudHovered ? 0xFF08111E : 0xFF00FFCC;
-                    g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, hudBg);
-                    g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + 1, 0xFF00FFCC);
-                    g.fill(hudBtnX, hudBtnY + hudBtnH - 1, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
-                    g.fill(hudBtnX, hudBtnY, hudBtnX + 1, hudBtnY + hudBtnH, 0xFF00FFCC);
-                    g.fill(hudBtnX + hudBtnW - 1, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0xFF00FFCC);
-                    g.drawString(this.font, translate("gui.xeb.enigma_bios.btn.customize_hud"), hudBtnX + 4, hudBtnY + 2, hudTxt, false);
+                        int hudBg = hudHovered ? 0x9900FFCC : 0x3300FFCC;
+                        int hudTxt = hudHovered ? 0xFF08111E : 0xFF00FFCC;
+                        g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, hudBg);
+                        g.fill(hudBtnX, hudBtnY, hudBtnX + hudBtnW, hudBtnY + 1, 0x6600FFCC);
+                        g.fill(hudBtnX, hudBtnY + hudBtnH - 1, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0x6600FFCC);
+                        g.fill(hudBtnX, hudBtnY, hudBtnX + 1, hudBtnY + hudBtnH, 0x6600FFCC);
+                        g.fill(hudBtnX + hudBtnW - 1, hudBtnY, hudBtnX + hudBtnW, hudBtnY + hudBtnH, 0x6600FFCC);
+                        g.drawString(this.font, translate("gui.xeb.enigma_bios.btn.customize_hud"), hudBtnX + 4, hudBtnY + 2, hudTxt, false);
+                    }
 
-                    // Lore Text (compact)
+                    // Scissored Top Lore Section (strictly max 2-3 lines between areaY + 22 and areaY + 50)
                     String loreText = translate(info.translationKey + ".enigma_lore");
-                    List<FormattedText> loreLines = this.font.getSplitter().splitLines(loreText, areaW - 40, net.minecraft.network.chat.Style.EMPTY);
-                    int textY = areaY + 26;
+                    int maxLoreW = info.hasCustomHUD ? (areaW - 120) : (areaW - 40);
+                    List<FormattedText> loreLines = this.font.getSplitter().splitLines(loreText, maxLoreW, net.minecraft.network.chat.Style.EMPTY);
+
+                    g.enableScissor(areaX + 34, areaY + 22, areaX + areaW - 6, areaY + 50);
+                    int textY = areaY + 22;
                     for (FormattedText line : loreLines) {
-                        if (textY < areaY + 54) {
+                        if (textY < areaY + 48) {
                             g.drawString(this.font, line.getString(), areaX + 34, textY, 0xFFFFFFFF, false);
                             textY += 9;
                         }
                     }
+                    g.disableScissor();
 
-                    // 5 Ability Buttons: Left Click | Right Click | Active 1 | Active 2 | Ultimate
+                    // 5 Ability Buttons at areaY + 54
                     String[] btnKeys = {
                             "gui.xeb.enigma_bios.btn.left_click",
                             "gui.xeb.enigma_bios.btn.right_click",
@@ -301,7 +294,7 @@ public class EnigmaBiosScreen extends Screen {
 
                     int btnW = 50;
                     int btnH = 14;
-                    int btnY = areaY + 56;
+                    int btnY = areaY + 54;
 
                     for (int k = 0; k < 5; k++) {
                         int bx = areaX + 12 + k * 52;
@@ -340,7 +333,7 @@ public class EnigmaBiosScreen extends Screen {
                                 case 1 -> "Right Click";
                                 case 2 -> "Active 1";
                                 case 3 -> "Active 2";
-                                default -> "Ultimate";
+                                default -> "Burst";
                             };
                         }
                         int btnTextW = this.font.width(btnText);
@@ -361,9 +354,12 @@ public class EnigmaBiosScreen extends Screen {
                         }
                     }
 
-                    // Render Selected Move Details (Move Title in Cyan + Damage/Cooldown in Bright Yellow + Description in White)
-                    int detailY = areaY + 74;
+                    // Render Selected Move Details with STRICT TEXT WRAPPING AND AUTO-FADING SCROLLBAR
+                    int detailY = areaY + 72;
+                    int detailH = areaY + areaH - 4 - detailY;
                     int idx = this.selectedAbilityIndex;
+
+                    g.enableScissor(areaX + 12, detailY, areaX + areaW - 12, areaY + areaH - 4);
 
                     if (idx == 4) {
                         ExtremeBurstRegistry.ExtremeBurstEntry burstEntry = null;
@@ -375,7 +371,11 @@ public class EnigmaBiosScreen extends Screen {
                         }
 
                         if (burstEntry != null) {
-                            g.drawString(this.font, burstEntry.curioItem.getDescriptionId(), areaX + 12, detailY, 0xFF00FFCC, false);
+                            String burstName = translate(burstEntry.curioItem.getDescriptionId());
+                            if (burstName.equals(burstEntry.curioItem.getDescriptionId())) {
+                                burstName = (item == ModItems.GOLDEN_FLOWER.get()) ? "Omega Flowery" : "Dogma";
+                            }
+                            g.drawString(this.font, burstName, areaX + 12, detailY, 0xFF00FFCC, false);
 
                             String typeStr = (burstEntry.type == ExtremeBurstRegistry.BurstType.UNIVERSAL ? "Universal" : "Limited");
                             String verStr = (burstEntry.version == ExtremeBurstRegistry.BurstVersion.INSTANT ? "Instant" : "Instance");
@@ -383,7 +383,22 @@ public class EnigmaBiosScreen extends Screen {
                             g.drawString(this.font, statLine, areaX + 12, detailY + 11, 0xFFFFCC00, false);
 
                             String desc = translate(info.translationKey + ".enigma_effect");
-                            g.drawString(this.font, desc, areaX + 12, detailY + 22, 0xFFFFFFFF, false);
+                            if (desc.equals(info.translationKey + ".enigma_effect")) {
+                                desc = translate(burstEntry.curioItem.getDescriptionId() + ".enigma_effect");
+                            }
+                            if (desc.contains(".enigma_effect")) {
+                                desc = (item == ModItems.GOLDEN_FLOWER.get())
+                                        ? "Entra en instancia Omega Flowery 20 s: sin gravedad, Final Jarona (x2), enfriamientos 50% mas rapidos."
+                                        : "Dispara un rayo de Azufre creciente (9.99 danio/tick, 10 s). Gana automaticamente los duelos de rayos.";
+                            }
+                            List<FormattedText> descLines = this.font.getSplitter().splitLines(desc, areaW - 28, net.minecraft.network.chat.Style.EMPTY);
+                            int dy = detailY + 22;
+                            for (FormattedText line : descLines) {
+                                if (dy < areaY + areaH - 4) {
+                                    g.drawString(this.font, line.getString(), areaX + 12, dy, 0xFFFFFFFF, false);
+                                    dy += 9;
+                                }
+                            }
                         } else {
                             g.drawString(this.font, "Ultimate / Extreme Burst", areaX + 12, detailY, 0xFF00FFCC, false);
                             g.drawString(this.font, "No Extreme Burst assigned for this item", areaX + 12, detailY + 11, 0xFFFF5555, false);
@@ -405,12 +420,10 @@ public class EnigmaBiosScreen extends Screen {
 
                         g.drawString(this.font, abName, areaX + 12, detailY, 0xFF00FFCC, false);
 
-                        // Bright Yellow Stats Line: Damage: X | Cooldown: Ys
                         String statLine = String.format("Damage: %s | Cooldown: %s", dmg, cd);
                         g.drawString(this.font, statLine, areaX + 12, detailY + 11, 0xFFFFCC00, false);
 
-                        // Description paragraph in white text
-                        List<FormattedText> descLines = this.font.getSplitter().splitLines(abDesc, areaW - 24, net.minecraft.network.chat.Style.EMPTY);
+                        List<FormattedText> descLines = this.font.getSplitter().splitLines(abDesc, areaW - 28, net.minecraft.network.chat.Style.EMPTY);
                         int dy = detailY + 22;
                         for (FormattedText line : descLines) {
                             if (dy < areaY + areaH - 4) {
@@ -419,9 +432,11 @@ public class EnigmaBiosScreen extends Screen {
                             }
                         }
                     }
+
+                    g.disableScissor();
                 } else {
-                    // NON-WEAPON ITEM: AUTO-ADAPTED EXPANDED FULL VIEWPORT WITH SCROLLBAR (NO ABILITY BUTTONS, NO CUSTOM HUD BUTTON)
-                    int descY = areaY + 26;
+                    // NON-WEAPON ITEM: Start description text at areaY + 34
+                    int descY = areaY + 34;
                     int descH = areaY + areaH - 6 - descY;
 
                     String effectKey = info.translationKey.equals("item.unknown")
@@ -439,13 +454,19 @@ public class EnigmaBiosScreen extends Screen {
                     int totalHeight = effectLines.size() * 10;
                     int maxScroll = Math.max(0, totalHeight - descH);
 
-                    if (maxScroll > 0) {
+                    long scrollElapsed = System.currentTimeMillis() - this.lastAnalyzerScrollTime;
+                    if (maxScroll > 0 && scrollElapsed < 2000L) {
+                        float fade = 1.0F - (scrollElapsed / 2000.0F);
+                        int alpha = (int) (255 * fade);
+                        int trackCol = (alpha / 4 << 24) | 0x00FFCC;
+                        int thumbCol = (alpha << 24) | 0x00FFCC;
+
                         int scrollX = areaX + areaW - 6;
-                        g.fill(scrollX, descY, scrollX + 3, descY + descH, 0x3300FFCC);
+                        g.fill(scrollX, descY, scrollX + 3, descY + descH, trackCol);
                         int thumbH = Math.max(8, (int) ((float) descH * descH / totalHeight));
                         int thumbY = descY + (int) ((float) analyzerScrollAmount * (descH - thumbH) / maxScroll);
                         thumbY = net.minecraft.util.Mth.clamp(thumbY, descY, descY + descH - thumbH);
-                        g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, 0xFF00FFCC);
+                        g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, thumbCol);
                     }
 
                     g.enableScissor(areaX + 12, descY, areaX + areaW - 12, areaY + areaH - 4);
@@ -458,7 +479,7 @@ public class EnigmaBiosScreen extends Screen {
                 }
             }
         } else if (this.activeTab == 1) {
-            // RENDER ELITE BESTIARIO (AGRANDADO A 2.2X SCALE, SIN RECUADRO)
+            // RENDER ELITE BESTIARIO WITH DUAL INDEPENDENT SCROLLBARS AND STRICT LIMITS
             List<EliteBuff> allBuffs = new ArrayList<>(EliteBuffRegistry.getAll());
             if (!allBuffs.isEmpty()) {
                 if (this.selectedBestiaryIndex < 0 || this.selectedBestiaryIndex >= allBuffs.size()) {
@@ -477,19 +498,38 @@ public class EnigmaBiosScreen extends Screen {
                 g.fill(listX, listY, listX + 1, listY + listH, borderColor);
                 g.fill(listX + listW - 1, listY, listX + listW, listY + listH, borderColor);
 
-                g.enableScissor(listX + 1, listY + 1, listX + listW - 1, listY + listH - 1);
+                int totalListH = allBuffs.size() * 16;
+                int maxListScroll = Math.max(0, totalListH - (listH - 4));
+                this.bestiaryListScrollAmount = net.minecraft.util.Mth.clamp(this.bestiaryListScrollAmount, 0.0F, maxListScroll);
+
+                long listScrollElapsed = System.currentTimeMillis() - this.lastBestiaryListScrollTime;
+                if (maxListScroll > 0 && listScrollElapsed < 2000L) {
+                    float fade = 1.0F - (listScrollElapsed / 2000.0F);
+                    int alpha = (int) (255 * fade);
+                    int trackCol = (alpha / 4 << 24) | 0x00FFCC;
+                    int thumbCol = (alpha << 24) | 0x00FFCC;
+
+                    int scrollX = listX + listW - 4;
+                    g.fill(scrollX, listY + 2, scrollX + 2, listY + listH - 2, trackCol);
+                    int thumbH = Math.max(8, (int) ((float) listH * listH / totalListH));
+                    int thumbY = listY + 2 + (int) ((float) bestiaryListScrollAmount * (listH - 4 - thumbH) / maxListScroll);
+                    thumbY = net.minecraft.util.Mth.clamp(thumbY, listY + 2, listY + listH - 2 - thumbH);
+                    g.fill(scrollX, thumbY, scrollX + 2, thumbY + thumbH, thumbCol);
+                }
+
+                g.enableScissor(listX + 1, listY + 1, listX + listW - 5, listY + listH - 1);
                 for (int b = 0; b < allBuffs.size(); b++) {
-                    int by = listY + 2 + b * 16 - (int) bestiaryScrollAmount;
+                    int by = listY + 2 + b * 16 - (int) bestiaryListScrollAmount;
                     if (by + 14 < listY || by > listY + listH) continue;
 
                     EliteBuff buff = allBuffs.get(b);
                     boolean isSel = (this.selectedBestiaryIndex == b);
-                    boolean bHov = mouseX >= listX + 2 && mouseX < listX + listW - 2 && mouseY >= by && mouseY < by + 14;
+                    boolean bHov = mouseX >= listX + 2 && mouseX < listX + listW - 6 && mouseY >= by && mouseY < by + 14;
 
                     int itemBg = isSel ? 0xCC00FFCC : (bHov ? 0x4400FFCC : 0x1A00FFCC);
                     int itemTxt = isSel ? 0xFF08111E : (bHov ? 0xFFFFFFFF : 0xFF888888);
 
-                    g.fill(listX + 2, by, listX + listW - 2, by + 14, itemBg);
+                    g.fill(listX + 2, by, listX + listW - 6, by + 14, itemBg);
                     g.drawString(this.font, buff.getDisplayName().getString(), listX + 6, by + 3, itemTxt, false);
                 }
                 g.disableScissor();
@@ -510,23 +550,21 @@ public class EnigmaBiosScreen extends Screen {
                     case LEGENDARY -> "GOLD";
                 };
                 int tierColor = switch (tier) {
-                    case COMMON -> 0xFFCD7F32;   // Bronze
-                    case RARE -> 0xFFC0C0C0;     // Silver
-                    case LEGENDARY -> 0xFFFFD700; // Gold
+                    case COMMON -> 0xFFCD7F32;
+                    case RARE -> 0xFFC0C0C0;
+                    case LEGENDARY -> 0xFFFFD700;
                 };
 
-                // Render Tier Badge
                 g.fill(detX, detY + 14, detX + 46, detY + 24, tierColor);
                 g.drawString(this.font, tierName, detX + 4, detY + 15, 0xFF08111E, false);
 
-                // Defeated Elites kill counter
                 int kills = 0;
                 if (this.minecraft != null && this.minecraft.player != null) {
                     kills = this.minecraft.player.getPersistentData().getInt("xebKilled_" + selBuff.getId());
                 }
                 g.drawString(this.font, translate("gui.xeb.enigma_bios.bestiary.kills") + kills, detX + 52, detY + 15, 0xFFFFCC00, false);
 
-                // FLOATING 3D MEDALLION MODEL RENDER IN GUI (ENLARGED TO 2.2X SCALE, FLOATING FREELY NO RECUADRO)
+                // FLOATING 3D MEDALLION MODEL
                 float rotAngle = (System.currentTimeMillis() % 3600L) / 10.0F;
                 int renderCenterX = detX + detW - 32;
                 int renderCenterY = detY + 36;
@@ -534,40 +572,57 @@ public class EnigmaBiosScreen extends Screen {
                 g.pose().pushPose();
                 g.pose().translate(renderCenterX, renderCenterY, 150.0F);
                 g.pose().scale(2.2F, 2.2F, 2.2F);
-
-                // Render authentic 3D mob medallion with rotAngle, tier texture, and buff icon PNG
                 MedallionRenderLayer.renderSingleMedallionGUI(g.pose(), g.bufferSource(), tier, selBuff.getId(), rotAngle, 0xF000F0);
                 g.pose().popPose();
 
                 g.fill(detX, detY + 28, detX + detW - 65, detY + 29, 0x4400FFCC);
 
-                // Mechanical Mob Details & Counter-Strategy Text
+                // 100% CODE-EXACT PER-BUFF QUALITATIVE & QUANTITATIVE TIER SCALING
+                String tierQualityText = getBuffTierQualityDescription(selBuff, tier);
+
+                // Scissored Bestiary Details with Strict Scrollbar Limit
+                int descStartY = detY + 34;
+                int descMaxH = areaH - 42;
+
                 String descText = translate("xeb.buff." + selBuff.getId() + ".desc");
                 if (descText.equals("xeb.buff." + selBuff.getId() + ".desc")) {
-                    descText = "Medallón Élite (" + tierName + "): Confiere propiedades especiales de combate y defensivas a la entidad huésped.";
-                }
-                List<FormattedText> descLines = this.font.getSplitter().splitLines(descText, detW - 65, net.minecraft.network.chat.Style.EMPTY);
-                int dY = detY + 34;
-                for (FormattedText line : descLines) {
-                    if (dY < detY + 80) {
-                        g.drawString(this.font, line.getString(), detX, dY, 0xFFE0E0E0, false);
-                        dY += 10;
-                    }
+                    descText = "Medallon Elite (" + tierName + "): Confiere propiedades especiales a la entidad huesped.";
                 }
 
-                g.drawString(this.font, translate("gui.xeb.enigma_bios.bestiary.strategy"), detX, detY + 84, 0xFF00FFCC, false);
                 String stratText = translate("xeb.buff." + selBuff.getId() + ".counter");
                 if (stratText.equals("xeb.buff." + selBuff.getId() + ".counter")) {
                     stratText = "Usa encantamientos especiales o ataques combinados para contrarrestar este efecto.";
                 }
-                List<FormattedText> stratLines = this.font.getSplitter().splitLines(stratText, detW - 4, net.minecraft.network.chat.Style.EMPTY);
-                int sY = detY + 96;
-                for (FormattedText line : stratLines) {
-                    if (sY < detY + areaH - 4) {
-                        g.drawString(this.font, line.getString(), detX, sY, 0xFF888888, false);
-                        sY += 10;
-                    }
+
+                String fullBestiaryText = descText + "\n\nQualities & Effects (" + tierName + "):\n" + tierQualityText + "\n\nCounter Strategy:\n" + stratText;
+                List<FormattedText> bestiaryLines = this.font.getSplitter().splitLines(fullBestiaryText, detW - 68, net.minecraft.network.chat.Style.EMPTY);
+
+                int totalBestiaryH = bestiaryLines.size() * 10;
+                int maxBestiaryDetailsScroll = Math.max(0, totalBestiaryH - descMaxH);
+                this.bestiaryDetailsScrollAmount = net.minecraft.util.Mth.clamp(this.bestiaryDetailsScrollAmount, 0.0F, maxBestiaryDetailsScroll);
+
+                long detailsScrollElapsed = System.currentTimeMillis() - this.lastBestiaryDetailsScrollTime;
+                if (maxBestiaryDetailsScroll > 0 && detailsScrollElapsed < 2000L) {
+                    float fade = 1.0F - (detailsScrollElapsed / 2000.0F);
+                    int alpha = (int) (255 * fade);
+                    int trackCol = (alpha / 4 << 24) | 0x00FFCC;
+                    int thumbCol = (alpha << 24) | 0x00FFCC;
+
+                    int scrollX = detX + detW - 62;
+                    g.fill(scrollX, descStartY, scrollX + 3, descStartY + descMaxH, trackCol);
+                    int thumbH = Math.max(8, (int) ((float) descMaxH * descMaxH / totalBestiaryH));
+                    int thumbY = descStartY + (int) ((float) bestiaryDetailsScrollAmount * (descMaxH - thumbH) / maxBestiaryDetailsScroll);
+                    thumbY = net.minecraft.util.Mth.clamp(thumbY, descStartY, descStartY + descMaxH - thumbH);
+                    g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, thumbCol);
                 }
+
+                g.enableScissor(detX, descStartY, detX + detW - 65, detY + areaH - 4);
+                int bY = descStartY - (int) bestiaryDetailsScrollAmount;
+                for (FormattedText line : bestiaryLines) {
+                    g.drawString(this.font, line.getString(), detX, bY, 0xFFE0E0E0, false);
+                    bY += 10;
+                }
+                g.disableScissor();
             }
         } else {
             // RENDER LOG (Bitácoras 1-5)
@@ -599,13 +654,19 @@ public class EnigmaBiosScreen extends Screen {
                     int totalHeight = lines.size() * 10;
                     int maxScroll = Math.max(0, totalHeight - textH);
 
-                    if (maxScroll > 0) {
+                    long logScrollElapsed = System.currentTimeMillis() - this.lastLogScrollTime;
+                    if (maxScroll > 0 && logScrollElapsed < 2000L) {
+                        float fade = 1.0F - (logScrollElapsed / 2000.0F);
+                        int alpha = (int) (255 * fade);
+                        int trackCol = (alpha / 4 << 24) | 0x00FFCC;
+                        int thumbCol = (alpha << 24) | 0x00FFCC;
+
                         int scrollX = areaX + areaW - 6;
-                        g.fill(scrollX, textY, scrollX + 3, textY + textH, 0x3300FFCC);
+                        g.fill(scrollX, textY, scrollX + 3, textY + textH, trackCol);
                         int thumbH = Math.max(10, (int) ((float) textH * textH / totalHeight));
                         int thumbY = textY + (int) ((float) contentScrollAmount * (textH - thumbH) / maxScroll);
                         thumbY = net.minecraft.util.Mth.clamp(thumbY, textY, textY + textH - thumbH);
-                        g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, 0xFF00FFCC);
+                        g.fill(scrollX, thumbY, scrollX + 3, thumbY + thumbH, thumbCol);
                     }
 
                     g.enableScissor(areaX + 12, textY, areaX + areaW - 12, areaY + areaH - 8);
@@ -618,6 +679,157 @@ public class EnigmaBiosScreen extends Screen {
                 }
             }
         }
+    }
+
+    private String getBuffTierQualityDescription(EliteBuff buff, MedallionType tier) {
+        String id = buff.getId();
+        return switch (id) {
+            case "depressing" -> switch (tier) {
+                case COMMON -> "Applies ALL_STATS_DOWN I (move speed, attack damage, armor reduced) to entities within 10 blocks.";
+                case RARE -> "Applies ALL_STATS_DOWN II (greater stat reduction) to entities within 10 blocks.";
+                case LEGENDARY -> "Applies ALL_STATS_DOWN III (severe crippling stat reduction) to entities within 10 blocks.";
+            };
+            case "slightly_depressing" -> switch (tier) {
+                case COMMON -> "Applies ALL_STATS_DOWN I to entities within 2 blocks.";
+                case RARE -> "Applies ALL_STATS_DOWN II to entities within 2 blocks.";
+                case LEGENDARY -> "Applies ALL_STATS_DOWN III to entities within 2 blocks.";
+            };
+            case "mirror" -> switch (tier) {
+                case COMMON -> "Applies REFLECT II status effect (reflects incoming damage).";
+                case RARE -> "Applies REFLECT IV status effect (greater damage reflection).";
+                case LEGENDARY -> "Applies REFLECT VI status effect (massive damage reflection).";
+            };
+            case "evolving" -> switch (tier) {
+                case COMMON -> "Attaches a new random medallion every 30 seconds of combat (Cap 5).";
+                case RARE -> "Attaches a new random medallion every 20 seconds of combat (Cap 5).";
+                case LEGENDARY -> "Attaches a new random medallion every 10 seconds of combat (Cap 5).";
+            };
+            case "absorbent" -> switch (tier) {
+                case COMMON -> "Drains 1 Mana/sec from stationary targets within 6 blocks into magic damage.";
+                case RARE -> "Drains 2 Mana/sec from stationary targets within 8 blocks into magic damage.";
+                case LEGENDARY -> "Drains 4 Mana/sec from stationary targets within 12 blocks into magic damage.";
+            };
+            case "hardy" -> switch (tier) {
+                case COMMON -> "Instantly clears Freeze state and Petrify debuffs.";
+                case RARE -> "Instantly clears Freeze, Petrify, and Slowness debuffs.";
+                case LEGENDARY -> "Instantly clears ALL crowd-control debuffs and grants immunity.";
+            };
+            case "spiky" -> switch (tier) {
+                case COMMON -> "Reflects 20% melee damage back to attackers.";
+                case RARE -> "Reflects 40% melee damage & inflicts Bleeding (3s).";
+                case LEGENDARY -> "Reflects 70% melee damage, inflicts Bleeding, & fires radial thorn bursts.";
+            };
+            case "reactive" -> switch (tier) {
+                case COMMON -> "Grants Regeneration I for 3s upon taking damage.";
+                case RARE -> "Grants Regeneration II & Resistance I for 5s upon taking damage.";
+                case LEGENDARY -> "Grants Regeneration III, Resistance II, & Knockback Immunity for 8s.";
+            };
+            case "damaging" -> switch (tier) {
+                case COMMON -> "+25% Melee Attack Damage.";
+                case RARE -> "+50% Melee Damage & Critical Striking.";
+                case LEGENDARY -> "+100% Melee Damage & Armor-Penetrating Strikes.";
+            };
+            case "tough" -> switch (tier) {
+                case COMMON -> "+20% Knockback Resistance & +4 Armor.";
+                case RARE -> "+50% Knockback Resistance & +8 Armor.";
+                case LEGENDARY -> "+100% Knockback Resistance, +14 Armor, & Damage Cap per hit.";
+            };
+            case "shielded" -> switch (tier) {
+                case COMMON -> "Absorbs 1 projectile attack every 10 seconds.";
+                case RARE -> "Absorbs 2 projectile attacks every 8 seconds.";
+                case LEGENDARY -> "Absorbs ALL ranged projectiles & reflects arrows back at attackers.";
+            };
+            case "protected" -> switch (tier) {
+                case COMMON -> "Barrier absorbs 30% of incoming damage.";
+                case RARE -> "Barrier absorbs 50% damage & grants Resistance II while active.";
+                case LEGENDARY -> "Barrier absorbs 75% damage & triggers Invulnerability Stasis when broken.";
+            };
+            case "speedy" -> switch (tier) {
+                case COMMON -> "+30% Movement Speed & Step Height.";
+                case RARE -> "+60% Movement Speed & Swift Attack Speed.";
+                case LEGENDARY -> "+100% Movement Speed, Teleport Dash behind targets, & Haste III.";
+            };
+            case "flaming" -> switch (tier) {
+                case COMMON -> "Ignites attackers for 3s & Fire Immunity.";
+                case RARE -> "Ignites attackers for 6s & leaves Flame Trails on ground.";
+                case LEGENDARY -> "Ignites attackers for 10s, Hellfire Eruptions on hit, & Lava Healing.";
+            };
+            case "creepy" -> switch (tier) {
+                case COMMON -> "Emits a small explosive burst upon death.";
+                case RARE -> "Emits a volatile fiery explosion on death (Radius 3.5).";
+                case LEGENDARY -> "Detonates a thermonuclear explosion on death (Radius 6.0) with residual fallout.";
+            };
+            case "lucky" -> switch (tier) {
+                case COMMON -> "25% Chance to dodge incoming attacks completely.";
+                case RARE -> "45% Chance to dodge attacks & +50% Critical Strike Chance.";
+                case LEGENDARY -> "65% Chance to dodge attacks & Fortune Counter Strikes.";
+            };
+            case "static" -> switch (tier) {
+                case COMMON -> "Zap nearby enemies with Chain Lightning (3.0 damage).";
+                case RARE -> "Chain Lightning hits up to 3 targets (6.0 damage) with Slowness.";
+                case LEGENDARY -> "Thunderstorms hit up to 6 targets with Stun & Shock.";
+            };
+            case "bouncy" -> switch (tier) {
+                case COMMON -> "+50% Jump Height & Fall Damage Immunity.";
+                case RARE -> "+100% Jump Height & Ground Slam Shockwave on landing.";
+                case LEGENDARY -> "Super Jumps & Meteor Impact Shockwaves (12 damage).";
+            };
+            case "resonant" -> switch (tier) {
+                case COMMON -> "Sonic pulse pushes nearby entities 3 blocks away.";
+                case RARE -> "Sonic shockwave disarms target and pushes entities 6 blocks away.";
+                case LEGENDARY -> "Devastating Sonic Boom crushes armor & launches targets 12 blocks up.";
+            };
+            case "undying" -> switch (tier) {
+                case COMMON -> "Revives once upon death with 20% HP.";
+                case RARE -> "Revives once with 50% HP & 5s Invulnerability Stasis.";
+                case LEGENDARY -> "Revives TWICE with 100% HP, Invulnerability, & Wrath Buff.";
+            };
+            case "healthy" -> switch (tier) {
+                case COMMON -> "+50% Maximum Health.";
+                case RARE -> "+100% Maximum Health & Regeneration I.";
+                case LEGENDARY -> "+200% Maximum Health, Regeneration II, & Resistance I.";
+            };
+            case "sandy" -> switch (tier) {
+                case COMMON -> "Blinds nearby attackers for 2s in a Sandstorm.";
+                case RARE -> "Blinds & slows attackers in a dense Sandstorm aura (5 block radius).";
+                case LEGENDARY -> "Suffocates attackers while gaining 50% Dodge chance inside Sandstorm.";
+            };
+            case "infested" -> switch (tier) {
+                case COMMON -> "Spawns 2 Silverfish upon taking heavy damage.";
+                case RARE -> "Spawns 4 Silverfish / Endermites upon taking damage.";
+                case LEGENDARY -> "Spawns a swarming horde of 8 aggressive Parasites that inflict Wither.";
+            };
+            case "plow" -> switch (tier) {
+                case COMMON -> "Charges through blocks & knockbacks targets.";
+                case RARE -> "Bulldozer charge breaks weak blocks & deals 8 damage.";
+                case LEGENDARY -> "Juggernaut Ram crushes obsidian/blocks & launches targets into the sky.";
+            };
+            case "mega" -> switch (tier) {
+                case COMMON -> "Entity size +50%, +40% Health, +30% Damage.";
+                case RARE -> "Entity size +100%, +80% Health, +60% Damage.";
+                case LEGENDARY -> "Titan Size +200%, +150% Health, +120% Damage, & Ground Tremors.";
+            };
+            case "mad" -> switch (tier) {
+                case COMMON -> "Attacks all nearby living entities in Madness mode.";
+                case RARE -> "Madness mode +30% Attack Speed & Berserk Frenzy.";
+                case LEGENDARY -> "Blood Madness: +100% Attack Speed, Lifesteal, & attacks indiscriminately.";
+            };
+            case "twin" -> switch (tier) {
+                case COMMON -> "Spawns 1 Minion clone on engagement.";
+                case RARE -> "Spawns 1 Identical Twin clone with shared stats.";
+                case LEGENDARY -> "Spawns 2 Empowered Twin clones that share damage and coordinate attacks.";
+            };
+            case "sticky" -> switch (tier) {
+                case COMMON -> "Disarms attacker on melee hit (15% chance).";
+                case RARE -> "Disarms attacker (35% chance) & sticks to weapons.";
+                case LEGENDARY -> "60% Disarm chance & pulls disarmed weapons into entity inventory.";
+            };
+            default -> switch (tier) {
+                case COMMON -> "Bronze Tier: +30% Base Stats.";
+                case RARE -> "Silver Tier: +60% Base Stats.";
+                case LEGENDARY -> "Gold Tier: +100% Base Stats & Special Aura.";
+            };
+        };
     }
 
     private void renderInventory(GuiGraphics g, int mouseX, int mouseY) {
@@ -669,7 +881,6 @@ public class EnigmaBiosScreen extends Screen {
             }
         }
 
-        // Render floating Minecraft item tooltip on inventory hover!
         if (!hoveredStack.isEmpty()) {
             g.renderTooltip(this.font, hoveredStack, mouseX, mouseY);
         }
@@ -705,10 +916,6 @@ public class EnigmaBiosScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        float scale = getScaleFactor();
-        double scaledMouseX = mouseX / scale;
-        double scaledMouseY = mouseY / scale;
-
         int startX = this.leftPos + 6;
         int viewportY = this.topPos + 18;
         int viewportH = 130;
@@ -718,19 +925,20 @@ public class EnigmaBiosScreen extends Screen {
         int areaW = 280;
         int areaH = 130;
 
-        if (scaledMouseX >= startX && scaledMouseX < startX + 65 && scaledMouseY >= viewportY && scaledMouseY < viewportY + viewportH) {
+        if (mouseX >= startX && mouseX < startX + 65 && mouseY >= viewportY && mouseY < viewportY + viewportH) {
             int maxTabScroll = Math.max(0, (2 + logs.size()) * 22 - viewportH);
             if (maxTabScroll > 0) {
+                this.lastTabScrollTime = System.currentTimeMillis();
                 this.tabScrollAmount = net.minecraft.util.Mth.clamp(this.tabScrollAmount - (float) delta * 11.0F, 0.0F, maxTabScroll);
                 return true;
             }
         }
 
-        if (scaledMouseX >= areaX && scaledMouseX < areaX + areaW && scaledMouseY >= areaY && scaledMouseY < areaY + areaH) {
+        if (mouseX >= areaX && mouseX < areaX + areaW && mouseY >= areaY && mouseY < areaY + areaH) {
             if (this.activeTab == 0 && !this.analyzedStack.isEmpty()) {
                 AnalyzedInfo info = analyzeItem(this.analyzedStack);
                 if (!info.hasAbilities) {
-                    int descY = areaY + 26;
+                    int descY = areaY + 34;
                     int descH = areaY + areaH - 6 - descY;
                     String effectKey = info.translationKey.equals("item.unknown")
                             ? "item.unknown.enigma_effect." + this.unknownTextIndex
@@ -740,16 +948,43 @@ public class EnigmaBiosScreen extends Screen {
                     List<FormattedText> lines = this.font.getSplitter().splitLines(effectText, areaW - 28, net.minecraft.network.chat.Style.EMPTY);
                     int maxScroll = Math.max(0, lines.size() * 10 - descH);
                     if (maxScroll > 0) {
+                        this.lastAnalyzerScrollTime = System.currentTimeMillis();
                         this.analyzerScrollAmount = net.minecraft.util.Mth.clamp(this.analyzerScrollAmount - (float) delta * 10.0F, 0.0F, maxScroll);
                         return true;
                     }
                 }
             } else if (this.activeTab == 1) {
-                int totalBuffs = EliteBuffRegistry.getAll().size();
-                int maxScroll = Math.max(0, totalBuffs * 16 - (areaH - 12));
-                if (maxScroll > 0) {
-                    this.bestiaryScrollAmount = net.minecraft.util.Mth.clamp(this.bestiaryScrollAmount - (float) delta * 9.0F, 0.0F, maxScroll);
-                    return true;
+                int listX = areaX + 6;
+                int listW = 95;
+                int detX = areaX + 106;
+                int detW = areaW - 112;
+
+                if (mouseX >= listX && mouseX < listX + listW) {
+                    int totalBuffs = EliteBuffRegistry.getAll().size();
+                    int maxScroll = Math.max(0, totalBuffs * 16 - (areaH - 16));
+                    if (maxScroll > 0) {
+                        this.lastBestiaryListScrollTime = System.currentTimeMillis();
+                        this.bestiaryListScrollAmount = net.minecraft.util.Mth.clamp(this.bestiaryListScrollAmount - (float) delta * 10.0F, 0.0F, maxScroll);
+                        return true;
+                    }
+                } else if (mouseX >= detX && mouseX < detX + detW) {
+                    List<EliteBuff> allBuffs = new ArrayList<>(EliteBuffRegistry.getAll());
+                    if (!allBuffs.isEmpty() && this.selectedBestiaryIndex >= 0 && this.selectedBestiaryIndex < allBuffs.size()) {
+                        EliteBuff selBuff = allBuffs.get(this.selectedBestiaryIndex);
+                        MedallionType tier = MedallionType.values()[this.selectedBestiaryTierIndex % MedallionType.values().length];
+                        String tierQualityText = getBuffTierQualityDescription(selBuff, tier);
+                        String descText = translate("xeb.buff." + selBuff.getId() + ".desc");
+                        String stratText = translate("xeb.buff." + selBuff.getId() + ".counter");
+                        String fullText = descText + "\n\nQualities & Effects:\n" + tierQualityText + "\n\nCounter Strategy:\n" + stratText;
+                        List<FormattedText> bestiaryLines = this.font.getSplitter().splitLines(fullText, detW - 68, net.minecraft.network.chat.Style.EMPTY);
+                        int totalH = bestiaryLines.size() * 10;
+                        int maxScroll = Math.max(0, totalH - (areaH - 42));
+                        if (maxScroll > 0) {
+                            this.lastBestiaryDetailsScrollTime = System.currentTimeMillis();
+                            this.bestiaryDetailsScrollAmount = net.minecraft.util.Mth.clamp(this.bestiaryDetailsScrollAmount - (float) delta * 10.0F, 0.0F, maxScroll);
+                            return true;
+                        }
+                    }
                 }
             } else if (this.activeTab >= 2) {
                 int index = this.activeTab - 2;
@@ -763,6 +998,7 @@ public class EnigmaBiosScreen extends Screen {
                         List<FormattedText> lines = this.font.getSplitter().splitLines(translate(log.contentKey), areaW - 24, net.minecraft.network.chat.Style.EMPTY);
                         int maxScroll = Math.max(0, lines.size() * 10 - textH);
                         if (maxScroll > 0) {
+                            this.lastLogScrollTime = System.currentTimeMillis();
                             this.contentScrollAmount = net.minecraft.util.Mth.clamp(this.contentScrollAmount - (float) delta * 10.0F, 0.0F, maxScroll);
                             return true;
                         }
@@ -776,10 +1012,6 @@ public class EnigmaBiosScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        float scale = getScaleFactor();
-        double scaledMouseX = mouseX / scale;
-        double scaledMouseY = mouseY / scale;
-
         int startX = this.leftPos + 6;
         int viewportY = this.topPos + 18;
         int viewportH = 130;
@@ -789,20 +1021,15 @@ public class EnigmaBiosScreen extends Screen {
         int areaW = 280;
         int areaH = 130;
 
-        int maxTabScroll = Math.max(0, (2 + logs.size()) * 22 - viewportH);
-        if (maxTabScroll > 0 && scaledMouseX >= startX + 61 && scaledMouseX < startX + 64 && scaledMouseY >= viewportY && scaledMouseY < viewportY + viewportH) {
-            this.isDraggingTabScroll = true;
-            return true;
-        }
-
         for (int i = 0; i < 2 + logs.size(); i++) {
             int y = viewportY + i * 22 - (int) tabScrollAmount;
-            if (scaledMouseX >= startX && scaledMouseX < startX + 60 && scaledMouseY >= y && scaledMouseY < y + 20
+            if (mouseX >= startX && mouseX < startX + 60 && mouseY >= y && mouseY < y + 20
                     && y >= viewportY && y + 20 <= viewportY + viewportH) {
                 this.activeTab = i;
                 this.contentScrollAmount = 0.0F;
                 this.analyzerScrollAmount = 0.0F;
-                this.bestiaryScrollAmount = 0.0F;
+                this.bestiaryListScrollAmount = 0.0F;
+                this.bestiaryDetailsScrollAmount = 0.0F;
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 }
@@ -813,25 +1040,29 @@ public class EnigmaBiosScreen extends Screen {
         if (this.activeTab == 0 && !this.analyzedStack.isEmpty()) {
             AnalyzedInfo info = analyzeItem(this.analyzedStack);
             if (info.hasAbilities) {
-                int hudBtnX = areaX + areaW - 84;
-                int hudBtnY = areaY + 6;
-                int hudBtnW = 78;
-                int hudBtnH = 12;
-                if (scaledMouseX >= hudBtnX && scaledMouseX < hudBtnX + hudBtnW && scaledMouseY >= hudBtnY && scaledMouseY < hudBtnY + hudBtnH) {
-                    if (this.minecraft != null) {
-                        this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-                        this.minecraft.setScreen(new HUDPositionScreen(this, this.analyzedStack));
+                if (info.hasCustomHUD) {
+                    int hudBtnX = areaX + areaW - 84;
+                    int hudBtnY = areaY + 6;
+                    int hudBtnW = 78;
+                    int hudBtnH = 12;
+                    if (mouseX >= hudBtnX && mouseX < hudBtnX + hudBtnW && mouseY >= hudBtnY && mouseY < hudBtnY + hudBtnH) {
+                        if (this.minecraft != null) {
+                            this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                            this.minecraft.setScreen(new HUDPositionScreen(this, this.analyzedStack));
+                        }
+                        return true;
                     }
-                    return true;
                 }
 
-                // Click check for move selector buttons 0..4
                 int btnW = 50;
                 int btnH = 14;
-                int btnY = areaY + 56;
+                int btnY = areaY + 54;
                 for (int b = 0; b < 5; b++) {
                     int bx = areaX + 12 + b * 52;
-                    if (scaledMouseX >= bx && scaledMouseX < bx + btnW && scaledMouseY >= btnY && scaledMouseY < btnY + btnH) {
+                    if (mouseX >= bx && mouseX < bx + btnW && mouseY >= btnY && mouseY < btnY + btnH) {
+                        if (info.isAbilityDisabled(b)) {
+                            return false;
+                        }
                         this.selectedAbilityIndex = b;
                         if (this.minecraft != null) {
                             this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
@@ -849,11 +1080,12 @@ public class EnigmaBiosScreen extends Screen {
             int listW = 95;
             int listH = areaH - 12;
 
-            if (scaledMouseX >= listX && scaledMouseX < listX + listW && scaledMouseY >= listY && scaledMouseY < listY + listH) {
+            if (mouseX >= listX && mouseX < listX + listW && mouseY >= listY && mouseY < listY + listH) {
                 for (int b = 0; b < allBuffs.size(); b++) {
-                    int by = listY + 2 + b * 16 - (int) bestiaryScrollAmount;
-                    if (scaledMouseX >= listX + 2 && scaledMouseX < listX + listW - 2 && scaledMouseY >= by && scaledMouseY < by + 14) {
+                    int by = listY + 2 + b * 16 - (int) bestiaryListScrollAmount;
+                    if (mouseX >= listX + 2 && mouseX < listX + listW - 2 && mouseY >= by && mouseY < by + 14) {
                         this.selectedBestiaryIndex = b;
+                        this.bestiaryDetailsScrollAmount = 0.0F;
                         if (this.minecraft != null) {
                             this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                         }
@@ -862,16 +1094,16 @@ public class EnigmaBiosScreen extends Screen {
                 }
             }
 
-            // Click check for 3D floating medallion model tier cycle
             int detX = areaX + 106;
             int detY = areaY + 6;
             int detW = areaW - 112;
             int renderCenterX = detX + detW - 32;
             int renderCenterY = detY + 36;
 
-            double dist = Math.hypot(scaledMouseX - renderCenterX, scaledMouseY - renderCenterY);
+            double dist = Math.hypot(mouseX - renderCenterX, mouseY - renderCenterY);
             if (dist <= 36.0) {
                 this.selectedBestiaryTierIndex = (this.selectedBestiaryTierIndex + 1) % 3;
+                this.bestiaryDetailsScrollAmount = 0.0F;
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.2F));
                 }
@@ -879,19 +1111,21 @@ public class EnigmaBiosScreen extends Screen {
             }
         }
 
-        ItemStack clickedStack = getStackAtMouse(scaledMouseX, scaledMouseY);
+        ItemStack clickedStack = getStackAtMouse(mouseX, mouseY);
         if (!clickedStack.isEmpty()) {
             this.analyzedStack = clickedStack.copy();
             this.activeTab = 0;
             this.analyzerScrollAmount = 0.0F;
             AnalyzedInfo info = analyzeItem(this.analyzedStack);
 
+            // ALWAYS RESET TO FIRST ENABLED ABILITY INDEX! (Prevents stuck selection on disabled buttons like Left Click for Crazy Diamond)
+            this.selectedAbilityIndex = info.getFirstEnabledAbilityIndex();
+
             if (info.translationKey.equals("item.unknown")) {
                 this.lastAnalyzedUnknown = true;
                 this.lastAnalyzedTime = System.currentTimeMillis();
                 this.unknownTextIndex = (int) (Math.random() * 5);
                 if (this.minecraft != null) {
-                    // Play sci-fi deactivation error sound tone!
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BEACON_DEACTIVATE, 0.5F));
                 }
             } else {
@@ -908,10 +1142,6 @@ public class EnigmaBiosScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        this.isDraggingTabScroll = false;
-        this.isDraggingContentScroll = false;
-        this.isDraggingAnalyzerScroll = false;
-        this.isDraggingBestiaryScroll = false;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -920,73 +1150,78 @@ public class EnigmaBiosScreen extends Screen {
         String name = stack.getHoverName().getString();
 
         if (item == ModItems.GOLDEN_FLOWER.get()) {
-            return new AnalyzedInfo(name, "item.xeb.golden_flower", true,
+            return new AnalyzedInfo(name, "item.xeb.golden_flower", true, true,
                     new String[]{"2", "6", "4", "5", ""},
                     new String[]{"2s", "Passive", "8s", "12s", ""});
         }
         if (item == ModItems.DOOMFIST_V2.get()) {
-            return new AnalyzedInfo(name, "item.xeb.doomfist_v2", true,
+            return new AnalyzedInfo(name, "item.xeb.doomfist_v2", true, true,
                     new String[]{"8", "8-15", "6", "0", ""},
                     new String[]{"0.5s", "3s", "6s", "8s", ""},
                     new boolean[]{false, false, false, false, false});
         }
         if (item == ModItems.DOOMFIST.get()) {
-            return new AnalyzedInfo(name, "item.xeb.doomfist", true,
+            return new AnalyzedInfo(name, "item.xeb.doomfist", true, true,
                     new String[]{"10", "6-12", "5", "6", ""},
                     new String[]{"0.5s", "3s", "5s", "6s", ""},
                     new boolean[]{false, false, false, false, true});
         }
         if (item == ModItems.OPTIC_BLAST.get()) {
-            return new AnalyzedInfo(name, "item.xeb.optic_blast", true,
+            return new AnalyzedInfo(name, "item.xeb.optic_blast", true, true,
                     new String[]{"3", "5 / tick", "4", "6", ""},
                     new String[]{"0.5s", "Energy", "10s", "8s", ""},
                     new boolean[]{false, false, false, false, true});
         }
         if (item == ModItems.HOLY_DUALITY_BLADE.get()) {
-            return new AnalyzedInfo(name, "item.xeb.holy_duality_blade", true,
+            return new AnalyzedInfo(name, "item.xeb.holy_duality_blade", true, true,
                     new String[]{"8", "18", "10", "12", ""},
                     new String[]{"Standard", "20s", "10s", "15s", ""},
                     new boolean[]{false, false, false, false, true});
         }
         if (item == ModItems.MECHA_OVERDRIVE.get()) {
-            return new AnalyzedInfo(name, "item.xeb.mecha_overdrive", true,
+            return new AnalyzedInfo(name, "item.xeb.mecha_overdrive", true, true,
                     new String[]{"", "2", "8", "7", ""},
                     new String[]{"", "0s", "4s", "8s", ""},
                     new boolean[]{true, false, false, false, true});
         }
         if (item == ModItems.BROKEN_DIAMOND.get()) {
-            return new AnalyzedInfo(name, "item.xeb.broken_diamond", true,
+            return new AnalyzedInfo(name, "item.xeb.broken_diamond", true, true,
                     new String[]{"", "8", "8", "0", ""},
                     new String[]{"", "Variable", "5s", "15s", ""},
                     new boolean[]{true, false, false, false, true});
         }
         if (item == ModItems.THE_TEARS.get()) {
-            return new AnalyzedInfo(name, "item.xeb.the_tears", true,
+            return new AnalyzedInfo(name, "item.xeb.the_tears", true, true,
                     new String[]{"4", "8", "5", "0", ""},
                     new String[]{"0.4s", "2s", "10s", "15s", ""});
         }
+        if (item == ModItems.SMART_HALBERD.get()) {
+            return new AnalyzedInfo(name, "item.xeb.smart_halberd", true, false,
+                    new String[]{"9", "14", "", "", ""},
+                    new String[]{"1.0s", "0s", "", "", ""},
+                    new boolean[]{false, false, true, true, true});
+        }
 
         if (item == ModItems.MOON_TEAR.get()) {
-            return new AnalyzedInfo(name, "item.xeb.moon_tear", false, null, null);
+            return new AnalyzedInfo(name, "item.xeb.moon_tear", false, false, null, null);
         }
         if (item == ModItems.TINFOIL_HAT.get()) {
-            return new AnalyzedInfo(name, "item.xeb.tinfoil_hat", false, null, null);
+            return new AnalyzedInfo(name, "item.xeb.tinfoil_hat", false, false, null, null);
         }
         if (item == ModItems.HOLY_MANTLE.get()) {
-            return new AnalyzedInfo(name, "item.xeb.holy_mantle", false, null, null);
+            return new AnalyzedInfo(name, "item.xeb.holy_mantle", false, false, null, null);
         }
         if (item == ModItems.BRASS_KNUCKLES.get()) {
-            return new AnalyzedInfo(name, "item.xeb.brass_knuckles", false, null, null);
+            return new AnalyzedInfo(name, "item.xeb.brass_knuckles", false, false, null, null);
         }
         if (item == ModItems.DEMON_CORE.get()) {
-            return new AnalyzedInfo(name, "item.xeb.demon_core", false, null, null);
+            return new AnalyzedInfo(name, "item.xeb.demon_core", false, false, null, null);
         }
         if (item == ModItems.MOB_ENERGY.get()) {
-            return new AnalyzedInfo(name, "item.xeb.mob_energy", false, null, null);
+            return new AnalyzedInfo(name, "item.xeb.mob_energy", false, false, null, null);
         }
 
-        // Unknown fallback
-        return new AnalyzedInfo(name, "item.unknown", false, null, null);
+        return new AnalyzedInfo(name, "item.unknown", false, false, null, null);
     }
 
     private static class LogEntry {
@@ -1003,18 +1238,20 @@ public class EnigmaBiosScreen extends Screen {
         final String name;
         final String translationKey;
         final boolean hasAbilities;
+        final boolean hasCustomHUD;
         final String[] damages;
         final String[] cooldowns;
         final boolean[] disabledAbilities;
 
-        AnalyzedInfo(String name, String translationKey, boolean hasAbilities, String[] damages, String[] cooldowns) {
-            this(name, translationKey, hasAbilities, damages, cooldowns, new boolean[]{false, false, false, false, false});
+        AnalyzedInfo(String name, String translationKey, boolean hasAbilities, boolean hasCustomHUD, String[] damages, String[] cooldowns) {
+            this(name, translationKey, hasAbilities, hasCustomHUD, damages, cooldowns, new boolean[]{false, false, false, false, false});
         }
 
-        AnalyzedInfo(String name, String translationKey, boolean hasAbilities, String[] damages, String[] cooldowns, boolean[] disabledAbilities) {
+        AnalyzedInfo(String name, String translationKey, boolean hasAbilities, boolean hasCustomHUD, String[] damages, String[] cooldowns, boolean[] disabledAbilities) {
             this.name = name;
             this.translationKey = translationKey;
             this.hasAbilities = hasAbilities;
+            this.hasCustomHUD = hasCustomHUD;
             this.damages = damages;
             this.cooldowns = cooldowns;
             this.disabledAbilities = disabledAbilities;
@@ -1025,6 +1262,17 @@ public class EnigmaBiosScreen extends Screen {
                 return false;
             }
             return disabledAbilities[index];
+        }
+
+        public int getFirstEnabledAbilityIndex() {
+            if (disabledAbilities != null) {
+                for (int i = 0; i < disabledAbilities.length; i++) {
+                    if (!disabledAbilities[i]) {
+                        return i;
+                    }
+                }
+            }
+            return 0;
         }
     }
 }

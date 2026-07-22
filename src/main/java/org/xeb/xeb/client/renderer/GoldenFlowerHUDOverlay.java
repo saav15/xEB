@@ -64,8 +64,8 @@ public class GoldenFlowerHUDOverlay {
 
             for (int i = 0; i < 6; i++) {
                 double angle = Math.toRadians(-145.0D + i * 22.0D);
-                int fx = centerX + (int) (Math.cos(angle) * radius);
-                int fy = centerY + (int) (Math.sin(angle) * radius);
+                int fx = centerX + org.xeb.xeb.Config.goldenFlowerHudX + (int) (Math.cos(angle) * radius);
+                int fy = centerY - 18 + org.xeb.xeb.Config.goldenFlowerHudY + (int) (Math.sin(angle) * radius);
 
                 boolean isRecharged = charges >= (i + 1);
                 boolean isLoaded = i < loaded;
@@ -92,8 +92,8 @@ public class GoldenFlowerHUDOverlay {
             RenderSystem.defaultBlendFunc();
 
             int boxW = 24;
-            int xStart = org.xeb.xeb.Config.opticBlastHudX; // Reuse standard xEB HUD position config
-            int yStart = screenH - org.xeb.xeb.Config.opticBlastHudY;
+            int xStart = org.xeb.xeb.Config.hudX;
+            int yStart = screenH - org.xeb.xeb.Config.hudY;
 
             // --- Flower Dance (Activa 1) ---
             int danceCD = player.getPersistentData().getInt("xebGoldenFlowerDanceCooldown");

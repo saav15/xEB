@@ -51,7 +51,11 @@ public class PermanightLootHandler {
             int remaining = data.getTicksRemaining();
             if (remaining > 0) {
                 data.setTicksRemaining(remaining - 1);
-                serverLevel.setDayTime(18000L); // lock visual time to midnight
+                // Lock time to midnight smoothly without resetting every single tick to prevent star jitter
+                long timeOfDay = serverLevel.getDayTime() % 24000L;
+                if (timeOfDay < 13000L || timeOfDay > 23000L) {
+                    serverLevel.setDayTime(serverLevel.getDayTime() - timeOfDay + 18000L);
+                }
                 // N11 — flush ticksRemaining to disk every 200 ticks (~10 s) to avoid
                 // I/O spam while still surviving a crash with at most 10 s of lost progress.
                 if (remaining % 200 == 0) {

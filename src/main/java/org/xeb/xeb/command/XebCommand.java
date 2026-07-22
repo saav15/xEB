@@ -2,7 +2,6 @@ package org.xeb.xeb.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import org.xeb.xeb.buff.EliteBuff;
@@ -28,15 +27,11 @@ import java.util.UUID;
 
 public class XebCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> devCommand = Commands.literal("dev")
-            .requires(source -> source.hasPermission(2));
-
-        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> cooldownsCommand = Commands.literal("cooldowns")
+        var cooldownsCommand = Commands.literal("cooldowns")
             .then(
                 Commands.literal("on")
                     .executes(ctx -> {
-                        net.minecraft.server.level.ServerPlayer player =
-                                ctx.getSource().getPlayerOrException();
+                        net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
                         player.getPersistentData().putBoolean("xebDevCooldownsDisabled", true);
                         ctx.getSource().sendSuccess(() -> Component.literal(
                                 net.minecraft.ChatFormatting.GREEN + "[xEB Dev] " +
@@ -48,8 +43,7 @@ public class XebCommand {
             .then(
                 Commands.literal("off")
                     .executes(ctx -> {
-                        net.minecraft.server.level.ServerPlayer player =
-                                ctx.getSource().getPlayerOrException();
+                        net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
                         player.getPersistentData().putBoolean("xebDevCooldownsDisabled", false);
                         ctx.getSource().sendSuccess(() -> Component.literal(
                                 net.minecraft.ChatFormatting.GREEN + "[xEB Dev] " +
@@ -59,50 +53,42 @@ public class XebCommand {
                     })
             );
 
-        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> curiosCommand = Commands.literal("curios")
+        var curiosCommand = Commands.literal("curios")
             .executes(ctx -> {
-                net.minecraft.server.level.ServerPlayer player =
-                        ctx.getSource().getPlayerOrException();
-                
+                net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
                 boolean loaded = net.minecraftforge.fml.ModList.get().isLoaded("curios");
                 ctx.getSource().sendSuccess(() -> Component.literal(
                         net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Curios mod loaded: " + loaded), false);
                 
-                java.util.List<net.minecraft.world.item.ItemStack> curios =
-                        org.xeb.xeb.compat.ModCompatManager.getCuriosItems(player);
+                java.util.List<net.minecraft.world.item.ItemStack> curios = org.xeb.xeb.compat.ModCompatManager.getCuriosItems(player);
                 ctx.getSource().sendSuccess(() -> Component.literal(
                         net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Curios items count: " + curios.size()), false);
                 
                 for (net.minecraft.world.item.ItemStack stack : curios) {
-                    ctx.getSource().sendSuccess(() -> Component.literal(
-                            " - " + stack.getItem().toString() + " (x" + stack.getCount() + ")"), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal(" - " + stack.getItem().toString() + " (x" + stack.getCount() + ")"), false);
                 }
                 
-                org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry active =
-                        org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
+                org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry active = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
                 ctx.getSource().sendSuccess(() -> Component.literal(
                         net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Active burst from findActiveBurst: " + (active != null ? active.curioItem.toString() : "null")), false);
                         
                 if (active != null) {
                     boolean inSlot = org.xeb.xeb.extremeburst.ExtremeBurstRegistry.isInCurioSlot(player, active);
-                    ctx.getSource().sendSuccess(() -> Component.literal(
-                            net.minecraft.ChatFormatting.GREEN + "[xEB Dev] isInCurioSlot: " + inSlot), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal(net.minecraft.ChatFormatting.GREEN + "[xEB Dev] isInCurioSlot: " + inSlot), false);
                 }
 
                 for (org.xeb.xeb.compat.ModCompatAdapter adapter : org.xeb.xeb.compat.ModCompatManager.getAdapters()) {
                     if (adapter instanceof org.xeb.xeb.compat.adapter.CuriosAdapter curiosAdapter) {
                         String diag = curiosAdapter.getDiagnosticInfo(player);
                         for (String line : diag.split("\n")) {
-                            ctx.getSource().sendSuccess(() -> Component.literal(
-                                    net.minecraft.ChatFormatting.AQUA + "[xEB Curios Diag] " + line), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal(net.minecraft.ChatFormatting.AQUA + "[xEB Curios Diag] " + line), false);
                         }
                     }
                 }
-                
                 return 1;
             });
 
-        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> loggCommand = Commands.literal("logg")
+        var loggCommand = Commands.literal("logg")
             .then(
                 Commands.literal("add")
                     .then(
@@ -144,6 +130,15 @@ public class XebCommand {
             )
             .then(
                 Commands.literal("clear")
+                    .executes(ctx -> {
+                        net.minecraft.server.level.ServerPlayer targetPlayer = ctx.getSource().getPlayerOrException();
+                        for (int i = 1; i <= 33; i++) {
+                            targetPlayer.getPersistentData().putBoolean("xebUnlockedBitacora" + i, false);
+                        }
+                        org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, -1);
+                        ctx.getSource().sendSuccess(() -> Component.literal("Successfully cleared all Enigma Bios logs for " + targetPlayer.getScoreboardName()), true);
+                        return 1;
+                    })
                     .then(
                         Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
                             .executes(ctx -> {
@@ -159,6 +154,19 @@ public class XebCommand {
             )
             .then(
                 Commands.literal("addall")
+                    .executes(ctx -> {
+                        net.minecraft.server.level.ServerPlayer targetPlayer = ctx.getSource().getPlayerOrException();
+                        for (int i = 1; i <= 33; i++) {
+                            boolean already = targetPlayer.getPersistentData().getBoolean("xebUnlockedBitacora" + i);
+                            if (!already) {
+                                targetPlayer.getPersistentData().putBoolean("xebUnlockedBitacora" + i, true);
+                                org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, i);
+                            }
+                        }
+                        org.xeb.xeb.event.EnigmaBiosHandler.syncBitacoras(targetPlayer, -1);
+                        ctx.getSource().sendSuccess(() -> Component.literal("Successfully unlocked all Enigma Bios logs for " + targetPlayer.getScoreboardName()), true);
+                        return 1;
+                    })
                     .then(
                         Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
                             .executes(ctx -> {
@@ -177,7 +185,7 @@ public class XebCommand {
                     )
             );
 
-        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> riftCommand = Commands.literal("rift")
+        var riftCommand = Commands.literal("rift")
             .then(
                 Commands.literal("spawn")
                     .then(
@@ -208,8 +216,8 @@ public class XebCommand {
                     .executes(ctx -> {
                         net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
                         net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(
-                                player.getX() - 1.5D, player.getY() - 1.5D, player.getZ() - 1.5D,
-                                player.getX() + 1.5D, player.getY() + 1.5D, player.getZ() + 1.5D
+                                player.getX() - 32.0D, player.getY() - 32.0D, player.getZ() - 32.0D,
+                                player.getX() + 32.0D, player.getY() + 32.0D, player.getZ() + 32.0D
                         );
                         java.util.List<org.xeb.xeb.entity.ShatteredRiftEntity> rifts = player.level().getEntitiesOfClass(
                                 org.xeb.xeb.entity.ShatteredRiftEntity.class, area
@@ -219,26 +227,32 @@ public class XebCommand {
                             rift.discard();
                         }
                         ctx.getSource().sendSuccess(() -> Component.literal(
-                                net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Despawned " + count + " Shattered Rift(s) in a 3x3 area around you."),
+                                net.minecraft.ChatFormatting.GREEN + "[xEB Dev] Despawned " + count + " Shattered Rift(s) in a 64x64 area around you."),
                                 true);
                         return 1;
                     })
             );
 
-        com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> voteCommand = Commands.literal("vote")
+        var voteCommand = Commands.literal("vote")
             .then(Commands.literal("yes").executes(ctx -> {
                 net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
                 org.xeb.xeb.world.MoonTearVoteManager.startOrAddVote(player);
                 return 1;
             }));
 
+        var devCommand = Commands.literal("dev")
+            .requires(source -> source.hasPermission(2))
+            .then(cooldownsCommand)
+            .then(curiosCommand)
+            .then(loggCommand)
+            .then(riftCommand);
+
         dispatcher.register(
             Commands.literal("xeb")
                 .then(voteCommand)
-                // Root is public, specific sub-commands require permissions
                 .then(
                     Commands.literal("summon")
-                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .requires(source -> source.hasPermission(2))
                         .then(
                             Commands.argument("entity", ResourceLocationArgument.id())
                                 .suggests((ctx, builder) -> {
@@ -279,7 +293,7 @@ public class XebCommand {
                 )
                 .then(
                     Commands.literal("elitemeter")
-                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .requires(source -> source.hasPermission(2))
                         .then(
                             Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
                                 .then(
@@ -323,7 +337,7 @@ public class XebCommand {
                 )
                 .then(
                     Commands.literal("permanight")
-                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .requires(source -> source.hasPermission(2))
                         .then(
                             Commands.literal("start")
                                 .executes(ctx -> {
@@ -381,7 +395,6 @@ public class XebCommand {
                 )
                 .then(
                     Commands.literal("elitemastery")
-                        // Public player mastery info check (requires permission 0/everyone)
                         .executes(ctx -> {
                             net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
                             int lvl = MedallionManager.getEliteMeterLevel(player);
@@ -463,20 +476,17 @@ public class XebCommand {
             }
             MedallionManager.refreshDimensionsIfNeeded(living, medallions);
         } else {
-            // Default to random medallions
             MedallionManager.assignRandomMedallions(living, level);
         }
 
         level.addFreshEntityWithPassengers(living);
         MedallionManager.syncToTracking(living);
 
-        // Build colored response component
         net.minecraft.network.chat.MutableComponent feedback = Component.literal("Spawned elite ")
                 .append(Component.literal(entityId.getPath()).withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE))
                 .append(Component.literal(" with "));
 
         if (medallions.isEmpty()) {
-            // If spawned with default random medallions, retrieve what was assigned
             List<MedallionData> assigned = MedallionManager.getMedallions(living);
             if (assigned.isEmpty()) {
                 feedback = feedback.append(Component.literal("no medallions").withStyle(net.minecraft.ChatFormatting.GRAY));
@@ -484,9 +494,9 @@ public class XebCommand {
                 for (int i = 0; i < assigned.size(); i++) {
                     MedallionData m = assigned.get(i);
                     net.minecraft.ChatFormatting color = switch (m.getTier()) {
-                        case COMMON -> net.minecraft.ChatFormatting.GOLD; // Bronze/Orange
-                        case RARE -> net.minecraft.ChatFormatting.AQUA; // Silver/Blue
-                        default -> net.minecraft.ChatFormatting.YELLOW; // Golden/Yellow
+                        case COMMON -> net.minecraft.ChatFormatting.GOLD;
+                        case RARE -> net.minecraft.ChatFormatting.AQUA;
+                        default -> net.minecraft.ChatFormatting.YELLOW;
                     };
                     if (i > 0) {
                         feedback = feedback.append(", ");
@@ -498,9 +508,9 @@ public class XebCommand {
             for (int i = 0; i < medallions.size(); i++) {
                 MedallionData m = medallions.get(i);
                 net.minecraft.ChatFormatting color = switch (m.getTier()) {
-                    case COMMON -> net.minecraft.ChatFormatting.GOLD; // Bronze/Orange
-                    case RARE -> net.minecraft.ChatFormatting.AQUA; // Silver/Blue
-                    default -> net.minecraft.ChatFormatting.YELLOW; // Golden/Yellow
+                    case COMMON -> net.minecraft.ChatFormatting.GOLD;
+                    case RARE -> net.minecraft.ChatFormatting.AQUA;
+                    default -> net.minecraft.ChatFormatting.YELLOW;
                 };
                 if (i > 0) {
                     feedback = feedback.append(", ");

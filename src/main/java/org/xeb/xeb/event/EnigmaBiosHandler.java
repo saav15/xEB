@@ -144,19 +144,11 @@ public class EnigmaBiosHandler {
 
     @SubscribeEvent
     public static void onPlayerClone(PlayerEvent.Clone event) {
-        if (event.isWasDeath()) {
-            CompoundTag oldData = event.getOriginal().getPersistentData();
-            CompoundTag newData = event.getEntity().getPersistentData();
-            for (int i = 1; i <= TOTAL_LOGS; i++) {
-                String key = "xebUnlockedBitacora" + i;
-                if (oldData.contains(key)) {
-                    newData.putBoolean(key, oldData.getBoolean(key));
-                }
-            }
-            for (String key : oldData.getAllKeys()) {
-                if (key.startsWith("xebKilled_")) {
-                    newData.putInt(key, oldData.getInt(key));
-                }
+        CompoundTag oldData = event.getOriginal().getPersistentData();
+        CompoundTag newData = event.getEntity().getPersistentData();
+        for (String key : oldData.getAllKeys()) {
+            if (key.startsWith("xebKilled_") || key.startsWith("xebUnlockedBitacora")) {
+                newData.put(key, oldData.get(key).copy());
             }
         }
     }

@@ -14,6 +14,7 @@ public class HUDPositionScreen extends Screen {
     private final ItemStack targetStack;
 
     public enum HUDCategory {
+        GENERAL_COOLDOWNS("General Cooldowns HUD (Activa 1, 2, 3)", "GENERAL_COOLDOWNS"),
         DOOMFIST("Doomfist Gauntlet", "DOOMFIST"),
         OPTIC_BLAST("Optic Blast", "OPTIC_BLAST"),
         MECHA("Mecha Overdrive", "MECHA"),
@@ -31,7 +32,7 @@ public class HUDPositionScreen extends Screen {
         }
     }
 
-    private HUDCategory currentCategory = HUDCategory.DOOMFIST;
+    private HUDCategory currentCategory = HUDCategory.GENERAL_COOLDOWNS;
 
     private int hudX;
     private int hudY; // Offset or position
@@ -42,11 +43,11 @@ public class HUDPositionScreen extends Screen {
     private int dragOffsetY = 0;
 
     public HUDPositionScreen(Screen parent, ItemStack targetStack) {
-        super(Component.literal("xEB Custom Weapon HUD Configuration"));
+        super(Component.translatable("gui.xeb.hud_customizer.title"));
         this.parent = parent;
         this.targetStack = targetStack != null ? targetStack.copy() : ItemStack.EMPTY;
 
-        // Auto-detect category from stack if passed
+        // Auto-detect category from stack if passed, otherwise default to GENERAL_COOLDOWNS
         if (!this.targetStack.isEmpty()) {
             if (this.targetStack.is(ModItems.DOOMFIST.get()) || this.targetStack.is(ModItems.DOOMFIST_V2.get())) {
                 this.currentCategory = HUDCategory.DOOMFIST;
@@ -63,6 +64,8 @@ public class HUDPositionScreen extends Screen {
             } else if (this.targetStack.is(ModItems.THE_TEARS.get()) || this.targetStack.is(ModItems.DOGMA.get())) {
                 this.currentCategory = HUDCategory.THE_TEARS;
             }
+        } else {
+            this.currentCategory = HUDCategory.GENERAL_COOLDOWNS;
         }
 
         loadCategoryConfig();
@@ -80,6 +83,11 @@ public class HUDPositionScreen extends Screen {
 
     private void loadCategoryConfig() {
         switch (this.currentCategory) {
+            case GENERAL_COOLDOWNS -> {
+                this.hudX = Config.hudX;
+                this.hudY = Config.hudY;
+                this.hudScale = Config.hudScale;
+            }
             case DOOMFIST -> {
                 this.hudX = Config.doomfistHudX;
                 this.hudY = Config.doomfistHudY;
@@ -120,6 +128,11 @@ public class HUDPositionScreen extends Screen {
 
     private void saveCategoryConfig() {
         switch (this.currentCategory) {
+            case GENERAL_COOLDOWNS -> {
+                Config.hudX = this.hudX;
+                Config.hudY = this.hudY;
+                Config.hudScale = this.hudScale;
+            }
             case DOOMFIST -> {
                 Config.doomfistHudX = this.hudX;
                 Config.doomfistHudY = this.hudY;
@@ -174,24 +187,55 @@ public class HUDPositionScreen extends Screen {
                 }
         ).bounds(this.width / 2 - 120, 10, 240, 20).build());
 
-        // Scale Adjust Buttons
+        // Scale Down Button
         this.addRenderableWidget(Button.builder(
-                Component.literal("- Escala"),
+                Component.translatable("gui.xeb.hud_customizer.scale_down"),
                 button -> {
                     this.hudScale = Math.max(0.5f, (float) (Math.round((this.hudScale - 0.1f) * 10.0) / 10.0));
                 }
-        ).bounds(this.width / 2 - 120, this.height - 65, 75, 20).build());
+        ).bounds(this.width / 2 - 130, this.height - 65, 80, 20).build());
 
+        // RESET BUTTON (Restores selected HUD category to default optimal position)
         this.addRenderableWidget(Button.builder(
-                Component.literal("+ Escala"),
+                Component.translatable("gui.xeb.hud_customizer.reset"),
+                button -> {
+                    switch (this.currentCategory) {
+                        case GENERAL_COOLDOWNS -> {
+                            this.hudX = 10;
+                            this.hudY = 42;
+                            this.hudScale = 1.0f;
+                        }
+                        case OPTIC_BLAST -> {
+                            this.hudX = -18;
+                            this.hudY = 0;
+                            this.hudScale = 1.0f;
+                        }
+                        case THE_TEARS -> {
+                            this.hudX = 14;
+                            this.hudY = 12;
+                            this.hudScale = 1.0f;
+                        }
+                        default -> {
+                            this.hudX = 0;
+                            this.hudY = 0;
+                            this.hudScale = 1.0f;
+                        }
+                    }
+                    saveCategoryConfig();
+                }
+        ).bounds(this.width / 2 - 40, this.height - 65, 80, 20).build());
+
+        // Scale Up Button
+        this.addRenderableWidget(Button.builder(
+                Component.translatable("gui.xeb.hud_customizer.scale_up"),
                 button -> {
                     this.hudScale = Math.min(2.0f, (float) (Math.round((this.hudScale + 0.1f) * 10.0) / 10.0));
                 }
-        ).bounds(this.width / 2 + 45, this.height - 65, 75, 20).build());
+        ).bounds(this.width / 2 + 50, this.height - 65, 80, 20).build());
 
         // Save & Cancel Buttons
         this.addRenderableWidget(Button.builder(
-                Component.literal("Guardar"),
+                Component.translatable("gui.xeb.hud_customizer.save"),
                 button -> {
                     saveCategoryConfig();
                     this.minecraft.setScreen(this.parent);
@@ -199,7 +243,7 @@ public class HUDPositionScreen extends Screen {
         ).bounds(this.width / 2 - 100, this.height - 35, 90, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Cancelar"),
+                Component.translatable("gui.xeb.hud_customizer.cancel"),
                 button -> this.minecraft.setScreen(this.parent)
         ).bounds(this.width / 2 + 10, this.height - 35, 90, 20).build());
     }
@@ -208,8 +252,8 @@ public class HUDPositionScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g);
 
-        g.drawCenteredString(this.font, "Arrastra el HUD para posicionar | Usa +/- para re-escalar", this.width / 2, 35, 0xFFFFFFFF);
-        g.drawCenteredString(this.font, String.format("Posición X: %d | Y: %d | Escala: %.1fx", this.hudX, this.hudY, this.hudScale), this.width / 2, 48, 0x88FFFFFF);
+        g.drawCenteredString(this.font, Component.translatable("gui.xeb.hud_customizer.instruction"), this.width / 2, 35, 0xFFFFFFFF);
+        g.drawCenteredString(this.font, String.format("Pos X: %d | Y: %d | Scale: %.1fx", this.hudX, this.hudY, this.hudScale), this.width / 2, 48, 0x88FFFFFF);
 
         // Center crosshair
         int centerX = this.width / 2;
@@ -217,23 +261,30 @@ public class HUDPositionScreen extends Screen {
         g.fill(centerX - 4, centerY, centerX + 5, centerY + 1, 0x88FFFFFF);
         g.fill(centerX, centerY - 4, centerX + 1, centerY + 5, 0x88FFFFFF);
 
-        int renderX = centerX + this.hudX;
-        int renderY = centerY + this.hudY;
+        int renderX;
+        int renderY;
+        if (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) {
+            renderX = this.hudX;
+            renderY = this.height - this.hudY;
+        } else {
+            renderX = centerX + this.hudX;
+            renderY = centerY + this.hudY;
+        }
 
         g.pose().pushPose();
         g.pose().translate(renderX, renderY, 0);
         g.pose().scale(this.hudScale, this.hudScale, 1.0f);
 
-        // Render authentic pixel-perfect in-game crosshair resource gauge overlays
+        // Render authentic pixel-perfect in-game HUD preview
         renderCrosshairHUDPreview(g);
 
         g.pose().popPose();
 
         // Highlight box around customizable HUD
-        int boxWidth = 60;
-        int boxHeight = 40;
-        int boundX = renderX - 10;
-        int boundY = renderY - 10;
+        int boxWidth = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? 84 : 60;
+        int boxHeight = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? 24 : 40;
+        int boundX = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? renderX : renderX - 10;
+        int boundY = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? renderY : renderY - 10;
         int effectiveW = (int) (boxWidth * this.hudScale);
         int effectiveH = (int) (boxHeight * this.hudScale);
 
@@ -253,6 +304,20 @@ public class HUDPositionScreen extends Screen {
         RenderSystem.defaultBlendFunc();
 
         switch (this.currentCategory) {
+            case GENERAL_COOLDOWNS -> {
+                // Bottom-left 3 action boxes preview (ACTIVA 1, ACTIVA 2, ACTIVA 3)
+                for (int b = 0; b < 3; b++) {
+                    int bx = b * 30;
+                    g.fill(bx - 1, -1, bx + 25, 25, 0xFF000000);
+                    g.fill(bx, 0, bx + 24, 24, 0x44000000);
+                    g.fill(bx, 0, bx + 24, 1, 0xFF00FFCC);
+                    g.fill(bx, 23, bx + 24, 24, 0xFF00FFCC);
+                    g.fill(bx, 0, bx + 1, 24, 0xFF00FFCC);
+                    g.fill(bx + 23, 0, bx + 24, 24, 0xFF00FFCC);
+                    String label = "ACT " + (b + 1);
+                    g.drawString(this.font, label, bx + 2, 8, 0xFF00FFCC, false);
+                }
+            }
             case DOOMFIST -> {
                 // Doomfist Power Block mitigation bar preview
                 g.fill(0, 0, 54, 6, 0x66000000);
@@ -260,13 +325,14 @@ public class HUDPositionScreen extends Screen {
                 g.drawString(this.font, "MITIGATE 75%", 0, 10, 0xFFFFCC00, true);
             }
             case OPTIC_BLAST -> {
-                // Curved Heat Gauge Bar Preview
-                g.fill(0, 0, 50, 8, 0x66000000);
-                g.fill(1, 1, 38, 7, 0xFFFF3300);
-                g.drawString(this.font, "HEAT 76%", 0, 12, 0xFFFF3300, true);
+                // Vertical Curved Overheat Bar Preview
+                float time = (float) System.currentTimeMillis() / 50.0F;
+                org.xeb.xeb.render.OpticBlastHUDOverlay.renderCurvedBar(g, 0, 0, 1.0F, time, true, 0.85F);
+                g.drawString(this.font, "OVERHEAT", -46, -10, 0xFFFF2222, true);
+                g.drawString(this.font, "5.1s", -26, 16, 0xFFFF3333, true);
             }
             case MECHA -> {
-                // Slanted 5-Segment O.CLOCK Gauge Preview (exact rendering from DoomfistHUDOverlay)
+                // Slanted 5-Segment O.CLOCK Gauge Preview
                 for (int i = 0; i < 5; i++) {
                     int segX = i * 7;
                     int segY = -i * 8;
@@ -289,7 +355,7 @@ public class HUDPositionScreen extends Screen {
                 g.drawString(this.font, "HOLY BLAST", -20, 20, 0xFF00FFFF, true);
             }
             case GOLDEN_FLOWER -> {
-                // 6-Petal Resource Ring Orbit Preview (exact rendering from GoldenFlowerHUDOverlay)
+                // 6-Petal Resource Ring Orbit Preview
                 for (int i = 0; i < 6; i++) {
                     double angle = Math.toRadians(i * 60);
                     int px = (int) (20 * Math.cos(angle));
@@ -299,101 +365,82 @@ public class HUDPositionScreen extends Screen {
                 g.drawString(this.font, "FLOWERY", -16, 26, 0xFFFFD700, true);
             }
             case CRAZY_DIAMOND -> {
-                // Honeycomb 3-fist charges preview (exact rendering from DoomfistHUDOverlay)
-                drawHoneycombCellPreview(g, 0, -4, true);
-                drawHoneycombCellPreview(g, 8, -9, true);
-                drawHoneycombCellPreview(g, 8, 1, false);
-                g.drawString(this.font, "DORA x2", 0, 12, 0xFFFF55AA, true);
+                // 3-Honeycomb Fist Charge Preview
+                g.fill(0, 0, 12, 12, 0xFFFF55AA);
+                g.fill(14, -6, 26, 6, 0xFFFF55AA);
+                g.fill(14, 6, 26, 18, 0x44FFFFFF);
+                g.drawString(this.font, "DORA (2/3)", 0, 22, 0xFFFF55AA, true);
             }
             case THE_TEARS -> {
-                // Circular Imbue Ring Preview (exact rendering from DoomfistHUDOverlay)
-                g.fill(0, 0, 12, 12, 0xAA003322);
-                g.fill(3, 3, 9, 9, 0xFF00FFCC);
-                g.drawString(this.font, "IMBUE", 0, 16, 0xFF00FFCC, true);
+                // Dark Donut Ring Brimstone Preview
+                org.xeb.xeb.render.DoomfistHUDOverlay.drawDonutPublic(g, 0, 0, 8, 3, 0xFF00FF00);
+                g.drawString(this.font, "BRIMSTONE", -20, 16, 0xFF00FF00, true);
             }
         }
 
         RenderSystem.disableBlend();
     }
 
-    private void drawHoneycombCellPreview(GuiGraphics g, int x, int y, boolean charged) {
-        g.fill(x + 3, y,     x + 7, y + 1, 0xFF000000);
-        g.fill(x + 2, y + 1, x + 8, y + 2, 0xFF000000);
-        g.fill(x + 1, y + 2, x + 9, y + 3, 0xFF000000);
-        g.fill(x,     y + 3, x + 10, y + 5, 0xFF000000);
-        g.fill(x + 1, y + 5, x + 9, y + 6, 0xFF000000);
-        g.fill(x + 2, y + 6, x + 8, y + 7, 0xFF000000);
-        g.fill(x + 3, y + 7, x + 7, y + 8, 0xFF000000);
-
-        int fillColor = charged ? 0xFFFF55AA : 0x44000000;
-        g.fill(x + 3, y + 1, x + 7, y + 2, fillColor);
-        g.fill(x + 2, y + 2, x + 8, y + 3, fillColor);
-        g.fill(x + 1, y + 3, x + 9, y + 5, fillColor);
-        g.fill(x + 2, y + 5, x + 8, y + 6, fillColor);
-        g.fill(x + 3, y + 6, x + 7, y + 7, fillColor);
-    }
-
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int centerX = this.width / 2;
-        int centerY = this.height / 2;
-        int renderX = centerX + this.hudX;
-        int renderY = centerY + this.hudY;
+        if (button == 0) {
+            int centerX = this.width / 2;
+            int centerY = this.height / 2;
+            int renderX;
+            int renderY;
+            if (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) {
+                renderX = this.hudX;
+                renderY = this.height - this.hudY;
+            } else {
+                renderX = centerX + this.hudX;
+                renderY = centerY + this.hudY;
+            }
 
-        int boundX = renderX - 10;
-        int boundY = renderY - 10;
-        int effectiveW = (int) (60 * this.hudScale);
-        int effectiveH = (int) (40 * this.hudScale);
+            int boxWidth = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? 84 : 60;
+            int boxHeight = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? 24 : 40;
+            int boundX = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? renderX : renderX - 10;
+            int boundY = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? renderY : renderY - 10;
+            int effectiveW = (int) (boxWidth * this.hudScale);
+            int effectiveH = (int) (boxHeight * this.hudScale);
 
-        if (mouseX >= boundX && mouseX <= boundX + effectiveW && mouseY >= boundY && mouseY <= boundY + effectiveH) {
-            this.dragging = true;
-            this.dragOffsetX = (int) (mouseX - renderX);
-            this.dragOffsetY = (int) (mouseY - renderY);
-            return true;
+            if (mouseX >= boundX && mouseX <= boundX + effectiveW && mouseY >= boundY && mouseY <= boundY + effectiveH) {
+                this.dragging = true;
+                this.dragOffsetX = (int) mouseX - renderX;
+                this.dragOffsetY = (int) mouseY - renderY;
+                return true;
+            }
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        this.dragging = false;
+        if (button == 0 && this.dragging) {
+            this.dragging = false;
+            saveCategoryConfig();
+            return true;
+        }
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (this.dragging) {
-            int centerX = this.width / 2;
-            int centerY = this.height / 2;
+        if (this.dragging && button == 0) {
+            int newRenderX = (int) mouseX - this.dragOffsetX;
+            int newRenderY = (int) mouseY - this.dragOffsetY;
 
-            int newRenderX = (int) (mouseX - this.dragOffsetX);
-            int newRenderY = (int) (mouseY - this.dragOffsetY);
-
-            this.hudX = newRenderX - centerX;
-            this.hudY = newRenderY - centerY;
+            if (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) {
+                this.hudX = newRenderX;
+                this.hudY = this.height - newRenderY;
+            } else {
+                int centerX = this.width / 2;
+                int centerY = this.height / 2;
+                this.hudX = newRenderX - centerX;
+                this.hudY = newRenderY - centerY;
+            }
+            saveCategoryConfig();
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (delta > 0) {
-            this.hudScale = Math.min(2.0f, (float) (Math.round((this.hudScale + 0.1f) * 10.0) / 10.0));
-            return true;
-        } else if (delta < 0) {
-            this.hudScale = Math.max(0.5f, (float) (Math.round((this.hudScale - 0.1f) * 10.0) / 10.0));
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, delta);
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256) { // ESC key
-            this.minecraft.setScreen(this.parent);
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 }

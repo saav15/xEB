@@ -136,8 +136,8 @@ public class OpticBlastHUDOverlay {
         int centerX = screenW / 2;
         int centerY = screenH / 2;
 
-        int barBaseX = centerX + X_OFFSET;
-        int barBaseY = centerY + Y_OFFSET;
+        int barBaseX = centerX + org.xeb.xeb.Config.opticBlastHudX;
+        int barBaseY = centerY - 18 + org.xeb.xeb.Config.opticBlastHudY;
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -203,7 +203,7 @@ public class OpticBlastHUDOverlay {
      * Renders the energy bar. For NORMAL state, energyRatio represents how FULL the bar is
      * (1.0 = full, 0.0 = empty). Bar fills from bottom to top.
      */
-    private static void renderCurvedBar(GuiGraphics g, int baseX, int baseY,
+    public static void renderCurvedBar(GuiGraphics g, int baseX, int baseY,
                                          float fillProgress, float time,
                                          boolean cooldownGlow, float cooldownPct) {
         for (int row = 0; row < BAR_HEIGHT; row++) {
@@ -324,8 +324,8 @@ public class OpticBlastHUDOverlay {
         int boxH = 24;
         int spacing = 6;
         
-        int xStart = org.xeb.xeb.Config.opticBlastHudX;
-        int yStart = screenH - org.xeb.xeb.Config.opticBlastHudY;
+        int xStart = org.xeb.xeb.Config.hudX;
+        int yStart = screenH - org.xeb.xeb.Config.hudY;
 
         // Read cooldowns from synced data
         int cycloneCD = player.getPersistentData().getInt("xebCyclonePushCooldown");

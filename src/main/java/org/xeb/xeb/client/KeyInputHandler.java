@@ -73,12 +73,10 @@ public class KeyInputHandler {
                     XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(5, true));
                     
                     int combo = player.getMainHandItem().getOrCreateTag().getInt("xebHolyComboStage");
-                    org.xeb.xeb.client.HolyDualityClientHandler.ACTIVE_SLASHES.add(
-                            new org.xeb.xeb.client.HolyDualityClientHandler.HolySlash(
-                                    player.position().add(0, player.getBbHeight() * 0.6D, 0),
-                                    player.getYRot(),
-                                    combo
-                            )
+                    org.xeb.xeb.client.HolyDualityClientHandler.addSlash(
+                            player.position().add(0, player.getBbHeight() * 0.6D, 0),
+                            player.getYRot(),
+                            combo
                     );
                 }
             }

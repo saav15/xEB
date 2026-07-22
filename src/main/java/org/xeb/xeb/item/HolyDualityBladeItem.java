@@ -171,9 +171,9 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
                             double targetX = player.getX() + dx;
                             double targetZ = player.getZ() + dz;
                             double targetY = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int)targetX, (int)targetZ);
-                            org.xeb.xeb.client.HolyDualityClientHandler.ACTIVE_BEAMS.add(
-                                    new org.xeb.xeb.client.HolyDualityClientHandler.HolyBeam(targetX, targetY, targetZ, 15)
-                            );
+                            if (level.isClientSide()) {
+                                org.xeb.xeb.client.HolyDualityClientHandler.addBeam(targetX, targetY, targetZ, 15);
+                            }
                         }
                     }
                 }

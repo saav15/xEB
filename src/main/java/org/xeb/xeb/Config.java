@@ -311,33 +311,38 @@ public class Config {
     public static int permanightVoteThresholdPercent = 50;
     public static int permanightVoteDurationSeconds = 30;
 
-    // HUD position & scale config
-    public static int doomfistHudX = 10;
-    public static int doomfistHudY = 42;
+    // General Ability Cooldown HUD config (Bottom-Left)
+    public static int hudX = 10;
+    public static int hudY = 42;
+    public static float hudScale = 1.0f;
+
+    // Per-Mythic Crosshair Gauge HUD position & scale config (Default 0, 0 centered at crosshair)
+    public static int doomfistHudX = 0;
+    public static int doomfistHudY = 0;
     public static float doomfistHudScale = 1.0f;
 
-    public static int opticBlastHudX = 10;
-    public static int opticBlastHudY = 42;
+    public static int opticBlastHudX = -18;
+    public static int opticBlastHudY = 0;
     public static float opticBlastHudScale = 1.0f;
 
-    public static int mechaHudX = 10;
-    public static int mechaHudY = 42;
+    public static int mechaHudX = 0;
+    public static int mechaHudY = 0;
     public static float mechaHudScale = 1.0f;
 
-    public static int holyHudX = 10;
-    public static int holyHudY = 42;
+    public static int holyHudX = 0;
+    public static int holyHudY = 0;
     public static float holyHudScale = 1.0f;
 
-    public static int goldenFlowerHudX = 10;
-    public static int goldenFlowerHudY = 42;
+    public static int goldenFlowerHudX = 0;
+    public static int goldenFlowerHudY = 0;
     public static float goldenFlowerHudScale = 1.0f;
 
-    public static int crazyDiamondHudX = 10;
-    public static int crazyDiamondHudY = 42;
+    public static int crazyDiamondHudX = 0;
+    public static int crazyDiamondHudY = 0;
     public static float crazyDiamondHudScale = 1.0f;
 
-    public static int theTearsHudX = 10;
-    public static int theTearsHudY = 42;
+    public static int theTearsHudX = 14;
+    public static int theTearsHudY = 12;
     public static float theTearsHudScale = 1.0f;
 
     // Elite Loot config static variables

@@ -104,8 +104,8 @@ public class DoomfistHUDOverlay {
 
                 int barW = 49;
                 int barH = 4;
-                int x = width / 2 - barW / 2;
-                int y = height / 2 + 15;
+                int x = width / 2 - barW / 2 + org.xeb.xeb.Config.doomfistHudX;
+                int y = height / 2 + 15 + org.xeb.xeb.Config.doomfistHudY;
 
                 GuiGraphics g = event.getGuiGraphics();
                 RenderSystem.enableBlend();
@@ -170,9 +170,9 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.doomfistHudX;
-        int yStart = height - org.xeb.xeb.Config.doomfistHudY;
-        float scale = org.xeb.xeb.Config.doomfistHudScale;
+        int xStart = org.xeb.xeb.Config.hudX;
+        int yStart = height - org.xeb.xeb.Config.hudY;
+        float scale = org.xeb.xeb.Config.hudScale;
         
         GuiGraphics g = event.getGuiGraphics();
         g.pose().pushPose();
@@ -367,9 +367,9 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.crazyDiamondHudX;
-        int yStart = height - org.xeb.xeb.Config.crazyDiamondHudY;
-        float scale = org.xeb.xeb.Config.crazyDiamondHudScale;
+        int xStart = org.xeb.xeb.Config.hudX;
+        int yStart = height - org.xeb.xeb.Config.hudY;
+        float scale = org.xeb.xeb.Config.hudScale;
         
         GuiGraphics g = event.getGuiGraphics();
         g.pose().pushPose();
@@ -400,14 +400,14 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int centerX = width / 2;
-        int centerY = height / 2;
+        int cx = width / 2 + org.xeb.xeb.Config.crazyDiamondHudX;
+        int cy = height / 2 + org.xeb.xeb.Config.crazyDiamondHudY;
         
         // Honeycomb layout
         int[][] cellPositions = {
-            {centerX + 15, centerY - 4},
-            {centerX + 23, centerY - 9},
-            {centerX + 23, centerY + 1}
+            {cx + 15, cy - 4},
+            {cx + 23, cy - 9},
+            {cx + 23, cy + 1}
         };
         
         GuiGraphics g = event.getGuiGraphics();
@@ -485,9 +485,9 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.theTearsHudX;
-        int yStart = height - org.xeb.xeb.Config.theTearsHudY;
-        float scale = org.xeb.xeb.Config.theTearsHudScale;
+        int xStart = org.xeb.xeb.Config.hudX;
+        int yStart = height - org.xeb.xeb.Config.hudY;
+        float scale = org.xeb.xeb.Config.hudScale;
         
         GuiGraphics g = event.getGuiGraphics();
         g.pose().pushPose();
@@ -525,45 +525,52 @@ public class DoomfistHUDOverlay {
         // Activa 2: Camo Undies
         renderAbilityIconBox(g, mc, 30, 0, key2, "CAMO", a2CD, 400, false);
         
-        // Circular crosshair HUD next to crosshair (dark donut green fill)
-        int centerX = width / 2;
-        int centerY = height / 2;
-        int hudX = centerX + 15;
-        int hudY = centerY - 15;
-        
+        RenderSystem.disableBlend();
+        g.pose().popPose();
+
+        // Circular crosshair HUD next to crosshair (only renders when charging or firing Brimstone)
         int charge = tag.getInt("xebBrimstoneCharge");
         boolean instant = tag.getBoolean("xebNextBrimstoneInstant");
         int firing = tag.getInt("xebBrimstoneFiringTicks");
-        
-        // Draw base dark donut
-        drawDonut(g, hudX, hudY, 6, 2, 0x80202020);
-        
-        if (firing > 0) {
-            // Firing: pulsing green donut
-            int pulseColor = ((mc.level.getGameTime() % 10) < 5) ? 0xFF00FF00 : 0xFF00AA00;
-            drawDonut(g, hudX, hudY, 6, 2, pulseColor);
-        } else if (instant) {
-            // Next Brimstone instant: fully green donut
-            drawDonut(g, hudX, hudY, 6, 2, 0xFF00FF00);
-        } else if (charge > 0) {
-            // Charging: green clockwise fill progress
-            float progress = Math.min(1.0F, (float) charge / 80.0F);
-            drawDonutProgress(g, hudX, hudY, 6, 2, progress, 0xFF00FF00);
-        }
-        
-        // Inner colored ring wrapping the donut HUD (Playdough Cookie active element color, increases thickness towards inside)
-        if (imbueType > 0) {
-            int ringColor = 0xFFFFFFFF;
-            if (imbueType == 1) ringColor = 0xFFB000FF; // Purple
-            else if (imbueType == 2) ringColor = 0xFFFFFFFF; // White
-            else if (imbueType == 3) ringColor = 0xFF352535; // Visible dark void
-            else if (imbueType == 4) ringColor = 0xFF90E0FF; // Cold
+
+        if (charge > 0 || instant || firing > 0) {
+            int centerX = width / 2;
+            int centerY = height / 2;
+            int hudX = centerX + org.xeb.xeb.Config.theTearsHudX;
+            int hudY = centerY + org.xeb.xeb.Config.theTearsHudY;
+
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+
+            // Draw base dark donut
+            drawDonut(g, hudX, hudY, 6, 2, 0x80202020);
             
-            drawDonut(g, hudX, hudY, 4, 2, ringColor);
+            if (firing > 0) {
+                // Firing: pulsing green donut
+                int pulseColor = ((mc.level.getGameTime() % 10) < 5) ? 0xFF00FF00 : 0xFF00AA00;
+                drawDonut(g, hudX, hudY, 6, 2, pulseColor);
+            } else if (instant) {
+                // Next Brimstone instant: fully green donut
+                drawDonut(g, hudX, hudY, 6, 2, 0xFF00FF00);
+            } else if (charge > 0) {
+                // Charging: green clockwise fill progress
+                float progress = Math.min(1.0F, (float) charge / 80.0F);
+                drawDonutProgress(g, hudX, hudY, 6, 2, progress, 0xFF00FF00);
+            }
+            
+            // Inner colored ring wrapping the donut HUD
+            if (imbueType > 0) {
+                int ringColor = 0xFFFFFFFF;
+                if (imbueType == 1) ringColor = 0xFFB000FF; // Purple
+                else if (imbueType == 2) ringColor = 0xFFFFFFFF; // White
+                else if (imbueType == 3) ringColor = 0xFF352535; // Visible dark void
+                else if (imbueType == 4) ringColor = 0xFF90E0FF; // Cold
+                
+                drawDonut(g, hudX, hudY, 4, 2, ringColor);
+            }
+            
+            RenderSystem.disableBlend();
         }
-        
-        RenderSystem.disableBlend();
-        g.pose().popPose();
     }
 
     private static void renderAbilityIconBoxWithCustomColor(GuiGraphics g, Minecraft mc, int x, int y, String key, String label, int color) {
@@ -594,6 +601,10 @@ public class DoomfistHUDOverlay {
         }
         
         g.drawString(mc.font, label, x, y - 9, color, false);
+    }
+
+    public static void drawDonutPublic(GuiGraphics g, int cx, int cy, int radius, int thickness, int color) {
+        drawDonut(g, cx, cy, radius, thickness, color);
     }
 
     private static void drawDonut(GuiGraphics g, int cx, int cy, int radius, int thickness, int color) {
@@ -629,9 +640,9 @@ public class DoomfistHUDOverlay {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.mechaHudX;
-        int yStart = height - org.xeb.xeb.Config.mechaHudY;
-        float scale = org.xeb.xeb.Config.mechaHudScale;
+        int xStart = org.xeb.xeb.Config.hudX;
+        int yStart = height - org.xeb.xeb.Config.hudY;
+        float scale = org.xeb.xeb.Config.hudScale;
         
         GuiGraphics g = event.getGuiGraphics();
         g.pose().pushPose();
@@ -662,10 +673,16 @@ public class DoomfistHUDOverlay {
         // Activa 2: Spindash Missile (SPMS)
         renderSpindashBox(g, mc, 30, 0, key2, "SPMS", spindashCharges, spindashTimer, spindashActive);
         
+        RenderSystem.disableBlend();
+        g.pose().popPose();
+
         // Render Momentum Bar next to crosshair
-        int centerX = width / 2;
-        int centerY = height / 2;
+        int centerX = width / 2 + org.xeb.xeb.Config.mechaHudX;
+        int centerY = height / 2 + org.xeb.xeb.Config.mechaHudY;
         
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
         double momentum = tag.getDouble("xebMechaMomentum");
         boolean overcharged = tag.getBoolean("xebMechaOvercharged");
         boolean levitating = tag.getBoolean("xebMechaLevitating");
@@ -727,16 +744,15 @@ public class DoomfistHUDOverlay {
         }
         
         RenderSystem.disableBlend();
-        g.pose().popPose();
     }
 
     private static void renderHolyAbilityCooldowns(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player) {
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
         
-        int xStart = org.xeb.xeb.Config.holyHudX;
-        int yStart = height - org.xeb.xeb.Config.holyHudY;
-        float scale = org.xeb.xeb.Config.holyHudScale;
+        int xStart = org.xeb.xeb.Config.hudX;
+        int yStart = height - org.xeb.xeb.Config.hudY;
+        float scale = org.xeb.xeb.Config.hudScale;
         
         GuiGraphics g = event.getGuiGraphics();
         g.pose().pushPose();
@@ -761,10 +777,13 @@ public class DoomfistHUDOverlay {
         renderAbilityIconBox(g, mc, 0, 0, key1, "CREAT", a1CD, 320, shieldActive);
         renderAbilityIconBox(g, mc, 30, 0, key2, "ANNIL", a2CD, 133, annihilationActive);
         
+        RenderSystem.disableBlend();
+        g.pose().popPose();
+
         // Render Holy Blast Charge Bar below crosshair
         if (blastCharge > 0) {
-            int centerX = width / 2;
-            int centerY = height / 2;
+            int centerX = width / 2 + org.xeb.xeb.Config.holyHudX;
+            int centerY = height / 2 + org.xeb.xeb.Config.holyHudY;
             int barX = centerX - 20;
             int barY = centerY + 12;
             int barW = 40;
@@ -772,6 +791,9 @@ public class DoomfistHUDOverlay {
             
             float pct = Math.min(1.0F, blastCharge / 160.0F); // Max charge is 160 ticks
             
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+
             // Draw background
             g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0x66000000);
             
@@ -786,10 +808,9 @@ public class DoomfistHUDOverlay {
                 g.fill(barX - 1, barY - 1, barX, barY + barH + 1, 0xFFFFFFFF);
                 g.fill(barX + barW, barY - 1, barX + barW + 1, barY + barH + 1, 0xFFFFFFFF);
             }
+
+            RenderSystem.disableBlend();
         }
-        
-        RenderSystem.disableBlend();
-        g.pose().popPose();
     }
 
     private static void renderSpindashBox(GuiGraphics g, Minecraft mc, int x, int y,

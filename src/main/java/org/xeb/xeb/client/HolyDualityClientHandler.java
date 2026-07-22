@@ -73,6 +73,14 @@ public class HolyDualityClientHandler {
     public static final java.util.List<HolySlash> ACTIVE_SLASHES = new java.util.concurrent.CopyOnWriteArrayList<>();
     public static final java.util.List<HolyPulse> ACTIVE_PULSES = new java.util.concurrent.CopyOnWriteArrayList<>();
 
+    public static void addSlash(Vec3 pos, float yaw, int comboStage) {
+        ACTIVE_SLASHES.add(new HolySlash(pos, yaw, comboStage));
+    }
+
+    public static void addBeam(double x, double y, double z, int duration) {
+        ACTIVE_BEAMS.add(new HolyBeam(x, y, z, duration));
+    }
+
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
