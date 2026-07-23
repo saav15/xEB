@@ -1,6 +1,9 @@
 {
-  "material": "xeb:bronze_elite",
+  "material": "tconstruct:bronze_elite",
   "traits": [
-    { "name": "tconstruct:reinforced", "level": 1 }
+    {
+      "name": "tconstruct:spiked_conditioning",
+      "level": 1
+    }
   ]
 }

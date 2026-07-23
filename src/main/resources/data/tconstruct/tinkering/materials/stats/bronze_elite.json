@@ -1,10 +1,10 @@
 {
-  "material": "xeb:bronze_elite",
+  "material": "tconstruct:bronze_elite",
   "stats": {
     "tconstruct:head": {
       "durability": 450,
       "mining_speed": 6.5,
-      "harvest_tier": "minecraft:diamond",
+      "mining_tier": "minecraft:diamond",
       "attack_damage": 2.5
     },
     "tconstruct:handle": {

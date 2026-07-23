@@ -150,6 +150,10 @@ public class StevenCloneEntity extends Monster implements GeoEntity {
         }
 
         if (!isReturning() && targetEntity != null && targetEntity.isAlive() && !struck) {
+            if (targetEntity instanceof StevenBossEntity || targetEntity instanceof StevenCloneEntity) {
+                setReturning(true);
+                return;
+            }
             Vec3 dir = targetEntity.position().add(0, 0.5D, 0).subtract(this.position()).normalize();
             this.setDeltaMovement(dir.scale(0.75D));
 

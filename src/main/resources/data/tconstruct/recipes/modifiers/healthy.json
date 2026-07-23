@@ -1,9 +1,12 @@
 {
   "type": "tconstruct:modifier",
   "inputs": [
-    { "item": "xeb:healthy_essence" }
+    { "item": "xeb:healthy_essence" },
+    { "item": "xeb:silver_elite_bit" },
+    { "item": "xeb:moon_tear" }
   ],
   "tools": { "tag": "tconstruct:modifiable" },
-  "result": { "name": "tconstruct:reinforced", "level": 1 },
-  "max_level": 3
+  "result": { "name": "tconstruct:healthy", "level": 1 },
+  "max_level": 3,
+  "slots": { "upgrades": 1 }
 }

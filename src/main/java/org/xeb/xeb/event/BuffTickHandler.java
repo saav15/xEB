@@ -49,11 +49,11 @@ public class BuffTickHandler {
 
         // === Spore Cloud ticking (Golden Flower retorno) ===
         if (entity instanceof ServerPlayer sp) {
-            // Natural Shattered Rift Spawning (once every 1200 ticks / 1 minute per player)
-            if (sp.tickCount % 1200 == 0) {
+            // Natural Shattered Rift Spawning (once every 600 ticks / 30 seconds per player)
+            if (sp.tickCount % 600 == 0) {
                 double spawnDistSqr = sp.level().getSharedSpawnPos().distToCenterSqr(sp.position());
-                if (spawnDistSqr > 40000.0D) { // > 200 blocks away from world spawn
-                    if (sp.getRandom().nextFloat() < 0.08F) { // 8% chance per minute
+                if (spawnDistSqr > 2500.0D) { // > 50 blocks away from world spawn
+                    if (sp.getRandom().nextFloat() < 0.25F) { // 25% chance per check (approx 1 rift every 2 minutes of exploration)
                         double rx = sp.getX() + (sp.getRandom().nextDouble() - 0.5D) * 100.0D;
                         double rz = sp.getZ() + (sp.getRandom().nextDouble() - 0.5D) * 100.0D;
                         net.minecraft.core.BlockPos checkPos = new net.minecraft.core.BlockPos((int) rx, (int) sp.getY(), (int) rz);
@@ -128,19 +128,23 @@ public class BuffTickHandler {
         boolean hasMultipleMega = false;
 
         if (entity.isAlive() && !entity.isRemoved()) {
-            hasMadness = MedallionManager.hasBuff(entity, "mad");
-            madStacks = entity.getPersistentData().getInt("xebMadStacks");
-            boolean escalatedMadness = hasMadness && madStacks > 0;
+            if (entity instanceof org.xeb.xeb.entity.StevenCloneEntity) {
+                qualifies = false;
+            } else {
+                hasMadness = MedallionManager.hasBuff(entity, "mad");
+                madStacks = entity.getPersistentData().getInt("xebMadStacks");
+                boolean escalatedMadness = hasMadness && madStacks > 0;
 
-            int megaCount = 0;
-            for (MedallionData m : MedallionManager.getMedallions(entity)) {
-                if (m.getBuff().getId().equals("mega")) {
-                    megaCount++;
+                int megaCount = 0;
+                for (MedallionData m : MedallionManager.getMedallions(entity)) {
+                    if (m.getBuff().getId().equals("mega")) {
+                        megaCount++;
+                    }
                 }
-            }
-            hasMultipleMega = megaCount >= 2;
+                hasMultipleMega = megaCount >= 2;
 
-            qualifies = escalatedMadness || hasMultipleMega;
+                qualifies = escalatedMadness || hasMultipleMega;
+            }
         }
 
         if (qualifies) {
@@ -1308,6 +1312,8 @@ public class BuffTickHandler {
                                     }
                                 }
                             }
+                        } else if (attacker instanceof LivingEntity livingAttacker) {
+                            slamSource = entity.damageSources().mobAttack(livingAttacker);
                         }
                     }
 

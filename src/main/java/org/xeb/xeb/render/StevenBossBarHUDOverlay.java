@@ -19,16 +19,29 @@ public class StevenBossBarHUDOverlay {
 
     private static final XebBossBar STEVEN_BOSS_BAR = new XebBossBar();
 
+    private static List<StevenBossEntity> getActiveStevensNearPlayer() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null || mc.options.hideGui) return java.util.Collections.emptyList();
+        AABB box = mc.player.getBoundingBox().inflate(96.0D);
+        return mc.level.getEntitiesOfClass(StevenBossEntity.class, box, StevenBossEntity::isAlive);
+    }
+
     @SubscribeEvent
     public static void onBossBarProgress(CustomizeGuiOverlayEvent.BossEventProgress event) {
         BossEvent bossEvent = event.getBossEvent();
         if (bossEvent == null || bossEvent.getName() == null) return;
-        String name = bossEvent.getName().getString().toUpperCase();
+        
+        // Remove all spaces for clean matching (e.g. "S T E V E N" -> "STEVEN")
+        String cleanName = bossEvent.getName().getString().replace(" ", "").toUpperCase();
 
-        if (name.contains("STEVEN")) {
-            // Cancelar el dibujado por defecto de la barra vainilla
+        if (cleanName.contains("STEVEN")) {
+            // Cancelar el dibujado por defecto de la barra vainilla de Steven
+            // Y calcular el desplazamiento necesario segun el numero total de Stevens activos
+            int activeCount = getActiveStevensNearPlayer().size();
+            int totalSpacing = Math.max(1, activeCount) * 63;
+
             event.setCanceled(true);
-            event.setIncrement(0);
+            event.setIncrement(totalSpacing);
         }
     }
 
@@ -39,30 +52,35 @@ public class StevenBossBarHUDOverlay {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.options.hideGui) return;
 
-        AABB box = mc.player.getBoundingBox().inflate(96.0D);
-        List<StevenBossEntity> list = mc.level.getEntitiesOfClass(StevenBossEntity.class, box);
-        if (list.isEmpty()) return;
+        List<StevenBossEntity> stevens = getActiveStevensNearPlayer();
+        if (stevens.isEmpty()) return;
 
-        StevenBossEntity steven = list.get(0);
-        if (!steven.isAlive()) return;
+        int currentY = 18;
+        int index = 1;
 
-        float targetHpRatio = steven.getHealth() / steven.getMaxHealth();
-        int charges = steven.getStevenCharges();
-        String extraStatus = charges > 0 ? "✦ " + charges + " CHARGES" : "";
-        String phaseTag = targetHpRatio < 0.25F ? "OVERDRIVE" : "";
+        for (StevenBossEntity steven : stevens) {
+            float targetHpRatio = steven.getHealth() / steven.getMaxHealth();
+            int charges = steven.getStevenCharges();
+            String phaseTag = targetHpRatio < 0.25F ? "OVERDRIVE" : "";
 
-        // Delegar al componente reutilizable XebBossBar
-        STEVEN_BOSS_BAR.render(
-                event.getGuiGraphics(),
-                mc.font,
-                18,
-                "S T E V E N",
-                targetHpRatio,
-                (int) steven.getHealth(),
-                (int) steven.getMaxHealth(),
-                extraStatus,
-                phaseTag,
-                XebBossBar.Theme.OBSIDIAN_COSMIC
-        );
+            String title = stevens.size() > 1 ? "S T E V E N  #" + index : "S T E V E N";
+
+            // Delegar al componente reutilizable XebBossBar
+            STEVEN_BOSS_BAR.render(
+                    event.getGuiGraphics(),
+                    mc.font,
+                    currentY,
+                    title,
+                    targetHpRatio,
+                    (int) steven.getHealth(),
+                    (int) steven.getMaxHealth(),
+                    charges,
+                    phaseTag,
+                    XebBossBar.Theme.OBSIDIAN_COSMIC
+            );
+
+            currentY += 63;
+            index++;
+        }
     }
 }

@@ -42,4 +42,10 @@ public class StevenParticleHelper {
         level.sendParticles(ParticleTypes.REVERSE_PORTAL, pos.x, pos.y + 1.2D, pos.z, 3, 0.4, 0.6, 0.4, 0.02);
         level.sendParticles(ParticleTypes.SQUID_INK, pos.x, pos.y + 1.2D, pos.z, 2, 0.3, 0.4, 0.3, 0.01);
     }
+
+    public static void spawnLaserImpactParticles(ServerLevel level, Vec3 impactPos) {
+        level.sendParticles(ParticleTypes.ELECTRIC_SPARK, impactPos.x, impactPos.y, impactPos.z, 3, 0.1D, 0.1D, 0.1D, 0.04D);
+        level.sendParticles(ParticleTypes.SMOKE, impactPos.x, impactPos.y, impactPos.z, 2, 0.08D, 0.08D, 0.08D, 0.01D);
+        level.sendParticles(ParticleTypes.REVERSE_PORTAL, impactPos.x, impactPos.y, impactPos.z, 2, 0.12D, 0.12D, 0.12D, 0.02D);
+    }
 }

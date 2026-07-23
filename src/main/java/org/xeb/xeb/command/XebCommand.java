@@ -271,6 +271,87 @@ public class XebCommand {
                                 true);
                         return 1;
                     })
+            )
+            .then(
+                Commands.literal("find")
+                    .executes(ctx -> {
+                        net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        net.minecraft.server.level.ServerLevel level = player.serverLevel();
+
+                        net.minecraft.world.phys.AABB searchBox = player.getBoundingBox().inflate(3000.0D, 500.0D, 3000.0D);
+                        java.util.List<org.xeb.xeb.entity.ShatteredRiftEntity> rifts = level.getEntitiesOfClass(
+                                org.xeb.xeb.entity.ShatteredRiftEntity.class, searchBox
+                        );
+
+                        if (rifts.isEmpty()) {
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                    net.minecraft.ChatFormatting.YELLOW + "[xEB Dev] No Shattered Rifts found within 3000 blocks."), false);
+                            return 1;
+                        }
+
+                        java.util.Map<Integer, java.util.List<org.xeb.xeb.entity.ShatteredRiftEntity>> byDifficulty = new java.util.TreeMap<>();
+                        for (org.xeb.xeb.entity.ShatteredRiftEntity rift : rifts) {
+                            byDifficulty.computeIfAbsent(rift.getDifficulty(), k -> new java.util.ArrayList<>()).add(rift);
+                        }
+
+                        for (java.util.List<org.xeb.xeb.entity.ShatteredRiftEntity> diffList : byDifficulty.values()) {
+                            diffList.sort(java.util.Comparator.comparingDouble(r -> player.distanceToSqr(r)));
+                        }
+
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                net.minecraft.ChatFormatting.GOLD + "[xEB Dev] Found " + rifts.size() + " Shattered Rift(s) near you:"), false);
+
+                        for (java.util.Map.Entry<Integer, java.util.List<org.xeb.xeb.entity.ShatteredRiftEntity>> entry : byDifficulty.entrySet()) {
+                            int diff = entry.getKey();
+                            java.util.List<org.xeb.xeb.entity.ShatteredRiftEntity> diffRifts = entry.getValue();
+
+                            net.minecraft.ChatFormatting diffColor;
+                            String diffName;
+                            if (diff == 0) {
+                                diffColor = net.minecraft.ChatFormatting.AQUA;
+                                diffName = "Dificultad 0 (Azul Místico)";
+                            } else if (diff == 1) {
+                                diffColor = net.minecraft.ChatFormatting.GREEN;
+                                diffName = "Dificultad 1 (Verde Esmeralda)";
+                            } else if (diff == 2) {
+                                diffColor = net.minecraft.ChatFormatting.RED;
+                                diffName = "Dificultad 2 (Rojo Carmesí)";
+                            } else {
+                                diffColor = net.minecraft.ChatFormatting.LIGHT_PURPLE;
+                                diffName = "Dificultad 3 (Arcoíris / Cósmica)";
+                            }
+
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                    diffColor + "--- " + diffName + " (" + diffRifts.size() + ") ---"), false);
+
+                            for (org.xeb.xeb.entity.ShatteredRiftEntity rift : diffRifts) {
+                                int bx = rift.blockPosition().getX();
+                                int by = rift.blockPosition().getY();
+                                int bz = rift.blockPosition().getZ();
+                                int dist = (int) Math.sqrt(player.distanceToSqr(rift));
+                                String tpCmd = "/tp @s " + bx + " " + by + " " + bz;
+
+                                net.minecraft.network.chat.MutableComponent coordComp = Component.literal("[" + bx + ", " + by + ", " + bz + "]")
+                                        .withStyle(style -> style
+                                                .withColor(net.minecraft.ChatFormatting.YELLOW)
+                                                .withUnderlined(true)
+                                                .withClickEvent(new net.minecraft.network.chat.ClickEvent(
+                                                        net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND, tpCmd))
+                                                .withHoverEvent(new net.minecraft.network.chat.HoverEvent(
+                                                        net.minecraft.network.chat.HoverEvent.Action.SHOW_TEXT,
+                                                        Component.literal("Click para teletransportarte a la grieta en (" + bx + ", " + by + ", " + bz + ")")))
+                                        );
+
+                                net.minecraft.network.chat.MutableComponent line = Component.literal("  • ")
+                                        .append(coordComp)
+                                        .append(Component.literal(" (" + dist + "m de distancia)").withStyle(net.minecraft.ChatFormatting.GRAY));
+
+                                ctx.getSource().sendSuccess(() -> line, false);
+                            }
+                        }
+
+                        return 1;
+                    })
             );
 
         var voteCommand = Commands.literal("vote")

@@ -174,21 +174,29 @@ public class StevenBossEntity extends Monster implements GeoEntity {
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        // Prevenir daño autoinfligido o proveniente de otros Stevens / clones de Steven
+        if (source.getEntity() == this || source.getEntity() instanceof StevenBossEntity || source.getEntity() instanceof StevenCloneEntity
+                || source.getDirectEntity() == this || source.getDirectEntity() instanceof StevenBossEntity || source.getDirectEntity() instanceof StevenCloneEntity) {
+            return false;
+        }
+
         // PARRY / COUNTER STANCE MECHANIC: Si está en postura de parry, anula el daño y contraataca
         if ("COUNTER_STANCE".equals(getAttackState()) && source.getEntity() != null) {
-            if (this.level() instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.CRIT, this.getX(), this.getY() + 1.2D, this.getZ(), 20, 0.5, 0.5, 0.5, 0.2);
-                this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                        SoundEvents.SHIELD_BLOCK, SoundSource.HOSTILE, 1.5F, 0.5F);
+            if (source.getEntity() != this && !(source.getEntity() instanceof StevenBossEntity) && !(source.getEntity() instanceof StevenCloneEntity)) {
+                if (this.level() instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(ParticleTypes.CRIT, this.getX(), this.getY() + 1.2D, this.getZ(), 20, 0.5, 0.5, 0.5, 0.2);
+                    this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                            SoundEvents.SHIELD_BLOCK, SoundSource.HOSTILE, 1.5F, 0.5F);
 
-                Vec3 behind = source.getEntity().position().subtract(source.getEntity().getLookAngle().scale(1.5D));
-                this.setPos(behind.x, behind.y, behind.z);
-                source.getEntity().hurt(this.damageSources().mobAttack(this), 35.0F);
-                this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                        SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.HOSTILE, 1.2F, 1.4F);
+                    Vec3 behind = source.getEntity().position().subtract(source.getEntity().getLookAngle().scale(1.5D));
+                    this.setPos(behind.x, behind.y, behind.z);
+                    source.getEntity().hurt(this.damageSources().mobAttack(this), 35.0F);
+                    this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                            SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.HOSTILE, 1.2F, 1.4F);
+                }
+                chooseNextAttack();
+                return false;
             }
-            chooseNextAttack();
-            return false;
         }
 
         float reduced = amount * 0.05F;
@@ -345,7 +353,7 @@ public class StevenBossEntity extends Monster implements GeoEntity {
         } else {
             AABB searchBox = this.getBoundingBox().inflate(32.0D);
             List<LivingEntity> living = this.level().getEntitiesOfClass(LivingEntity.class, searchBox,
-                    e -> e != this && !(e instanceof StevenCloneEntity) && e.isAlive() && (!(e instanceof Player p) || (!p.isSpectator() && !p.isCreative())));
+                    e -> e != this && !(e instanceof StevenBossEntity) && !(e instanceof StevenCloneEntity) && e.isAlive() && (!(e instanceof Player p) || (!p.isSpectator() && !p.isCreative())));
             if (!living.isEmpty()) {
                 living.sort(Comparator.comparingDouble(this::distanceToSqr));
                 this.currentTarget = living.get(0);
@@ -419,13 +427,19 @@ public class StevenBossEntity extends Monster implements GeoEntity {
             }
 
             AABB box = this.getBoundingBox().inflate(1.6D);
-            List<LivingEntity> hitList = this.level().getEntitiesOfClass(LivingEntity.class, box, e -> e != this && !(e instanceof StevenCloneEntity));
+            List<LivingEntity> hitList = this.level().getEntitiesOfClass(LivingEntity.class, box, e -> e != this && !(e instanceof StevenBossEntity) && !(e instanceof StevenCloneEntity));
             float damage = empowered ? 55.0F : 35.0F;
             for (LivingEntity victim : hitList) {
                 victim.hurt(this.damageSources().mobAttack(this), damage);
                 Vec3 knock = victim.position().subtract(this.position()).normalize().scale(3.5D).add(0, 0.8, 0);
                 victim.setDeltaMovement(knock);
                 victim.hasImpulse = true;
+
+                // Wall slam data on victim
+                net.minecraft.nbt.CompoundTag tag = victim.getPersistentData();
+                tag.putInt("xebDoomfistSlamTimer", 30);
+                tag.putFloat("xebDoomfistSlamDamage", empowered ? 45.0F : 25.0F);
+                tag.putUUID("xebDoomfistSlamAttacker", this.getUUID());
             }
         } else {
             chooseNextAttack();
@@ -460,7 +474,14 @@ public class StevenBossEntity extends Monster implements GeoEntity {
             if (currentTarget != null) {
                 dir = currentTarget.position().add(0, 1.0, 0).subtract(origin).normalize();
             }
-            Vec3 beamEnd = origin.add(dir.scale(30.0D));
+
+            // Raycast hasta 96 bloques de distancia (muy largo alcance)
+            Vec3 maxReach = origin.add(dir.scale(96.0D));
+            net.minecraft.world.phys.BlockHitResult blockHit = this.level().clip(new net.minecraft.world.level.ClipContext(
+                    origin, maxReach, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, this
+            ));
+
+            Vec3 beamEnd = blockHit.getType() != net.minecraft.world.phys.BlockHitResult.Type.MISS ? blockHit.getLocation() : maxReach;
 
             if (this.level() instanceof ServerLevel serverLevel) {
                 long gameTick = serverLevel.getGameTime();
@@ -470,16 +491,45 @@ public class StevenBossEntity extends Monster implements GeoEntity {
                 XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> this),
                         new StevenLaserSyncPacket(this.getId(), true, origin, beamEnd));
 
-                Vec3 collision = ActiveBeamManager.get().checkBeamVsBeamCollision(this.getUUID(), origin, beamEnd);
-                if (collision != null && currentTarget != null) {
-                    BeamStruggleManager.onBeamCollision(this.getUUID(), currentTarget.getUUID(), origin, currentTarget.getEyePosition(1.0F), collision, gameTick, serverLevel);
+                // Efectos limpios en el punto exacto de colision con bloques
+                if (blockHit.getType() != net.minecraft.world.phys.BlockHitResult.Type.MISS) {
+                    StevenParticleHelper.spawnLaserImpactParticles(serverLevel, beamEnd);
+                    if (this.stateTicks % 6 == 0) {
+                        this.level().playSound(null, beamEnd.x, beamEnd.y, beamEnd.z,
+                                SoundEvents.LAVA_EXTINGUISH, SoundSource.HOSTILE, 0.4F, 1.6F);
+                    }
                 }
 
-                AABB beamBox = new AABB(origin, beamEnd).inflate(1.2D);
-                List<LivingEntity> victims = serverLevel.getEntitiesOfClass(LivingEntity.class, beamBox, e -> e != this && !(e instanceof StevenCloneEntity));
+                Vec3 collision = ActiveBeamManager.get().checkBeamVsBeamCollision(this.getUUID(), origin, beamEnd, 0.8D);
+                if (collision != null) {
+                    UUID otherOwner = ActiveBeamManager.get().findCollidingBeamOwner(this.getUUID(), origin, beamEnd, 0.8D);
+                    if (otherOwner == null && currentTarget != null) {
+                        otherOwner = currentTarget.getUUID();
+                    }
+                    if (otherOwner != null) {
+                        Vec3 otherStart = origin;
+                        net.minecraft.world.entity.Entity otherEnt = serverLevel.getEntity(otherOwner);
+                        if (otherEnt instanceof LivingEntity otherLiving) {
+                            otherStart = otherLiving.position().add(0, 1.8D, 0);
+                        }
+                        BeamStruggleManager.onBeamCollision(this.getUUID(), otherOwner, origin, otherStart, collision, gameTick, serverLevel);
+                    }
+                }
+
+                // Deteccion precisa de victimas sobre el segmento del haz
+                AABB searchBox = new AABB(origin, beamEnd).inflate(1.2D);
+                List<LivingEntity> potentialVictims = serverLevel.getEntitiesOfClass(LivingEntity.class, searchBox,
+                        e -> e != this && !(e instanceof StevenBossEntity) && !(e instanceof StevenCloneEntity) && e.isAlive());
+
                 float damage = empowered ? 11.0F : 7.0F;
-                for (LivingEntity victim : victims) {
-                    victim.hurt(this.damageSources().indirectMagic(this, this), damage);
+                for (LivingEntity victim : potentialVictims) {
+                    AABB victimBox = victim.getBoundingBox().inflate(0.4D);
+                    if (victimBox.clip(origin, beamEnd).isPresent()) {
+                        victim.hurt(this.damageSources().indirectMagic(this, this), damage);
+                        if (this.stateTicks % 4 == 0) {
+                            serverLevel.sendParticles(ParticleTypes.CRIT, victim.getX(), victim.getY(0.5D), victim.getZ(), 2, 0.1D, 0.1D, 0.1D, 0.05D);
+                        }
+                    }
                 }
             }
 
@@ -507,7 +557,7 @@ public class StevenBossEntity extends Monster implements GeoEntity {
                 serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, standCenter.x, standCenter.y, standCenter.z, 10, 0.4, 0.4, 0.4, 0.15);
 
                 AABB punchBox = new AABB(standCenter, standCenter).inflate(2.0D);
-                List<LivingEntity> victims = this.level().getEntitiesOfClass(LivingEntity.class, punchBox, e -> e != this && !(e instanceof StevenCloneEntity));
+                List<LivingEntity> victims = this.level().getEntitiesOfClass(LivingEntity.class, punchBox, e -> e != this && !(e instanceof StevenBossEntity) && !(e instanceof StevenCloneEntity));
                 for (LivingEntity victim : victims) {
                     victim.hurt(this.damageSources().mobAttack(this), 6.5F);
                     victim.invulnerableTime = 0;
@@ -530,7 +580,7 @@ public class StevenBossEntity extends Monster implements GeoEntity {
         if (this.stateTicks <= 35) {
             if (this.stateTicks % 3 == 0 && this.level() instanceof ServerLevel serverLevel) {
                 AABB box = this.getBoundingBox().inflate(1.8D);
-                List<LivingEntity> victims = serverLevel.getEntitiesOfClass(LivingEntity.class, box, e -> e != this && !(e instanceof StevenCloneEntity));
+                List<LivingEntity> victims = serverLevel.getEntitiesOfClass(LivingEntity.class, box, e -> e != this && !(e instanceof StevenBossEntity) && !(e instanceof StevenCloneEntity));
                 for (LivingEntity victim : victims) {
                     victim.hurt(this.damageSources().mobAttack(this), 7.0F);
                     victim.invulnerableTime = 0;
@@ -594,7 +644,7 @@ public class StevenBossEntity extends Monster implements GeoEntity {
                 serverLevel.sendParticles(ParticleTypes.SQUID_INK, riftCenter.x, riftCenter.y, riftCenter.z, 15, 0.6, 0.6, 0.6, 0.1);
 
                 AABB suckBox = new AABB(riftCenter, riftCenter).inflate(14.0D);
-                List<LivingEntity> pulled = serverLevel.getEntitiesOfClass(LivingEntity.class, suckBox, e -> e != this && !(e instanceof StevenCloneEntity));
+                List<LivingEntity> pulled = serverLevel.getEntitiesOfClass(LivingEntity.class, suckBox, e -> e != this && !(e instanceof StevenBossEntity) && !(e instanceof StevenCloneEntity));
                 for (LivingEntity victim : pulled) {
                     Vec3 pullDir = riftCenter.subtract(victim.position()).normalize().scale(0.40D);
                     victim.setDeltaMovement(victim.getDeltaMovement().add(pullDir));
@@ -613,7 +663,7 @@ public class StevenBossEntity extends Monster implements GeoEntity {
                 serverLevel.sendParticles(ParticleTypes.FLASH, riftCenter.x, riftCenter.y, riftCenter.z, 10, 0.5, 0.5, 0.5, 0.0);
 
                 AABB blastBox = new AABB(riftCenter, riftCenter).inflate(8.0D);
-                List<LivingEntity> victims = serverLevel.getEntitiesOfClass(LivingEntity.class, blastBox, e -> e != this && !(e instanceof StevenCloneEntity));
+                List<LivingEntity> victims = serverLevel.getEntitiesOfClass(LivingEntity.class, blastBox, e -> e != this && !(e instanceof StevenBossEntity) && !(e instanceof StevenCloneEntity));
                 for (LivingEntity victim : victims) {
                     float blastDamage = (victim instanceof Player) ? 70.0F : 150.0F;
                     victim.hurt(this.damageSources().magic(), blastDamage);

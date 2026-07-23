@@ -227,10 +227,10 @@ public class OpticBlastBeamRenderer {
             BEAM_STYLE.coreWidth = 0.15F;
             BEAM_STYLE.innerWidth = 0.05F;
         } else {
-            BEAM_STYLE.auraWidth = 0.45F;
-            BEAM_STYLE.glowWidth = 0.25F;
-            BEAM_STYLE.coreWidth = 0.12F;
-            BEAM_STYLE.innerWidth = 0.04F;
+            BEAM_STYLE.auraWidth = 0.85F;
+            BEAM_STYLE.glowWidth = 0.50F;
+            BEAM_STYLE.coreWidth = 0.28F;
+            BEAM_STYLE.innerWidth = 0.10F;
         }
         BEAM_STYLE.heatHaze = true;
 
@@ -315,17 +315,24 @@ public class OpticBlastBeamRenderer {
     }
 
     /**
-     * Draws a rectangular cross-section beam using two perpendicular quads.
+     * Draws a 4-plane volumetric cross-section beam (0, 45, 90, 135 degrees) for 360-degree visibility from all camera angles.
      */
     private static void drawRectQuad(VertexConsumer consumer, Matrix4f matrix,
                                       Vec3 start, Vec3 end,
                                       Vec3 perpHoriz, Vec3 perpVert,
                                       float halfWidthH, float halfWidthV,
                                       float r, float g, float b, float a) {
-        // Horizontal quad (thin)
+        // Horizontal plane (0 deg)
         drawQuad(consumer, matrix, start, end, perpHoriz, halfWidthH, r, g, b, a);
-        // Vertical quad (tall)
+        // Vertical plane (90 deg)
         drawQuad(consumer, matrix, start, end, perpVert, halfWidthV, r, g, b, a);
+
+        // Diagonal planes (45 deg and 135 deg) for 360-degree angle visibility
+        Vec3 diag1 = perpHoriz.add(perpVert).normalize();
+        Vec3 diag2 = perpHoriz.subtract(perpVert).normalize();
+        float halfWidthDiag = (halfWidthH + halfWidthV) * 0.5F;
+        drawQuad(consumer, matrix, start, end, diag1, halfWidthDiag, r, g, b, a);
+        drawQuad(consumer, matrix, start, end, diag2, halfWidthDiag, r, g, b, a);
     }
 
     /**

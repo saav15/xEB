@@ -1,9 +1,12 @@
 {
   "type": "tconstruct:modifier",
   "inputs": [
-    { "item": "xeb:mirror_essence" }
+    { "item": "xeb:mirror_essence" },
+    { "item": "xeb:bronze_elite_bit" },
+    { "item": "xeb:moon_tear" }
   ],
   "tools": { "tag": "tconstruct:modifiable" },
-  "result": { "name": "tconstruct:knockback", "level": 1 },
-  "max_level": 3
+  "result": { "name": "tconstruct:mirror", "level": 1 },
+  "max_level": 3,
+  "slots": { "upgrades": 1 }
 }

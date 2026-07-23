@@ -38,7 +38,17 @@ public class XebBossBar {
     private float smoothGhostHpRatio = 1.0F;
 
     public void render(GuiGraphics gui, Font font, int yOffset, String bossTitle, float targetHpRatio,
+                       int currentHp, int maxHp, int charges, String phaseTagLeft, Theme theme) {
+        render(gui, font, yOffset, bossTitle, targetHpRatio, currentHp, maxHp, null, charges, phaseTagLeft, theme);
+    }
+
+    public void render(GuiGraphics gui, Font font, int yOffset, String bossTitle, float targetHpRatio,
                        int currentHp, int maxHp, String extraStatusRight, String phaseTagLeft, Theme theme) {
+        render(gui, font, yOffset, bossTitle, targetHpRatio, currentHp, maxHp, extraStatusRight, 0, phaseTagLeft, theme);
+    }
+
+    public void render(GuiGraphics gui, Font font, int yOffset, String bossTitle, float targetHpRatio,
+                       int currentHp, int maxHp, String extraStatusRight, int charges, String phaseTagLeft, Theme theme) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 
@@ -102,7 +112,41 @@ public class XebBossBar {
             gui.drawString(font, phaseTagLeft, startX - font.width(phaseTagLeft) - 8, startY + 3, 0xFFFF2222, true);
         }
 
+        // 7. BADGE ESTILIZADO DE CARGAS ACOMODADO CENTRADO DEBAJO DE LA BARRA
+        if (charges > 0) {
+            renderChargesBadge(gui, font, startX + (barWidth / 2), startY + barHeight + 5, charges, theme);
+        }
+
         RenderSystem.disableBlend();
+    }
+
+    private static void renderChargesBadge(GuiGraphics gui, Font font, int centerX, int baseY, int charges, Theme theme) {
+        String labelText;
+        if (charges <= 6) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < charges; i++) {
+                if (i > 0) sb.append(" ");
+                sb.append("✦");
+            }
+            labelText = sb.toString();
+        } else {
+            labelText = "✦ " + charges + " CHARGES";
+        }
+
+        int paddingX = 6;
+        int paddingY = 2;
+        int textW = font.width(labelText);
+        int badgeW = textW + (paddingX * 2);
+        int badgeH = font.lineHeight + (paddingY * 2);
+        int badgeX = centerX - (badgeW / 2);
+
+        gui.fill(badgeX - 1, baseY - 1, badgeX + badgeW + 1, baseY + badgeH + 1, 0xE6020204);
+        gui.fill(badgeX, baseY, badgeX + badgeW, baseY + badgeH, 0xD00A0A12);
+
+        gui.fill(badgeX, baseY, badgeX + badgeW, baseY + 1, theme.topBorder);
+        gui.fill(badgeX, baseY + badgeH - 1, badgeX + badgeW, baseY + badgeH, theme.bottomBorder);
+
+        gui.drawString(font, labelText, badgeX + paddingX, baseY + paddingY, 0xFFE0E0FF, true);
     }
 
     private static void renderSpikyFrame(GuiGraphics gui, int x, int y, int w, int h, double gameTime, Theme theme) {

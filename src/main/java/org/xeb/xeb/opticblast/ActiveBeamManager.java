@@ -114,6 +114,45 @@ public class ActiveBeamManager {
         return closestCollision;
     }
 
+    public UUID findCollidingBeamOwner(UUID ownerUUID, Vec3 beamStart, Vec3 beamEnd, double myHalfWidth) {
+        UUID closestOwner = null;
+        double closestDist = Double.MAX_VALUE;
+
+        for (Map.Entry<UUID, BeamData> entry : activeBeams.entrySet()) {
+            if (entry.getValue().getOwnerUUID().equals(ownerUUID)) continue;
+
+            BeamData other = entry.getValue();
+            double otherHalfWidth = getBeamHalfWidth(other.getBeamSource());
+            Vec3 otherStart = other.getStart();
+            Vec3 otherEnd = other.getEnd();
+
+            Vec3 collision = checkSegmentIntersection(beamStart, beamEnd, otherStart, otherEnd, myHalfWidth, otherHalfWidth);
+            if (collision != null) {
+                double dist = beamStart.distanceToSqr(collision);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestOwner = other.getOwnerUUID();
+                }
+            }
+        }
+
+        for (org.xeb.xeb.beamstruggle.ExternalBeamRegistry.ExternalBeamData other : org.xeb.xeb.beamstruggle.ExternalBeamRegistry.getCurrentTickBeams()) {
+            if (other.ownerUUID().equals(ownerUUID)) continue;
+
+            double otherHalfWidth = 0.6D;
+            Vec3 collision = checkSegmentIntersection(beamStart, beamEnd, other.start(), other.end(), myHalfWidth, otherHalfWidth);
+            if (collision != null) {
+                double dist = beamStart.distanceToSqr(collision);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestOwner = other.ownerUUID();
+                }
+            }
+        }
+
+        return closestOwner;
+    }
+
     private double getBeamHalfWidth(String beamSource) {
         if (beamSource == null) return 0.8D;
         return switch (beamSource) {

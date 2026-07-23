@@ -67,28 +67,28 @@ public class ShatteredRiftEntity extends Entity {
         super.tick();
         
         if (this.level().isClientSide()) {
-            // Client side: spawn rotating dust particles and rising sparkles
+            // Client side: spawn rotating dust particles and rising sparkles along the 6-block beam
             int difficulty = this.getDifficulty();
             double time = (this.tickCount) * 0.15D;
             
             float r = 1.0F, g = 1.0F, b = 1.0F;
-            if (difficulty == 0) { // Blue
-                r = 0.1F; g = 0.4F; b = 1.0F;
-            } else if (difficulty == 1) { // Green
-                r = 0.1F; g = 0.9F; b = 0.3F;
-            } else if (difficulty == 2) { // Red
-                r = 1.0F; g = 0.1F; b = 0.1F;
+            if (difficulty == 0) { // Blue (Aqua Místico)
+                r = 0.0F; g = 0.65F; b = 1.0F;
+            } else if (difficulty == 1) { // Green (Verde Esmeralda)
+                r = 0.0F; g = 1.0F; b = 0.35F;
+            } else if (difficulty == 2) { // Red (Rojo Carmesí)
+                r = 1.0F; g = 0.10F; b = 0.25F;
             } else { // Rainbow: cycling HSL
-                double cTime = (System.currentTimeMillis() % 2000) / 2000.0 * 2.0 * Math.PI;
+                double cTime = (System.currentTimeMillis() % 2500) / 2500.0 * 2.0 * Math.PI;
                 r = (float) (0.5D + 0.5D * Math.sin(cTime));
                 g = (float) (0.5D + 0.5D * Math.sin(cTime + 2.0D * Math.PI / 3.0D));
                 b = (float) (0.5D + 0.5D * Math.sin(cTime + 4.0D * Math.PI / 3.0D));
             }
             
-            // Spawn 3 rotating dust particles at Y = position.y + 0.05
+            // Spawn 3 rotating dust particles around ground rim Y = position.y + 0.05
             for (int i = 0; i < 3; i++) {
                 double offset = i * (2.0D * Math.PI / 3.0D);
-                double radius = 1.0D + 0.2D * Math.sin(time * 0.5D);
+                double radius = 0.9D + 0.2D * Math.sin(time * 0.5D);
                 double px = this.getX() + Math.cos(time + offset) * radius;
                 double pz = this.getZ() + Math.sin(time + offset) * radius;
                 
@@ -96,13 +96,17 @@ public class ShatteredRiftEntity extends Entity {
                 this.level().addParticle(dust, px, this.getY() + 0.05D, pz, 0.0D, 0.0D, 0.0D);
             }
             
-            // Random rising end rods inside the 3x3 area
-            if (this.random.nextFloat() < 0.15F) {
+            // Ascending end rod sparkles floating up through the beam height (6, 9, 12, 15 blocks)
+            double maxBeamHeight = 6.0D + (difficulty * 3.0D);
+            if (this.random.nextFloat() < 0.50F) {
+                double spawnHeight = this.getY() + this.random.nextDouble() * (maxBeamHeight - 0.5D);
+                double rad = 0.1D + this.random.nextDouble() * 0.6D;
+                double ang = this.random.nextDouble() * Math.PI * 2.0D;
                 this.level().addParticle(net.minecraft.core.particles.ParticleTypes.END_ROD, 
-                    this.getX() + (this.random.nextDouble() - 0.5D) * 2.5D,
-                    this.getY() + 0.05D,
-                    this.getZ() + (this.random.nextDouble() - 0.5D) * 2.5D,
-                    0.0D, 0.02D, 0.0D
+                    this.getX() + Math.cos(ang) * rad,
+                    spawnHeight,
+                    this.getZ() + Math.sin(ang) * rad,
+                    0.0D, 0.05D, 0.0D
                 );
             }
         } else {
