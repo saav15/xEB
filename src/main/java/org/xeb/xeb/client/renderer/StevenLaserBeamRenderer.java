@@ -66,7 +66,10 @@ public class StevenLaserBeamRenderer {
         VertexConsumer consumer = bufferSource.getBuffer(RenderType.lightning());
 
         for (StevenLaserData laser : ACTIVE_STEVEN_LASERS.values()) {
-            renderBrimstoneStyleStevenBeam(poseStack, consumer, laser.start, laser.end, now);
+            XebVolumetricBeamRenderer.render3DBeam(
+                    poseStack, bufferSource, laser.start, laser.end,
+                    0.15F, 0.05F, 0.35F, 0.95F, 0.30F, 0.85F, now
+            );
         }
 
         bufferSource.endBatch(RenderType.lightning());

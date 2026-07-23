@@ -34,4 +34,11 @@ public class ModKeyMappings {
             GLFW.GLFW_KEY_B,
             KEY_CATEGORY_XEB
     );
+
+    public static final KeyMapping ENIGMA_KEY = new KeyMapping(
+            "key.xeb.enigma",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_P,
+            KEY_CATEGORY_XEB
+    );
 }

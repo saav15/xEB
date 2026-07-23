@@ -389,43 +389,92 @@ public class TheTearsItem extends Item implements GeoItem {
 
         if (!level.isClientSide()) {
             if (!org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(player.getUUID())) {
-                double reach = 40.0D;
-                Vec3 beamEnd = mouthPos.add(lookDir.scale(reach));
+                if (imbue == TearsProjectileEntity.IMBUE_PURPLE) {
+                    // ── OPTIMIZED HOMING BEAM FOR PURPLE CORRUPTION ─────────
+                    Vec3 currentPos = mouthPos;
+                    double maxHomingRange = 36.0D;
+                    AABB searchBox = player.getBoundingBox().inflate(maxHomingRange);
+                    List<LivingEntity> potentialTargets = level.getEntitiesOfClass(LivingEntity.class, searchBox,
+                            e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() && !(e instanceof CrazyDiamondEntity));
 
-                BlockHitResult blockHit = level.clip(new ClipContext(
-                        mouthPos, beamEnd,
-                        ClipContext.Block.COLLIDER,
-                        ClipContext.Fluid.NONE,
-                        player
-                ));
-
-                Vec3 effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
-
-                AABB sweepBox = new AABB(mouthPos, effectiveEnd).inflate(0.75D);
-                List<LivingEntity> list = level.getEntitiesOfClass(LivingEntity.class, sweepBox,
-                        e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() && !(e instanceof CrazyDiamondEntity));
-
-                LivingEntity closestTarget = null;
-                double closestDist = Double.MAX_VALUE;
-                for (LivingEntity target : list) {
-                    AABB aabb = target.getBoundingBox().inflate(0.75D);
-                    Optional<Vec3> clip = aabb.clip(mouthPos, effectiveEnd);
-                    if (clip.isPresent()) {
-                        double dist = mouthPos.distanceToSqr(clip.get());
-                        if (dist < closestDist) {
-                            closestDist = dist;
-                            closestTarget = target;
-                            effectiveEnd = clip.get();
+                    List<LivingEntity> validTargets = new java.util.ArrayList<>();
+                    for (LivingEntity e : potentialTargets) {
+                        Vec3 toEntity = e.getEyePosition(1.0F).subtract(mouthPos).normalize();
+                        if (lookDir.dot(toEntity) > 0.35D) { // target in 70-degree cone in front of player
+                            validTargets.add(e);
                         }
                     }
-                }
 
-                if (closestTarget != null) {
-                    hitEntities.add(closestTarget);
-                }
+                    validTargets.sort(java.util.Comparator.comparingDouble(e -> mouthPos.distanceToSqr(e.getEyePosition(1.0F))));
 
-                points.add(effectiveEnd);
-                finalCollisionPoint = effectiveEnd;
+                    int chainCount = Math.min(3, validTargets.size());
+                    if (chainCount > 0) {
+                        for (int c = 0; c < chainCount; c++) {
+                            LivingEntity target = validTargets.get(c);
+                            Vec3 targetEye = target.getEyePosition(1.0F);
+
+                            BlockHitResult wallCheck = level.clip(new ClipContext(
+                                    currentPos, targetEye, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player
+                            ));
+
+                            Vec3 nextPoint = wallCheck.getType() != HitResult.Type.MISS ? wallCheck.getLocation() : targetEye;
+                            points.add(nextPoint);
+                            hitEntities.add(target);
+                            currentPos = nextPoint;
+
+                            if (wallCheck.getType() != HitResult.Type.MISS) break; // stopped by solid block
+                        }
+                        finalCollisionPoint = points.get(points.size() - 1);
+                    } else {
+                        // Standard straight beam if no target in view cone
+                        Vec3 beamEnd = mouthPos.add(lookDir.scale(40.0D));
+                        BlockHitResult blockHit = level.clip(new ClipContext(
+                                mouthPos, beamEnd, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player
+                        ));
+                        Vec3 effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
+                        points.add(effectiveEnd);
+                        finalCollisionPoint = effectiveEnd;
+                    }
+                } else {
+                    // Standard straight beam for other imbuements
+                    double reach = 40.0D;
+                    Vec3 beamEnd = mouthPos.add(lookDir.scale(reach));
+
+                    BlockHitResult blockHit = level.clip(new ClipContext(
+                            mouthPos, beamEnd,
+                            ClipContext.Block.COLLIDER,
+                            ClipContext.Fluid.NONE,
+                            player
+                    ));
+
+                    Vec3 effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
+
+                    AABB sweepBox = new AABB(mouthPos, effectiveEnd).inflate(0.75D);
+                    List<LivingEntity> list = level.getEntitiesOfClass(LivingEntity.class, sweepBox,
+                            e -> e != player && e.isAlive() && !e.isSpectator() && e.isPickable() && !(e instanceof CrazyDiamondEntity));
+
+                    LivingEntity closestTarget = null;
+                    double closestDist = Double.MAX_VALUE;
+                    for (LivingEntity target : list) {
+                        AABB aabb = target.getBoundingBox().inflate(0.75D);
+                        Optional<Vec3> clip = aabb.clip(mouthPos, effectiveEnd);
+                        if (clip.isPresent()) {
+                            double dist = mouthPos.distanceToSqr(clip.get());
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                closestTarget = target;
+                                effectiveEnd = clip.get();
+                            }
+                        }
+                    }
+
+                    if (closestTarget != null) {
+                        hitEntities.add(closestTarget);
+                    }
+
+                    points.add(effectiveEnd);
+                    finalCollisionPoint = effectiveEnd;
+                }
             }
         }
 

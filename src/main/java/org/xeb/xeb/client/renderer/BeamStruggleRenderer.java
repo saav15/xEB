@@ -179,20 +179,28 @@ public class BeamStruggleRenderer {
                 continue;
             }
 
-            Vec3 collision = struggle.collisionPoint;
+            // Dynamic clash midpoint calculation based on live score ratio (Points A vs Points B)
+            float totalPoints = struggle.pointsA + struggle.pointsB;
+            float ratioA = totalPoints > 0.001F ? (struggle.pointsA / totalPoints) : 0.5F;
+            ratioA = Math.max(0.08F, Math.min(0.92F, ratioA)); // Keep clash within 8% to 92% range
+
+            Vec3 dirAB = struggle.startB.subtract(struggle.startA);
+            Vec3 collision = struggle.startA.add(dirAB.scale(ratioA));
             boolean isPrep = struggle.phase == 0; // 0 = PREP
 
             // Determine beam colors
             float[] colorA = getOwnerColor(struggle.ownerAEntityId, mc);
             float[] colorB = getOwnerColor(struggle.ownerBEntityId, mc);
 
-            // 1. Draw Beam A from startA -> collision
-            renderFusionBeam(consumer, matrix, struggle.startA, collision, colorA, now, isPrep);
+            // 1. Draw 3D Volumetric Beam A from startA -> dynamic clash point
+            XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, struggle.startA, collision,
+                    colorA[0], colorA[1], colorA[2], 0.95F, 0.28F, 0.70F, now);
 
-            // 2. Draw Beam B from startB -> collision
-            renderFusionBeam(consumer, matrix, struggle.startB, collision, colorB, now, isPrep);
+            // 2. Draw 3D Volumetric Beam B from startB -> dynamic clash point
+            XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, struggle.startB, collision,
+                    colorB[0], colorB[1], colorB[2], 0.95F, 0.28F, 0.70F, now);
 
-            // 3. Fusion Sphere at collision point
+            // 3. Fusion Sphere at dynamic clash point
             float totalMash = struggle.pointsA + struggle.pointsB;
             float sphereSize = 0.6F + Math.min(1.5F, totalMash * 0.05F);
             if (isPrep) sphereSize = 0.8F;

@@ -174,6 +174,22 @@ public class ModTooltipHandler {
         return result;
     }
 
+    private static Component createGoldWaveName(String nameText) {
+        MutableComponent result = Component.empty();
+        long time = System.currentTimeMillis();
+        for (int i = 0; i < nameText.length(); i++) {
+            char c = nameText.charAt(i);
+            double phase = ((time % 2000) / 2000.0 * 2.0 * Math.PI) - (i * 0.25);
+            int r = 255;
+            int g = (int) (200 + 50 * Math.sin(phase));
+            int b = (int) (30 + 30 * Math.sin(phase));
+            int rgb = (r << 16) | (g << 8) | b;
+            result.append(Component.literal(String.valueOf(c))
+                    .withStyle(style -> style.withColor(net.minecraft.network.chat.TextColor.fromRgb(rgb)).withBold(true)));
+        }
+        return result;
+    }
+
     private static String getWeaponName(String id) {
         return switch (id) {
             case "the_tears"     -> Component.translatable("item.xeb.the_tears").getString();
@@ -302,17 +318,12 @@ public class ModTooltipHandler {
             } else if (curioItem == ModItems.QUANTUM_CAT_BARRAGE.get()) {
                 desc1Key = "item.xeb.quantum_cat_barrage.desc1";
                 desc2Key = "item.xeb.quantum_cat_barrage.desc2";
-                loreKey = "item.xeb.quantum_cat_barrage.desc5";
+                loreKey = "item.xeb.quantum_cat_barrage.enigma_lore";
             }
 
             if (!Screen.hasShiftDown()) {
                 if (!loreKey.isEmpty()) {
-                    Component loreComp = Component.translatable(loreKey);
-                    if (!loreKey.equals("item.xeb.quantum_cat_barrage.desc5")) {
-                        tooltip.add(loreComp.copy().withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC));
-                    } else {
-                        tooltip.add(loreComp);
-                    }
+                    tooltip.add(Component.translatable(loreKey).withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC));
                     tooltip.add(Component.literal(""));
                 }
                 tooltip.add(Component.translatable("gui.xeb.tooltip.shift_prompt"));
@@ -364,12 +375,7 @@ public class ModTooltipHandler {
 
                 if (!loreKey.isEmpty()) {
                     tooltip.add(Component.literal(""));
-                    Component loreComp = Component.translatable(loreKey);
-                    if (!loreKey.equals("item.xeb.quantum_cat_barrage.desc5")) {
-                        tooltip.add(loreComp.copy().withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC));
-                    } else {
-                        tooltip.add(loreComp);
-                    }
+                    tooltip.add(Component.translatable(loreKey).withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC));
                 }
             }
 
@@ -383,18 +389,97 @@ public class ModTooltipHandler {
                     tooltip.add(Component.literal("NBT: " + size + " tag(s)").withStyle(ChatFormatting.DARK_GRAY));
                 }
             }
+        } else if (stack.is(ModItems.ENIGMA_BIOS.get())) {
+            List<Component> tooltip = event.getToolTip();
+            if (tooltip.isEmpty()) return;
+
+            Component originalName = tooltip.get(0);
+            Component customName = createGoldWaveName(originalName.getString());
+
+            tooltip.clear();
+            tooltip.add(customName);
+
+            if (!Screen.hasShiftDown()) {
+                tooltip.add(Component.translatable("item.xeb.enigma_bios.lore").withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC));
+                tooltip.add(Component.literal(""));
+                tooltip.add(Component.translatable("gui.xeb.tooltip.shift_prompt"));
+            } else {
+                tooltip.add(Component.literal(""));
+                tooltip.add(Component.translatable("gui.xeb.tooltip.description"));
+                tooltip.add(Component.translatable("item.xeb.enigma_bios.desc").withStyle(ChatFormatting.GRAY));
+
+                tooltip.add(Component.literal(""));
+                tooltip.add(Component.translatable("gui.xeb.tooltip.abilities"));
+                tooltip.add(Component.translatable("gui.xeb.tooltip.right_click_prefix")
+                        .append(Component.translatable("gui.xeb.tooltip.enigma_bios.open").withStyle(ChatFormatting.GRAY)));
+                tooltip.add(Component.literal("  §b• ")
+                        .append(Component.translatable("gui.xeb.tooltip.enigma_bios.quick_access", 
+                                Component.keybind("key.xeb.enigma").withStyle(ChatFormatting.LIGHT_PURPLE)).withStyle(ChatFormatting.YELLOW)));
+
+                tooltip.add(Component.literal(""));
+                tooltip.add(Component.translatable("gui.xeb.tooltip.stats"));
+                tooltip.add(Component.translatable("gui.xeb.tooltip.enigma_bios.history").withStyle(ChatFormatting.GOLD));
+
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.player != null) {
+                    net.minecraft.nbt.CompoundTag pTag = mc.player.getPersistentData();
+                    net.minecraft.nbt.ListTag recentList = pTag.getList("xebRecentMedallions", 10);
+                    if (recentList.isEmpty()) {
+                        tooltip.add(Component.translatable("gui.xeb.tooltip.enigma_bios.no_records").withStyle(ChatFormatting.DARK_GRAY));
+                    } else {
+                        for (int i = 0; i < Math.min(3, recentList.size()); i++) {
+                            net.minecraft.nbt.CompoundTag entry = recentList.getCompound(i);
+                            String name = entry.getString("name");
+                            String tier = entry.getString("tier");
+                            ChatFormatting tierColor = switch (tier) {
+                                case "LEGENDARY" -> ChatFormatting.AQUA;
+                                case "RARE" -> ChatFormatting.LIGHT_PURPLE;
+                                default -> ChatFormatting.WHITE;
+                            };
+                            tooltip.add(Component.literal("  ")
+                                    .append(Component.literal("[" + tier + "] ").withStyle(tierColor))
+                                    .append(Component.literal(name).withStyle(ChatFormatting.YELLOW)));
+                        }
+                    }
+                }
+
+                tooltip.add(Component.literal(""));
+                tooltip.add(Component.translatable("item.xeb.enigma_bios.lore").withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC));
+            }
+
+            if (event.getFlags().isAdvanced()) {
+                net.minecraft.resources.ResourceLocation rl = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+                if (rl != null) {
+                    tooltip.add(Component.literal(rl.toString()).withStyle(ChatFormatting.DARK_GRAY));
+                }
+            }
         }
     }
 
     @SubscribeEvent
     public static void onTooltipColor(RenderTooltipEvent.Color event) {
         ItemStack stack = event.getItemStack();
-        if (isModWeapon(stack) || isExtremeBurstCurio(stack)) {
+        if (isModWeapon(stack) || isExtremeBurstCurio(stack) || stack.is(ModItems.ENIGMA_BIOS.get())) {
             long time = System.currentTimeMillis();
             double phaseStart = (time % 1500) / 1500.0 * 2.0 * Math.PI;
             double phaseEnd = phaseStart + Math.PI;
 
-            if (isExtremeBurstCurio(stack)) {
+            if (stack.is(ModItems.ENIGMA_BIOS.get())) {
+                // Set dynamic animated golden yellow border glow and dark amber background
+                int rStart = 255;
+                int gStart = (int) (200 + 50 * Math.sin(phaseStart));
+                int bStart = (int) (30 + 30 * Math.sin(phaseStart));
+                int borderStart = 0xFF000000 | (rStart << 16) | (gStart << 8) | bStart;
+
+                int rEnd = 255;
+                int gEnd = (int) (200 + 50 * Math.sin(phaseEnd));
+                int bEnd = (int) (30 + 30 * Math.sin(phaseEnd));
+                int borderEnd = 0xFF000000 | (rEnd << 16) | (gEnd << 8) | bEnd;
+
+                event.setBorderStart(borderStart);
+                event.setBorderEnd(borderEnd);
+                event.setBackground(0xF21C1602); // Dark amber-gold background
+            } else if (isExtremeBurstCurio(stack)) {
                 // Purple/magenta glow border and dark purple background
                 int rStart = (int) (185 + 55 * Math.sin(phaseStart));
                 int gStart = (int) (50 + 30 * Math.sin(phaseStart));

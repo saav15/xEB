@@ -47,10 +47,23 @@ public class EnigmaBiosHandler {
 
         // Track kills for each medallion buff for the Elite Bestiary
         CompoundTag tag = serverPlayer.getPersistentData();
+        net.minecraft.nbt.ListTag recentList = tag.getList("xebRecentMedallions", 10);
         for (MedallionData m : medallions) {
             String killKey = "xebKilled_" + m.getBuff().getId();
             tag.putInt(killKey, tag.getInt(killKey) + 1);
+
+            CompoundTag entry = new CompoundTag();
+            entry.putString("id", m.getBuff().getId());
+            entry.putString("name", m.getBuff().getDisplayName().getString());
+            entry.putString("tier", m.getTier().name());
+            entry.putInt("color", m.getBuff().getColor());
+
+            recentList.add(0, entry);
+            while (recentList.size() > 3) {
+                recentList.remove(recentList.size() - 1);
+            }
         }
+        tag.put("xebRecentMedallions", recentList);
 
         // Immediately sync updated kill stats to client
         syncBitacoras(serverPlayer, -1);
@@ -147,7 +160,7 @@ public class EnigmaBiosHandler {
         CompoundTag oldData = event.getOriginal().getPersistentData();
         CompoundTag newData = event.getEntity().getPersistentData();
         for (String key : oldData.getAllKeys()) {
-            if (key.startsWith("xebKilled_") || key.startsWith("xebUnlockedBitacora")) {
+            if (key.startsWith("xebKilled_") || key.startsWith("xebUnlockedBitacora") || key.equals("xebRecentMedallions")) {
                 newData.put(key, oldData.get(key).copy());
             }
         }
@@ -165,6 +178,9 @@ public class EnigmaBiosHandler {
             if (key.startsWith("xebKilled_")) {
                 killData.putInt(key, tag.getInt(key));
             }
+        }
+        if (tag.contains("xebRecentMedallions")) {
+            killData.put("xebRecentMedallions", tag.getList("xebRecentMedallions", 10).copy());
         }
 
         XEBNetwork.CHANNEL.send(

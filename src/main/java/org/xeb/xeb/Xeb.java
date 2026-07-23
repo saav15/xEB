@@ -185,7 +185,16 @@ public class Xeb {
                 net.minecraftforge.fml.InterModComms.sendTo("curios", "register_type",
                         () -> slotTypeMessage);
 
-                LOGGER.info("xEB: Registered 'extreme_burst' Curios slot via IMC.");
+                // Register the 'enigma' slot type via IMC
+                Object enigmaBuilder = slotTypeMessageBuilderClass.getConstructor(String.class).newInstance("enigma");
+                slotTypeMessageBuilderClass.getMethod("size", int.class).invoke(enigmaBuilder, 1);
+                slotTypeMessageBuilderClass.getMethod("icon", net.minecraft.resources.ResourceLocation.class)
+                        .invoke(enigmaBuilder, new net.minecraft.resources.ResourceLocation("curios", "slot/empty_charm_slot"));
+                Object enigmaSlotMessage = slotTypeMessageBuilderClass.getMethod("build").invoke(enigmaBuilder);
+                net.minecraftforge.fml.InterModComms.sendTo("curios", "register_type",
+                        () -> enigmaSlotMessage);
+
+                LOGGER.info("xEB: Registered 'extreme_burst' and 'enigma' Curios slots via IMC.");
             } catch (Exception e) {
                 LOGGER.error("xEB: Failed to register Curios slot via IMC", e);
             }
@@ -227,6 +236,7 @@ public class Xeb {
             event.register(org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY);
             event.register(org.xeb.xeb.client.ModKeyMappings.ACTIVA_3_KEY);
             event.register(org.xeb.xeb.client.ModKeyMappings.FLOURISH_KEY);
+            event.register(org.xeb.xeb.client.ModKeyMappings.ENIGMA_KEY);
         }
 
         @SubscribeEvent

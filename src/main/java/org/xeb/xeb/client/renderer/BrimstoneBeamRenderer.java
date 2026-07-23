@@ -119,7 +119,11 @@ public class BrimstoneBeamRenderer {
                     pEnd = pEnd.add(waveOffset);
                 }
 
-                drawBrimstoneSegment(poseStack, consumer, pStart, pEnd, now);
+                XebVolumetricBeamRenderer.render3DBeam(
+                        poseStack, bufferSource, pStart, pEnd,
+                        r, g, b, 0.95F,
+                        BEAM_STYLE.coreWidth, BEAM_STYLE.auraWidth, now
+                );
                 lastPos = pEnd;
             }
 
@@ -150,12 +154,6 @@ public class BrimstoneBeamRenderer {
 
         bufferSource.endBatch(RenderType.lightning());
         poseStack.popPose();
-    }
-
-    private static void drawBrimstoneSegment(PoseStack poseStack, VertexConsumer consumer,
-                                             Vec3 start, Vec3 end, long timeMs) {
-        Matrix4f matrix = poseStack.last().pose();
-        BEAM_STYLE.render(consumer, matrix, start, end, timeMs);
     }
 
     private static void spawnImbueParticle(net.minecraft.client.multiplayer.ClientLevel level, Vec3 pos, int imbue) {

@@ -48,6 +48,7 @@ public class XEBNetwork {
         CHANNEL.registerMessage(id++, HalberdSpikeSyncPacket.class, HalberdSpikeSyncPacket::encode, HalberdSpikeSyncPacket::decode, HalberdSpikeSyncPacket::handle);
         CHANNEL.registerMessage(id++, StevenLaserSyncPacket.class, StevenLaserSyncPacket::encode, StevenLaserSyncPacket::decode, StevenLaserSyncPacket::handle);
         CHANNEL.registerMessage(id++, FlourishPacket.class, FlourishPacket::encode, FlourishPacket::decode, FlourishPacket::handle);
+        CHANNEL.registerMessage(id++, OpenEnigmaBiosPacket.class, OpenEnigmaBiosPacket::encode, OpenEnigmaBiosPacket::decode, OpenEnigmaBiosPacket::handle);
     }
 
     public static class EliteMasterySyncPacket {

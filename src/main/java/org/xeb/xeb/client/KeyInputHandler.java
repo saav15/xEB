@@ -320,6 +320,14 @@ public class KeyInputHandler {
                     XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(3, true));
                 }
             }
+
+            // Enigma Bios Key (P) — opens Enigma Bios if equipped in Curios slot or present in inventory
+            if (ModKeyMappings.ENIGMA_KEY.consumeClick()) {
+                if (org.xeb.xeb.item.EnigmaBiosItem.hasEnigmaBiosEquippedOrInInventory(player)) {
+                    XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.OpenEnigmaBiosPacket());
+                    org.xeb.xeb.client.ClientAccess.openEnigmaBiosScreen();
+                }
+            }
         }
     }
 }

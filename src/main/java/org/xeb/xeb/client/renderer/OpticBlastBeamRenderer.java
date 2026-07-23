@@ -128,7 +128,9 @@ public class OpticBlastBeamRenderer {
             if (isLocalPlayerFirstPerson) {
                 renderCollisionSprite(poseStack, consumer, renderEnd, now);
             } else {
-                renderBeam(poseStack, consumer, renderStart, renderEnd, now, false);
+                float[] col = getBeamColors(entry.getKey(), mc, beam.beamType);
+                XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, renderStart, renderEnd, col[0], col[1], col[2], 0.95F, 0.28F, 0.75F, now);
+                BEAM_STYLE.renderImpact(consumer, poseStack.last().pose(), renderEnd, now);
             }
         }
 
@@ -354,6 +356,34 @@ public class OpticBlastBeamRenderer {
                 .color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) p4.x, (float) p4.y, (float) p4.z)
                 .color(r, g, b, a).endVertex();
+    }
+
+    private static float[] getBeamColors(int entityId, Minecraft mc, byte beamType) {
+        if (mc.level != null && mc.level.getEntity(entityId) != null) {
+            net.minecraft.world.entity.Entity ent = mc.level.getEntity(entityId);
+            if (ent instanceof org.xeb.xeb.entity.StevenBossEntity) {
+                return new float[]{0.15F, 0.05F, 0.35F}; // Dark Cosmic Obsidian Purple
+            }
+            String typeName = net.minecraft.world.entity.EntityType.getKey(ent.getType()).toString();
+            if (typeName.contains("dogma")) {
+                return new float[]{1.0F, 0.85F, 0.1F}; // Sacred Golden White
+            }
+            if (ent instanceof net.minecraft.world.entity.player.Player player) {
+                net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
+                if (stack.is(org.xeb.xeb.item.ModItems.THE_TEARS.get())) {
+                    int imbue = stack.getOrCreateTag().getInt("xebTearsImbueType");
+                    if (imbue == 1) return new float[]{0.7F, 0.0F, 1.0F}; // Corruption Homing Purple
+                    else if (imbue == 2) return new float[]{1.0F, 1.0F, 0.9F}; // Divinity White-Gold
+                    else if (imbue == 3) return new float[]{0.1F, 0.1F, 0.2F}; // Abyssal Dark
+                    else if (imbue == 4) return new float[]{0.0F, 0.9F, 1.0F}; // Glacial Ice Cyan
+                }
+            }
+        }
+        if (beamType == 1) return new float[]{0.7F, 0.0F, 1.0F};
+        if (beamType == 2) return new float[]{1.0F, 1.0F, 0.9F};
+        if (beamType == 3) return new float[]{0.1F, 0.1F, 0.2F};
+        if (beamType == 4) return new float[]{0.0F, 0.9F, 1.0F};
+        return new float[]{1.0F, 0.1F, 0.1F}; // Default Optic Blast Red
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
