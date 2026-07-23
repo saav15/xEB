@@ -1,12 +1,9 @@
 {
   "type": "tconstruct:modifier",
   "inputs": [
-    { "item": "xeb:hardy_essence" },
-    { "item": "xeb:silver_elite_bit" },
-    { "item": "xeb:moon_tear" }
+    { "item": "xeb:hardy_essence" }
   ],
   "tools": { "tag": "tconstruct:modifiable" },
-  "result": { "name": "tconstruct:hardy", "level": 1 },
-  "max_level": 3,
-  "slots": { "upgrades": 1 }
+  "result": { "name": "tconstruct:reinforced", "level": 1 },
+  "max_level": 3
 }

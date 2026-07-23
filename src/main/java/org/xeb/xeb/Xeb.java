@@ -149,6 +149,8 @@ public class Xeb {
         event.put(ModEntities.TANKWITHERFIST.get(), org.xeb.xeb.entity.TankWitherfistEntity.createAttributes().build());
         event.put(ModEntities.CRAZY_DIAMOND.get(), org.xeb.xeb.entity.CrazyDiamondEntity.createAttributes().build());
         event.put(ModEntities.HOT_POKER.get(), org.xeb.xeb.entity.HotPokerEntity.createAttributes().build());
+        event.put(ModEntities.STEVEN_BOSS.get(), org.xeb.xeb.entity.StevenBossEntity.createAttributes().build());
+        event.put(ModEntities.STEVEN_CLONE.get(), org.xeb.xeb.entity.StevenCloneEntity.createAttributes().build());
     }
 
     @SuppressWarnings("unchecked")
@@ -266,6 +268,12 @@ public class Xeb {
                     org.xeb.xeb.client.renderer.SpikeProjectileRenderer::new);
             event.registerEntityRenderer(ModEntities.SHATTERED_RIFT.get(),
                     org.xeb.xeb.client.renderer.ShatteredRiftRenderer::new);
+            event.registerEntityRenderer(ModEntities.STEVEN_BOSS.get(),
+                    org.xeb.xeb.render.StevenBossRenderer::new);
+            event.registerEntityRenderer(ModEntities.STEVEN_CLONE.get(),
+                    org.xeb.xeb.render.StevenCloneRenderer::new);
+            event.registerEntityRenderer(ModEntities.STEVEN_PORTAL.get(),
+                    org.xeb.xeb.render.StevenPortalRenderer::new);
         }
 
         private static final java.util.Set<Object> patchedRenderers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());

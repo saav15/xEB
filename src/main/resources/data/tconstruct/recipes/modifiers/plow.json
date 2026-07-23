@@ -1,12 +1,9 @@
 {
   "type": "tconstruct:modifier",
   "inputs": [
-    { "item": "xeb:plow_essence" },
-    { "item": "xeb:bronze_elite_bit" },
-    { "item": "xeb:moon_tear" }
+    { "item": "xeb:plow_essence" }
   ],
   "tools": { "tag": "tconstruct:modifiable" },
-  "result": { "name": "tconstruct:plow", "level": 1 },
-  "max_level": 3,
-  "slots": { "upgrades": 1 }
+  "result": { "name": "tconstruct:knockback", "level": 1 },
+  "max_level": 3
 }

@@ -54,14 +54,16 @@ public class TheTearsItem extends Item implements GeoItem {
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>(this, "controller", 2, event -> {
+        controllers.add(new AnimationController<>(this, "controller", 0, event -> {
             net.minecraft.world.entity.Entity entity = event.getData(software.bernie.geckolib.constant.DataTickets.ENTITY);
             LivingEntity wielder = resolveWielder(entity);
             if (wielder instanceof Player player) {
                 int charge = player.getPersistentData().getInt("xebBrimstoneCharge");
-                
-                // Si está cargando el brimstone, dejar en loop la animación de carga
-                if (charge > 0) {
+                int firing = player.getPersistentData().getInt("xebBrimstoneFiringTicks");
+                int dogmaFiring = player.getPersistentData().getInt("xebDogmaBrimstoneTicks");
+
+                // Continuous loop ONLY while charging or firing Brimstone / Dogma beam
+                if (charge > 0 || firing > 0 || dogmaFiring > 0) {
                     String loopAnim = player.getPersistentData().getString("xebTearsBrimstoneLoopAnim");
                     if (loopAnim.isEmpty()) {
                         String[] anims = {"rolly", "rollx", "rollz"};
@@ -72,8 +74,8 @@ public class TheTearsItem extends Item implements GeoItem {
                 } else {
                     player.getPersistentData().remove("xebTearsBrimstoneLoopAnim");
                 }
-                
-                // Si casteó una habilidad recientemente, reproducir la animación
+
+                // Single-play animation when executing active abilities or pressing Flourish (B)
                 int animTicks = player.getPersistentData().getInt("xebTearsAbilityAnimTicks");
                 if (animTicks > 0) {
                     String animName = player.getPersistentData().getString("xebTearsAbilityAnimName");
@@ -82,7 +84,8 @@ public class TheTearsItem extends Item implements GeoItem {
                     }
                 }
             }
-            return event.setAndContinue(RawAnimation.begin().thenLoop("rolly")); // Default looping anim
+            // NO passive continuous spinning loop when idle!
+            return event.setAndContinue(RawAnimation.begin().thenLoop("Idle"));
         }));
     }
 
@@ -128,7 +131,7 @@ public class TheTearsItem extends Item implements GeoItem {
     public static void triggerAbilityAnim(Player player) {
         String[] anims = {"rolly", "rollx", "rollz"};
         String selected = anims[player.getRandom().nextInt(anims.length)];
-        player.getPersistentData().putInt("xebTearsAbilityAnimTicks", 15);
+        player.getPersistentData().putInt("xebTearsAbilityAnimTicks", 25);
         player.getPersistentData().putString("xebTearsAbilityAnimName", selected);
     }
 

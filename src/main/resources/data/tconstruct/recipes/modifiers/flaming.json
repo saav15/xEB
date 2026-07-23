@@ -1,12 +1,9 @@
 {
   "type": "tconstruct:modifier",
   "inputs": [
-    { "item": "xeb:flaming_essence" },
-    { "item": "xeb:bronze_elite_bit" },
-    { "item": "xeb:moon_tear" }
+    { "item": "xeb:flaming_essence" }
   ],
   "tools": { "tag": "tconstruct:modifiable" },
-  "result": { "name": "tconstruct:flaming", "level": 1 },
-  "max_level": 3,
-  "slots": { "upgrades": 1 }
+  "result": { "name": "tconstruct:fiery", "level": 1 },
+  "max_level": 3
 }

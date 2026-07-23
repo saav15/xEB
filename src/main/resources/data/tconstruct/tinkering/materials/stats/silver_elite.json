@@ -1,10 +1,10 @@
 {
-  "material": "tconstruct:silver_elite",
+  "material": "xeb:silver_elite",
   "stats": {
     "tconstruct:head": {
       "durability": 900,
       "mining_speed": 8.5,
-      "mining_tier": "minecraft:netherite",
+      "harvest_tier": "minecraft:netherite",
       "attack_damage": 3.5
     },
     "tconstruct:handle": {

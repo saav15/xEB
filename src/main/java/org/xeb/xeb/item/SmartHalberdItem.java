@@ -50,7 +50,7 @@ public class SmartHalberdItem extends Item implements GeoItem {
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>(this, "controller", 2, event -> {
+        controllers.add(new AnimationController<>(this, "controller", 0, event -> {
             net.minecraft.world.entity.Entity entity = event.getData(software.bernie.geckolib.constant.DataTickets.ENTITY);
             LivingEntity wielder = resolveWielder(entity);
             if (wielder instanceof Player player) {
@@ -61,13 +61,26 @@ public class SmartHalberdItem extends Item implements GeoItem {
                 } else {
                     long now = player.level().getGameTime();
                     long lastCheck = player.getPersistentData().getLong("xebHalberdEyeTime");
+                    boolean forcedTrigger = player.getPersistentData().getBoolean("xebHalberdEyeForced");
                     String currentEye = player.getPersistentData().getString("xebHalberdEyeAnim");
-                    
-                    if (now - lastCheck >= 100 || currentEye.isEmpty() || "Eye5".equals(currentEye) || !isEyeAnim(currentEye)) {
+
+                    if (forcedTrigger || now - lastCheck >= 100 || currentEye.isEmpty() || !isEyeAnim(currentEye)) {
                         player.getPersistentData().putLong("xebHalberdEyeTime", now);
-                        String[] eyeAnims = {"Idle", "Eye2", "Eye3", "Eye4"};
-                        currentEye = eyeAnims[player.getRandom().nextInt(eyeAnims.length)];
+                        player.getPersistentData().putBoolean("xebHalberdEyeForced", false);
+
+                        if (forcedTrigger) {
+                            // Flourish B press: force cycle to active eye animation (excluding Idle)
+                            String[] forcedEyes = {"Eye2", "Eye3", "Eye4", "Eye5"};
+                            int idx = player.getRandom().nextInt(forcedEyes.length);
+                            currentEye = forcedEyes[idx];
+                        } else {
+                            // Passive rotation every 100 ticks (5s) (including Idle, excluding Eye5 unless low HP)
+                            String[] passiveEyes = {"Idle", "Eye2", "Eye3", "Eye4"};
+                            currentEye = passiveEyes[player.getRandom().nextInt(passiveEyes.length)];
+                        }
+
                         player.getPersistentData().putString("xebHalberdEyeAnim", currentEye);
+                        event.getController().forceAnimationReset();
                     }
                     return event.setAndContinue(RawAnimation.begin().thenLoop(currentEye));
                 }
@@ -77,7 +90,7 @@ public class SmartHalberdItem extends Item implements GeoItem {
     }
 
     private boolean isEyeAnim(String anim) {
-        return "Idle".equals(anim) || "Eye2".equals(anim) || "Eye3".equals(anim) || "Eye4".equals(anim);
+        return "Idle".equals(anim) || "Eye2".equals(anim) || "Eye3".equals(anim) || "Eye4".equals(anim) || "Eye5".equals(anim);
     }
 
     @Nullable

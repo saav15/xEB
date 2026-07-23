@@ -2,13 +2,14 @@ package org.xeb.xeb.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.entity.LivingEntity;
+import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.core.animatable.GeoAnimatable;
 import software.bernie.geckolib.renderer.GeoRenderer;
 import software.bernie.geckolib.renderer.layer.GeoRenderLayer;
-import software.bernie.geckolib.cache.object.BakedGeoModel;
 
 public class MedallionGeoLayer<T extends GeoAnimatable> extends GeoRenderLayer<T> {
     public MedallionGeoLayer(GeoRenderer<T> renderer) {
@@ -25,7 +26,6 @@ public class MedallionGeoLayer<T extends GeoAnimatable> extends GeoRenderLayer<T
         }
         if (entity == null) return;
 
-        // Calculate the current scale of the PoseStack to undo any parent scaling
         org.joml.Vector3f dir = new org.joml.Vector3f(0.0F, 1.0F, 0.0F);
         poseStack.last().pose().transformDirection(dir);
         float scale = dir.length();
@@ -35,7 +35,9 @@ public class MedallionGeoLayer<T extends GeoAnimatable> extends GeoRenderLayer<T
         float heightOffset = worldHeight / scale;
 
         poseStack.pushPose();
-        poseStack.translate(0.0F, -heightOffset, 0.0F);
+        // Corregir inversión de Y de GeckoLib: elevar hacia arriba y rotar 180°
+        poseStack.translate(0.0F, heightOffset, 0.0F);
+        poseStack.mulPose(Axis.XP.rotationDegrees(180.0F));
         MedallionRenderLayer.renderMedallionsStatic(poseStack, bufferSource, packedLight, entity, partialTick);
         poseStack.popPose();
     }

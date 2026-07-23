@@ -1,12 +1,9 @@
 {
   "type": "tconstruct:modifier",
   "inputs": [
-    { "item": "xeb:twin_essence" },
-    { "item": "xeb:gold_elite_bit" },
-    { "item": "xeb:moon_tear" }
+    { "item": "xeb:twin_essence" }
   ],
   "tools": { "tag": "tconstruct:modifiable" },
-  "result": { "name": "tconstruct:twin", "level": 1 },
-  "max_level": 3,
-  "slots": { "upgrades": 1 }
+  "result": { "name": "tconstruct:overslime", "level": 1 },
+  "max_level": 3
 }

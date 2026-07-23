@@ -23,6 +23,10 @@ public class BeamStruggleManager {
     private static final Map<UUID, UUID> OWNER_TO_STRUGGLE = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> COOLDOWN_UNTIL = new ConcurrentHashMap<>();
 
+    public static boolean isEntityInStruggle(UUID entityUUID) {
+        return entityUUID != null && OWNER_TO_STRUGGLE.containsKey(entityUUID);
+    }
+
     public static final int MAX_STRUGGLE_TICKS = 320;
     public static final double MASH_POINT_PER_CLICK = 1.0;
     public static final double MASH_DECAY_PER_TICK = 0.05;
@@ -328,6 +332,30 @@ public class BeamStruggleManager {
                 if (s.lastTimingDisplayTicksA > 0) s.lastTimingDisplayTicksA--;
                 if (s.lastTimingDisplayTicksB > 0) s.lastTimingDisplayTicksB--;
 
+                // === STEVEN BEAM STRUGGLE AI ===
+                net.minecraft.world.entity.Entity entA = level.getEntity(s.ownerA);
+                net.minecraft.world.entity.Entity entB = level.getEntity(s.ownerB);
+
+                if (entA instanceof org.xeb.xeb.entity.StevenBossEntity && !s.playerAPressedThisCycle && s.rhythmCycleTick == 1) {
+                    boolean isPerfect = level.random.nextFloat() < 0.70F;
+                    int timing = isPerfect ? 0 : 1;
+                    double multiplier = isPerfect ? PERFECT_MULTIPLIER * 1.1D : GOOD_MULTIPLIER;
+                    s.pointsA += MASH_POINT_PER_CLICK * s.mashMultiplier * multiplier;
+                    s.playerAPressedThisCycle = true;
+                    s.lastTimingA = timing;
+                    s.lastTimingDisplayTicksA = 15;
+                }
+
+                if (entB instanceof org.xeb.xeb.entity.StevenBossEntity && !s.playerBPressedThisCycle && s.rhythmCycleTick == 1) {
+                    boolean isPerfect = level.random.nextFloat() < 0.70F;
+                    int timing = isPerfect ? 0 : 1;
+                    double multiplier = isPerfect ? PERFECT_MULTIPLIER * 1.1D : GOOD_MULTIPLIER;
+                    s.pointsB += MASH_POINT_PER_CLICK * s.mashMultiplier * multiplier;
+                    s.playerBPressedThisCycle = true;
+                    s.lastTimingB = timing;
+                    s.lastTimingDisplayTicksB = 15;
+                }
+
                 // Check 1: max ticks
                 if (s.ticksElapsed >= MAX_STRUGGLE_TICKS) {
                     toResolve.add(s.struggleId);
@@ -402,7 +430,12 @@ public class BeamStruggleManager {
             return false;
         }
 
-        // Check 1: Si es un player, verificar si está disparando Optic Blast
+        // Check 1: Si es Steven Boss
+        if (living instanceof org.xeb.xeb.entity.StevenBossEntity steven) {
+            if ("LASER".equalsIgnoreCase(steven.getAttackState())) return true;
+        }
+
+        // Check 2: Si es un player, verificar si está disparando Optic Blast
         if (living instanceof ServerPlayer player) {
             // Optic Blast: right-click hold
             boolean firingOptic = player.isUsingItem() 

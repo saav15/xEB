@@ -214,11 +214,20 @@ public class KeyInputHandler {
                     wasOpticActiva2Held = false;
                 }
 
-                // Flourish (B) — spam click, envía un packet por cada click
-                if (ModKeyMappings.FLOURISH_KEY.consumeClick()) {
+            // Flourish (B) — Inspection animation outside Beam Struggles, mash key inside Beam Struggles
+            if (ModKeyMappings.FLOURISH_KEY.consumeClick()) {
+                boolean inStruggle = !org.xeb.xeb.client.renderer.BeamStruggleRenderer.ACTIVE_STRUGGLES.isEmpty();
+                if (inStruggle) {
                     XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(4, true));
                     org.xeb.xeb.client.renderer.BeamStruggleRenderer.recordLocalMash(mc.player.getId());
+                } else {
+                    net.minecraft.world.item.ItemStack mainStack = player.getMainHandItem();
+                    if (!mainStack.isEmpty() && org.xeb.xeb.event.ModTooltipHandler.isModWeapon(mainStack)) {
+                        org.xeb.xeb.client.renderer.FlourishAnimationManager.triggerFlourish(mainStack.getItem());
+                        XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.FlourishPacket(mainStack.getItem()));
+                    }
                 }
+            }
 
                 wasBlockKeyHeld = false;
             } else if (holdsGoldenFlower) {
@@ -247,10 +256,6 @@ public class KeyInputHandler {
                 }
                 if (ModKeyMappings.ACTIVA_2_KEY.consumeClick()) {
                     XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(2, true));
-                }
-                if (ModKeyMappings.FLOURISH_KEY.consumeClick()) {
-                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(4, true));
-                    org.xeb.xeb.client.renderer.BeamStruggleRenderer.recordLocalMash(mc.player.getId());
                 }
                 wasBlockKeyHeld = false;
                 wasOpticActiva1Held = false;
@@ -292,10 +297,21 @@ public class KeyInputHandler {
                 wasBlockKeyHeld = false;
                 wasOpticActiva1Held = false;
                 wasOpticActiva2Held = false;
-            } else {
-                wasBlockKeyHeld = false;
-                wasOpticActiva1Held = false;
-                wasOpticActiva2Held = false;
+            }
+
+            // Universal Flourish Key (B) — triggers inspection animation for any held Mythic or Legendary weapon when not in Beam Struggles
+            if (ModKeyMappings.FLOURISH_KEY.consumeClick()) {
+                boolean inStruggle = !org.xeb.xeb.client.renderer.BeamStruggleRenderer.ACTIVE_STRUGGLES.isEmpty();
+                if (inStruggle) {
+                    XEBNetwork.CHANNEL.sendToServer(new ActuarKeyPacket(4, true));
+                    org.xeb.xeb.client.renderer.BeamStruggleRenderer.recordLocalMash(mc.player.getId());
+                } else {
+                    net.minecraft.world.item.ItemStack mainStack = player.getMainHandItem();
+                    if (!mainStack.isEmpty() && org.xeb.xeb.event.ModTooltipHandler.isModWeapon(mainStack)) {
+                        org.xeb.xeb.client.renderer.FlourishAnimationManager.triggerFlourish(mainStack.getItem());
+                        XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.FlourishPacket(mainStack.getItem()));
+                    }
+                }
             }
 
             // Extreme Burst (Activa 3 / N) — usable with any equipped burst curio (Universal or Limited)

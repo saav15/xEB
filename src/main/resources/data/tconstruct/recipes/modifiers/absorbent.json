@@ -1,12 +1,9 @@
 {
   "type": "tconstruct:modifier",
   "inputs": [
-    { "item": "xeb:absorbent_essence" },
-    { "item": "xeb:silver_elite_bit" },
-    { "item": "xeb:moon_tear" }
+    { "item": "xeb:absorbent_essence" }
   ],
   "tools": { "tag": "tconstruct:modifiable" },
-  "result": { "name": "tconstruct:absorbent", "level": 1 },
-  "max_level": 3,
-  "slots": { "upgrades": 1 }
+  "result": { "name": "tconstruct:reinforced", "level": 1 },
+  "max_level": 3
 }

@@ -139,6 +139,27 @@ public class ModEntities {
                     .updateInterval(1)
                     .build("shattered_rift"));
 
+    public static final RegistryObject<EntityType<StevenBossEntity>> STEVEN_BOSS = ENTITY_TYPES.register("steven_boss",
+            () -> EntityType.Builder.of(StevenBossEntity::new, MobCategory.MONSTER)
+                    .sized(0.7F, 2.0F)
+                    .clientTrackingRange(10)
+                    .build("steven_boss")
+    );
+
+    public static final RegistryObject<EntityType<StevenPortalEntity>> STEVEN_PORTAL = ENTITY_TYPES.register("steven_portal",
+            () -> EntityType.Builder.<StevenPortalEntity>of(StevenPortalEntity::new, MobCategory.MISC)
+                    .sized(2.0F, 2.0F)
+                    .clientTrackingRange(10)
+                    .build("steven_portal")
+    );
+
+    public static final RegistryObject<EntityType<StevenCloneEntity>> STEVEN_CLONE = ENTITY_TYPES.register("steven_clone",
+            () -> EntityType.Builder.<StevenCloneEntity>of(StevenCloneEntity::new, MobCategory.MONSTER)
+                    .sized(0.7F, 2.0F)
+                    .clientTrackingRange(10)
+                    .build("steven_clone")
+    );
+
     public static void register(IEventBus eventBus) {
         ENTITY_TYPES.register(eventBus);
     }

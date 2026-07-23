@@ -416,7 +416,9 @@ public class BuffDamageHandler {
         // ── Medallion buffs (attacker) ────────────────────────────────────────────
         if (attacker instanceof LivingEntity livingAttacker) {
             if (livingAttacker instanceof net.minecraft.world.entity.Mob) {
-                org.xeb.xeb.boss.FrozenBossRecoverySystem.registerDamageDealt(livingAttacker);
+                try {
+                    org.xeb.xeb.boss.FrozenBossRecoverySystem.registerDamageDealt(livingAttacker);
+                } catch (Throwable ignored) {}
             }
 
             List<MedallionData> attackerMedallions = MedallionManager.getActiveMedallions(livingAttacker);

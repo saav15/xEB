@@ -1,12 +1,9 @@
 {
   "type": "tconstruct:modifier",
   "inputs": [
-    { "item": "xeb:creepy_essence" },
-    { "item": "xeb:bronze_elite_bit" },
-    { "item": "xeb:moon_tear" }
+    { "item": "xeb:creepy_essence" }
   ],
   "tools": { "tag": "tconstruct:modifiable" },
-  "result": { "name": "tconstruct:creepy", "level": 1 },
-  "max_level": 3,
-  "slots": { "upgrades": 1 }
+  "result": { "name": "tconstruct:necrotic", "level": 1 },
+  "max_level": 3
 }

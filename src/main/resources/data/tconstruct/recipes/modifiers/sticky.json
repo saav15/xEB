@@ -1,12 +1,9 @@
 {
   "type": "tconstruct:modifier",
   "inputs": [
-    { "item": "xeb:sticky_essence" },
-    { "item": "xeb:gold_elite_bit" },
-    { "item": "xeb:moon_tear" }
+    { "item": "xeb:sticky_essence" }
   ],
   "tools": { "tag": "tconstruct:modifiable" },
-  "result": { "name": "tconstruct:sticky", "level": 1 },
-  "max_level": 3,
-  "slots": { "upgrades": 1 }
+  "result": { "name": "tconstruct:knockback", "level": 1 },
+  "max_level": 3
 }

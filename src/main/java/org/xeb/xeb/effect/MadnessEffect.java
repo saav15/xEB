@@ -36,9 +36,11 @@ public class MadnessEffect extends MobEffect {
         }
 
         // Tick recovery trackers, target buffer, and candidate expander
-        org.xeb.xeb.boss.TargetRejectionBuffer.tick(mob);
-        org.xeb.xeb.boss.BossTargetCandidateExpander.tick(mob);
-        org.xeb.xeb.boss.FrozenBossRecoverySystem.tick(mob);
+        try {
+            org.xeb.xeb.boss.TargetRejectionBuffer.tick(mob);
+            org.xeb.xeb.boss.BossTargetCandidateExpander.tick(mob);
+            org.xeb.xeb.boss.FrozenBossRecoverySystem.tick(mob);
+        } catch (Throwable ignored) {}
 
         double range = 16.0D + amplifier * 4.0D;
         AABB searchBox = mob.getBoundingBox().inflate(range);

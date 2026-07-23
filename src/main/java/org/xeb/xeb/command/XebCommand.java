@@ -185,6 +185,46 @@ public class XebCommand {
                     )
             );
 
+        var stevenCommand = Commands.literal("steven")
+            .executes(ctx -> {
+                net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+                org.xeb.xeb.event.StevenSpawnHandler.spawnStevenStalker(player.serverLevel(), player, "CHARGED_PUNCH", 15, false);
+                ctx.getSource().sendSuccess(() -> Component.literal(
+                        net.minecraft.ChatFormatting.DARK_PURPLE + "[xEB Dev] Steven summoned with default attack (CHARGED_PUNCH, 15s)"), true);
+                return 1;
+            })
+            .then(
+                Commands.argument("attackType", com.mojang.brigadier.arguments.StringArgumentType.word())
+                    .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(new String[]{"charged_punch", "laser", "punch_barrage", "flower_dance", "tap_head"}, b))
+                    .executes(ctx -> {
+                        net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        String attack = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "attackType").toUpperCase();
+                        org.xeb.xeb.event.StevenSpawnHandler.spawnStevenStalker(player.serverLevel(), player, attack, 15, false);
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                net.minecraft.ChatFormatting.DARK_PURPLE + "[xEB Dev] Steven summoned with attack: " + attack), true);
+                        return 1;
+                    })
+                    .then(
+                        Commands.argument("duration", com.mojang.brigadier.arguments.StringArgumentType.word())
+                            .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(new String[]{"5", "10", "15", "30", "60", "full"}, b))
+                            .executes(ctx -> {
+                                net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                String attack = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "attackType").toUpperCase();
+                                String durStr = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "duration");
+                                boolean isFull = "full".equalsIgnoreCase(durStr);
+                                int seconds = 15;
+                                if (!isFull) {
+                                    try { seconds = Integer.parseInt(durStr); } catch (NumberFormatException ignored) {}
+                                }
+                                final int finalSecs = seconds;
+                                org.xeb.xeb.event.StevenSpawnHandler.spawnStevenStalker(player.serverLevel(), player, attack, finalSecs, isFull);
+                                ctx.getSource().sendSuccess(() -> Component.literal(
+                                        net.minecraft.ChatFormatting.DARK_PURPLE + "[xEB Dev] Steven summoned: attack=" + attack + ", mode=" + (isFull ? "FULL" : finalSecs + "s")), true);
+                                return 1;
+                            })
+                    )
+            );
+
         var riftCommand = Commands.literal("rift")
             .then(
                 Commands.literal("spawn")
@@ -245,7 +285,8 @@ public class XebCommand {
             .then(cooldownsCommand)
             .then(curiosCommand)
             .then(loggCommand)
-            .then(riftCommand);
+            .then(riftCommand)
+            .then(stevenCommand);
 
         dispatcher.register(
             Commands.literal("xeb")

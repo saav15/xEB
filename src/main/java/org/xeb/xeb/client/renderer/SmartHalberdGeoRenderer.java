@@ -7,5 +7,6 @@ import software.bernie.geckolib.renderer.GeoItemRenderer;
 public class SmartHalberdGeoRenderer extends GeoItemRenderer<SmartHalberdItem> {
     public SmartHalberdGeoRenderer() {
         super(new SmartHalberdGeoModel());
+        addRenderLayer(new SmartHalberdGeoLayer(this));
     }
 }

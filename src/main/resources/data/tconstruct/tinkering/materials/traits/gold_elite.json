@@ -1,9 +1,6 @@
 {
-  "material": "tconstruct:gold_elite",
+  "material": "xeb:gold_elite",
   "traits": [
-    {
-      "name": "tconstruct:elite_slayer",
-      "level": 1
-    }
+    { "name": "tconstruct:fiery", "level": 1 }
   ]
 }

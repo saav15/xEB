@@ -1,9 +1,6 @@
 {
-  "material": "tconstruct:silver_elite",
+  "material": "xeb:silver_elite",
   "traits": [
-    {
-      "name": "tconstruct:elite_reflexes",
-      "level": 1
-    }
+    { "name": "tconstruct:sharpness", "level": 1 }
   ]
 }
