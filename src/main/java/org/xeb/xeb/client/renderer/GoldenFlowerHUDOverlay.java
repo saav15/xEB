@@ -161,7 +161,7 @@ public class GoldenFlowerHUDOverlay {
     /**
      * Dibuja una flor HUD con efecto de glow cuando está cargada.
      */
-    private static void drawLoadedFlowerHUD(GuiGraphics g, int x, int y, int color, long gameTime) {
+    public static void drawLoadedFlowerHUD(GuiGraphics g, int x, int y, int color, long gameTime) {
         int alpha = 0xFF000000;
         int finalColor = alpha | color;
         

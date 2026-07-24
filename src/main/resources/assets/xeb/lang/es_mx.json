@@ -859,5 +859,14 @@
   "item.xeb.dogma.extreme_burst.desc": "§eEFECTO DE RAYO DE FE (INSTANTÁNEA / ACTIVA):§r\nDespliega el Aura de Televisión de Dogma emitiendo un Rayo Láser Estático de 40 bloques por 10 segundos.\n\n§aEFECTOS Y DAÑO:§r\n• Daño Continuo: Inflige 9.99 de Daño de Ataque por Tick (~200 de daño/segundo) a todos los enemigos expuestos.\n• Expansión Exponencial: El ancho del rayo se expande progresivamente de 3 a 10 bloques de cobertura masiva.\n• Choque Láser: Gana automáticamente cualquier duelo de choque de rayos.\n• Empuje de Retroceso: Fuerza de retroceso progresiva en la segunda mitad del rayo.",
   "item.xeb.quantum_cat_barrage.extreme_burst.desc": "§eBOMBARDEO FELINO (INSTANTÁNEA):§r\nDispara una ráfaga cuántica instantánea de gatos explosivos en 10 bloques de radio.\n\n§aEFECTOS Y DAÑO:§r\n• Daño Cataclísmico: Distribuye el 100% de todo el daño infligido por el jugador en los últimos 60s (mínimo 2.0 de daño por enemigo).\n• Debuff Anticuración: Aplica Sin Regeneración de Vida (No Health Regen) por 10 segundos (200 ticks).",
   "item.xeb.mob_energy.enigma_effect": "Reliquia Pasiva: Aumenta la capacidad máxima de Maná en +50 y absorbe energía de criaturas caídas.",
-  "item.xeb.hot_poker.enigma_effect": "Lanza Reliquia Ígnea: Inflige 7 de daño melee, Quemadura de Carbón por 6s y convoca Grietas del Nether."
+  "item.xeb.hot_poker.enigma_effect": "Lanza Reliquia Ígnea: Inflige 7 de daño melee, Quemadura de Carbón por 6s y convoca Grietas del Nether.",
+  "gui.xeb.damagenumber.title": "DAÑO FLOTANTE",
+  "gui.xeb.damagenumber.mode.off": "Desactivado",
+  "gui.xeb.damagenumber.mode.off.desc": "No muestra marcadores de daño flotantes en el mundo.",
+  "gui.xeb.damagenumber.mode.stack": "Stack",
+  "gui.xeb.damagenumber.mode.stack.desc": "Cada golpe genera un número flotante independiente.",
+  "gui.xeb.damagenumber.mode.combine": "Combine",
+  "gui.xeb.damagenumber.mode.combine.desc": "Suma los golpes consecutivos a la misma entidad en un total acumulado.",
+  "gui.xeb.damagenumber.mode.hybrid": "Híbrido",
+  "gui.xeb.damagenumber.mode.hybrid.desc": "Muestra el golpe individual (pequeño) y el acumulado (grande) simultáneamente."
 }

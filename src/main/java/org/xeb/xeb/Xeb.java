@@ -48,7 +48,7 @@ public class Xeb {
 
         // Register client config screen factory
         net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
-                () -> () -> registerClientConfigScreen());
+                () -> () -> org.xeb.xeb.client.ClientAccess.registerClientConfigScreen());
 
         // Register custom systems
         ModAttributes.register(modEventBus);
@@ -81,15 +81,7 @@ public class Xeb {
         LOGGER.info("xEB (xd Elite Buffs) loaded!");
     }
 
-    @SuppressWarnings("deprecation")
-    private static void registerClientConfigScreen() {
-        net.minecraftforge.fml.ModLoadingContext.get().registerExtensionPoint(
-                net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
-                () -> new net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory(
-                        (mc, parent) -> new org.xeb.xeb.client.gui.HUDPositionScreen(parent)
-                )
-        );
-    }
+
 
     private void registerAllBuffs() {
         EliteBuffRegistry.register(new SpikyBuff());

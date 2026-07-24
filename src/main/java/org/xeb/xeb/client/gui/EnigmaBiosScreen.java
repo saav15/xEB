@@ -67,6 +67,9 @@ public class EnigmaBiosScreen extends Screen {
     private long lastAnalyzedTime = 0L;
     private int unknownTextIndex = 0;
 
+    // Dropdown estado para Floating Damage Numbers
+    private boolean isDamageDropdownOpen = false;
+
     public EnigmaBiosScreen() {
         super(Component.literal("Enigma Bios"));
         initLogs();
@@ -183,6 +186,7 @@ public class EnigmaBiosScreen extends Screen {
         renderInventory(g, mouseX, mouseY);
 
         super.render(g, mouseX, mouseY, partialTick);
+        renderDamageDropdownOverlay(g, mouseX, mouseY);
     }
 
     private void renderFuturisticBackgroundScanlines(GuiGraphics g, int borderColor) {
@@ -881,8 +885,81 @@ public class EnigmaBiosScreen extends Screen {
             }
         }
 
+        renderDamageDropdownWidget(g, mouseX, mouseY);
+
         if (!hoveredStack.isEmpty()) {
             g.renderTooltip(this.font, hoveredStack, mouseX, mouseY);
+        }
+    }
+
+    private void renderDamageDropdownWidget(GuiGraphics g, int mouseX, int mouseY) {
+        int dropX = this.leftPos + 268;
+        int dropY = this.topPos + 160;
+        int dropW = 84;
+        int dropH = 18;
+
+        // Label Encabezado
+        String dropTitle = Component.translatable("gui.xeb.damagenumber.title").getString();
+        g.drawString(this.font, dropTitle, dropX, dropY - 10, 0xFF00FFCC, false);
+
+        // Caja Selectora de Modo
+        boolean isHov = mouseX >= dropX && mouseX < dropX + dropW && mouseY >= dropY && mouseY < dropY + dropH;
+        int boxBg = isHov ? 0xCC08111E : 0xEE08111E;
+        int boxBorder = isHov ? 0xFF00FFFF : 0xFF00FFCC;
+
+        g.fill(dropX, dropY, dropX + dropW, dropY + dropH, boxBg);
+        g.fill(dropX, dropY, dropX + dropW, dropY + 1, boxBorder);
+        g.fill(dropX, dropY + dropH - 1, dropX + dropW, dropY + dropH, boxBorder);
+        g.fill(dropX, dropY, dropX + 1, dropY + dropH, boxBorder);
+        g.fill(dropX + dropW - 1, dropY, dropX + dropW, dropY + dropH, boxBorder);
+
+        org.xeb.xeb.damagenumber.DamageNumberMode currentMode = org.xeb.xeb.damagenumber.DamageNumberConfig.getMode();
+        String modeText = currentMode.getDisplayName();
+        int textColor = currentMode == org.xeb.xeb.damagenumber.DamageNumberMode.OFF ? 0xFFAAAAAA : 0xFF00FFCC;
+
+        g.drawString(this.font, modeText, dropX + 5, dropY + 5, textColor, false);
+        g.drawString(this.font, isDamageDropdownOpen ? "▲" : "▼", dropX + dropW - 11, dropY + 5, 0xFF00FFCC, false);
+
+        // Texto descriptivo corto debajo de la caja
+        String descText = currentMode.getDescription();
+        List<FormattedText> descLines = this.font.getSplitter().splitLines(descText, dropW, net.minecraft.network.chat.Style.EMPTY);
+        int dy = dropY + dropH + 4;
+        for (FormattedText line : descLines) {
+            g.drawString(this.font, line.getString(), dropX, dy, 0xFF888888, false);
+            dy += 9;
+        }
+    }
+
+    private void renderDamageDropdownOverlay(GuiGraphics g, int mouseX, int mouseY) {
+        if (!isDamageDropdownOpen) return;
+
+        int dropX = this.leftPos + 268;
+        int dropY = this.topPos + 180;
+        int dropW = 84;
+        int itemH = 16;
+        org.xeb.xeb.damagenumber.DamageNumberMode[] modes = org.xeb.xeb.damagenumber.DamageNumberMode.values();
+        int totalH = modes.length * itemH;
+
+        // Fondo semi-transparente Sci-Fi y Borde Verde Neon
+        g.fill(dropX, dropY, dropX + dropW, dropY + totalH, 0xFE050C16);
+        g.fill(dropX - 1, dropY - 1, dropX + dropW + 1, dropY, 0xFF00FFCC);
+        g.fill(dropX - 1, dropY + totalH, dropX + dropW + 1, dropY + totalH + 1, 0xFF00FFCC);
+        g.fill(dropX - 1, dropY - 1, dropX, dropY + totalH + 1, 0xFF00FFCC);
+        g.fill(dropX + dropW, dropY - 1, dropX + dropW + 1, dropY + totalH + 1, 0xFF00FFCC);
+
+        org.xeb.xeb.damagenumber.DamageNumberMode selected = org.xeb.xeb.damagenumber.DamageNumberConfig.getMode();
+
+        for (int i = 0; i < modes.length; i++) {
+            org.xeb.xeb.damagenumber.DamageNumberMode mode = modes[i];
+            int itemY = dropY + i * itemH;
+            boolean isHovered = mouseX >= dropX && mouseX < dropX + dropW && mouseY >= itemY && mouseY < itemY + itemH;
+            boolean isCurrent = (mode == selected);
+
+            int itemBg = isCurrent ? 0xCC00FFCC : (isHovered ? 0x4400FFCC : 0x2200FFCC);
+            int itemTxt = isCurrent ? 0xFF08111E : (isHovered ? 0xFFFFFFFF : 0xFF00FFCC);
+
+            g.fill(dropX + 1, itemY + 1, dropX + dropW - 1, itemY + itemH - 1, itemBg);
+            g.drawString(this.font, mode.getDisplayName(), dropX + 5, itemY + 4, itemTxt, false);
         }
     }
 
@@ -1019,6 +1096,38 @@ public class EnigmaBiosScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
+
+        int dropX = this.leftPos + 268;
+        int dropY = this.topPos + 160;
+        int dropW = 84;
+        int dropH = 18;
+
+        if (this.isDamageDropdownOpen) {
+            int overlayY = dropY + 20;
+            int itemH = 16;
+            org.xeb.xeb.damagenumber.DamageNumberMode[] modes = org.xeb.xeb.damagenumber.DamageNumberMode.values();
+            for (int i = 0; i < modes.length; i++) {
+                int itemY = overlayY + i * itemH;
+                if (mouseX >= dropX && mouseX < dropX + dropW && mouseY >= itemY && mouseY < itemY + itemH) {
+                    org.xeb.xeb.damagenumber.DamageNumberConfig.setMode(modes[i]);
+                    this.isDamageDropdownOpen = false;
+                    if (this.minecraft != null) {
+                        this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    }
+                    return true;
+                }
+            }
+            this.isDamageDropdownOpen = false;
+            return true;
+        }
+
+        if (mouseX >= dropX && mouseX < dropX + dropW && mouseY >= dropY && mouseY < dropY + dropH) {
+            this.isDamageDropdownOpen = true;
+            if (this.minecraft != null) {
+                this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+            }
+            return true;
+        }
 
         int startX = this.leftPos + 6;
         int viewportY = this.topPos + 18;

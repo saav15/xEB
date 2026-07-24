@@ -159,7 +159,7 @@ public class DoomfistHUDOverlay {
         }
     }
 
-    private static void drawSlantedBar(GuiGraphics g, int x, int y, int width, int height, int color) {
+    public static void drawSlantedBar(GuiGraphics g, int x, int y, int width, int height, int color) {
         for (int dy = 0; dy < height; dy++) {
             int offset = (height - 1 - dy);
             g.fill(x + offset, y + dy, x + width + offset, y + dy + 1, color);
@@ -429,7 +429,7 @@ public class DoomfistHUDOverlay {
         RenderSystem.disableBlend();
     }
 
-    private static void drawHoneycombCell(GuiGraphics g, int x, int y, int punches, int chargeTimer, int cellIndex, int activeBarrageTimer) {
+    public static void drawHoneycombCell(GuiGraphics g, int x, int y, int punches, int chargeTimer, int cellIndex, int activeBarrageTimer) {
         // Border outline (black)
         g.fill(x + 3, y,     x + 7, y + 1, 0xFF000000);
         g.fill(x + 2, y + 1, x + 8, y + 2, 0xFF000000);

@@ -173,14 +173,62 @@ public class Config {
             .comment("Duration in seconds of the Moon Tear vote in multiplayer.")
             .defineInRange("permanight.voteDurationSeconds", 30, 5, 120);
 
-    // HUD Group
-    public static final ForgeConfigSpec.IntValue OPTIC_BLAST_HUD_X = BUILDER
-            .comment("X offset of the active ability cooldowns HUD (Default 10, relative to bottom-left).")
-            .defineInRange("hud.opticBlastHudX", 10, 0, 10000);
+    // HUD Group (Persistent Positions & Scales for All Categories)
+    public static final ForgeConfigSpec.IntValue GENERAL_HUD_X = BUILDER
+            .defineInRange("hud.generalHudX", 10, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue GENERAL_HUD_Y = BUILDER
+            .defineInRange("hud.generalHudY", 42, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue GENERAL_HUD_SCALE = BUILDER
+            .defineInRange("hud.generalHudScale", 1.0D, 0.5D, 3.0D);
 
+    public static final ForgeConfigSpec.IntValue DOOMFIST_HUD_X = BUILDER
+            .defineInRange("hud.doomfistHudX", 0, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue DOOMFIST_HUD_Y = BUILDER
+            .defineInRange("hud.doomfistHudY", 0, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue DOOMFIST_HUD_SCALE = BUILDER
+            .defineInRange("hud.doomfistHudScale", 1.0D, 0.5D, 3.0D);
+
+    public static final ForgeConfigSpec.IntValue OPTIC_BLAST_HUD_X = BUILDER
+            .defineInRange("hud.opticBlastHudX", -29, -5000, 5000);
     public static final ForgeConfigSpec.IntValue OPTIC_BLAST_HUD_Y = BUILDER
-            .comment("Y offset of the active ability cooldowns HUD (Default 42, relative to bottom-left, subtracted from screen height).")
-            .defineInRange("hud.opticBlastHudY", 42, 0, 10000);
+            .defineInRange("hud.opticBlastHudY", 0, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue OPTIC_BLAST_HUD_SCALE = BUILDER
+            .defineInRange("hud.opticBlastHudScale", 1.0D, 0.5D, 3.0D);
+
+    public static final ForgeConfigSpec.IntValue MECHA_HUD_X = BUILDER
+            .defineInRange("hud.mechaHudX", 0, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue MECHA_HUD_Y = BUILDER
+            .defineInRange("hud.mechaHudY", 0, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue MECHA_HUD_SCALE = BUILDER
+            .defineInRange("hud.mechaHudScale", 1.0D, 0.5D, 3.0D);
+
+    public static final ForgeConfigSpec.IntValue HOLY_HUD_X = BUILDER
+            .defineInRange("hud.holyHudX", 0, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue HOLY_HUD_Y = BUILDER
+            .defineInRange("hud.holyHudY", 0, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue HOLY_HUD_SCALE = BUILDER
+            .defineInRange("hud.holyHudScale", 1.0D, 0.5D, 3.0D);
+
+    public static final ForgeConfigSpec.IntValue GOLDEN_FLOWER_HUD_X = BUILDER
+            .defineInRange("hud.goldenFlowerHudX", 0, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue GOLDEN_FLOWER_HUD_Y = BUILDER
+            .defineInRange("hud.goldenFlowerHudY", 0, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue GOLDEN_FLOWER_HUD_SCALE = BUILDER
+            .defineInRange("hud.goldenFlowerHudScale", 1.0D, 0.5D, 3.0D);
+
+    public static final ForgeConfigSpec.IntValue CRAZY_DIAMOND_HUD_X = BUILDER
+            .defineInRange("hud.crazyDiamondHudX", 0, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue CRAZY_DIAMOND_HUD_Y = BUILDER
+            .defineInRange("hud.crazyDiamondHudY", 0, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue CRAZY_DIAMOND_HUD_SCALE = BUILDER
+            .defineInRange("hud.crazyDiamondHudScale", 1.0D, 0.5D, 3.0D);
+
+    public static final ForgeConfigSpec.IntValue THE_TEARS_HUD_X = BUILDER
+            .defineInRange("hud.theTearsHudX", 11, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue THE_TEARS_HUD_Y = BUILDER
+            .defineInRange("hud.theTearsHudY", -12, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue THE_TEARS_HUD_SCALE = BUILDER
+            .defineInRange("hud.theTearsHudScale", 1.0D, 0.5D, 3.0D);
 
     // Elite Loot Group
     public static final ForgeConfigSpec.BooleanValue LOOT_DROPS_ENABLED = BUILDER
@@ -316,12 +364,12 @@ public class Config {
     public static int hudY = 42;
     public static float hudScale = 1.0f;
 
-    // Per-Mythic Crosshair Gauge HUD position & scale config (Default 0, 0 centered at crosshair)
+    // Per-Mythic Crosshair Gauge HUD position & scale config
     public static int doomfistHudX = 0;
     public static int doomfistHudY = 0;
     public static float doomfistHudScale = 1.0f;
 
-    public static int opticBlastHudX = -18;
+    public static int opticBlastHudX = -29;
     public static int opticBlastHudY = 0;
     public static float opticBlastHudScale = 1.0f;
 
@@ -341,8 +389,8 @@ public class Config {
     public static int crazyDiamondHudY = 0;
     public static float crazyDiamondHudScale = 1.0f;
 
-    public static int theTearsHudX = 14;
-    public static int theTearsHudY = 12;
+    public static int theTearsHudX = 11;
+    public static int theTearsHudY = -12;
     public static float theTearsHudScale = 1.0f;
 
     // Elite Loot config static variables
@@ -431,9 +479,38 @@ public class Config {
         permanightVoteThresholdPercent = PERMANIGHT_VOTE_THRESHOLD_PERCENT.get();
         permanightVoteDurationSeconds = PERMANIGHT_VOTE_DURATION_SECONDS.get();
 
-        // Load HUD config
+        // Load HUD config (Persistent Across Sessions & Deaths)
+        hudX = GENERAL_HUD_X.get();
+        hudY = GENERAL_HUD_Y.get();
+        hudScale = GENERAL_HUD_SCALE.get().floatValue();
+
+        doomfistHudX = DOOMFIST_HUD_X.get();
+        doomfistHudY = DOOMFIST_HUD_Y.get();
+        doomfistHudScale = DOOMFIST_HUD_SCALE.get().floatValue();
+
         opticBlastHudX = OPTIC_BLAST_HUD_X.get();
         opticBlastHudY = OPTIC_BLAST_HUD_Y.get();
+        opticBlastHudScale = OPTIC_BLAST_HUD_SCALE.get().floatValue();
+
+        mechaHudX = MECHA_HUD_X.get();
+        mechaHudY = MECHA_HUD_Y.get();
+        mechaHudScale = MECHA_HUD_SCALE.get().floatValue();
+
+        holyHudX = HOLY_HUD_X.get();
+        holyHudY = HOLY_HUD_Y.get();
+        holyHudScale = HOLY_HUD_SCALE.get().floatValue();
+
+        goldenFlowerHudX = GOLDEN_FLOWER_HUD_X.get();
+        goldenFlowerHudY = GOLDEN_FLOWER_HUD_Y.get();
+        goldenFlowerHudScale = GOLDEN_FLOWER_HUD_SCALE.get().floatValue();
+
+        crazyDiamondHudX = CRAZY_DIAMOND_HUD_X.get();
+        crazyDiamondHudY = CRAZY_DIAMOND_HUD_Y.get();
+        crazyDiamondHudScale = CRAZY_DIAMOND_HUD_SCALE.get().floatValue();
+
+        theTearsHudX = THE_TEARS_HUD_X.get();
+        theTearsHudY = THE_TEARS_HUD_Y.get();
+        theTearsHudScale = THE_TEARS_HUD_SCALE.get().floatValue();
 
         // Load Elite Loot config
         lootDropsEnabled = LOOT_DROPS_ENABLED.get();

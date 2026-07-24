@@ -6,7 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.api.distmarker.Dist;
-import org.xeb.xeb.client.gui.XebCompletionToast;
+
 import java.util.function.Supplier;
 
 public class EnigmaBiosSyncPacket {
@@ -57,7 +57,7 @@ public class EnigmaBiosSyncPacket {
                         mc.player.getPersistentData().merge(msg.killData);
                     }
                     if (msg.newlyUnlocked >= 1) {
-                        XebCompletionToast.show(msg.newlyUnlocked);
+                        org.xeb.xeb.client.ClientAccess.showCompletionToast(msg.newlyUnlocked);
                     }
                 }
             });

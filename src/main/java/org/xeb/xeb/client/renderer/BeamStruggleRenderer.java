@@ -6,6 +6,8 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
@@ -22,8 +24,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Client-side renderer for the 3D Beam Struggle effects.
- * Displays swirling plasma, connector lightning arcs, and expanding shockwave rings.
+ * Renderizador Cliente-Side 3D de alta precisión para los duelos de rayos (Beam Struggle).
+ * Alinea los rayos a la altura real del pecho/ojos de las entidades y calcula el avance
+ * dinámico y suave del choque (Push & Pull) según los puntos de cada participante.
  */
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class BeamStruggleRenderer {
@@ -46,7 +49,10 @@ public class BeamStruggleRenderer {
         public byte phase; // 0=PREP, 1=ACTIVE, 2=RESOLVED
         public double initialDistance;
 
-        // Rhythm fields on client
+        // Ratio interpolado suavemente para el avance del choque
+        public float smoothRatioA = 0.5F;
+
+        // Campos de ritmo
         public int rhythmCycleTick;
         public int lastTimingA;
         public int lastTimingB;
@@ -68,6 +74,9 @@ public class BeamStruggleRenderer {
             this.phase = msg.getPhase();
             this.initialDistance = msg.getInitialDistance();
             
+            float total = this.pointsA + this.pointsB;
+            this.smoothRatioA = total > 0.001F ? (this.pointsA / total) : 0.5F;
+
             this.rhythmCycleTick = msg.getRhythmCycleTick();
             this.lastTimingA = msg.getLastTimingA();
             this.lastTimingB = msg.getLastTimingB();
@@ -126,14 +135,6 @@ public class BeamStruggleRenderer {
         LOCAL_MASH_TIMES.put(entityId, System.currentTimeMillis());
     }
 
-    public static float getLocalMashProgress(int entityId) {
-        Long time = LOCAL_MASH_TIMES.get(entityId);
-        if (time == null) return 0.0F;
-        long diff = System.currentTimeMillis() - time;
-        if (diff > 250) return 0.0F;
-        return 1.0F - (diff / 250.0F); // decays over 250ms
-    }
-
     public static ClientStruggleData getLocalPlayerStruggle() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return null;
@@ -166,6 +167,7 @@ public class BeamStruggleRenderer {
         PoseStack poseStack = event.getPoseStack();
         MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
         VertexConsumer consumer = bufferSource.getBuffer(RenderType.lightning());
+        float partialTick = event.getPartialTick();
 
         long now = System.currentTimeMillis();
         poseStack.pushPose();
@@ -179,115 +181,86 @@ public class BeamStruggleRenderer {
                 continue;
             }
 
-            // Dynamic clash midpoint calculation based on live score ratio (Points A vs Points B)
+            // === 1. ALINEACIÓN PRECISA EN TIEMPO REAL CON LAS ENTIDADES ===
+            Entity entA = mc.level.getEntity(struggle.ownerAEntityId);
+            Entity entB = mc.level.getEntity(struggle.ownerBEntityId);
+
+            Vec3 liveStartA = entA != null ? getBeamOrigin(entA, partialTick) : struggle.startA;
+            Vec3 liveStartB = entB != null ? getBeamOrigin(entB, partialTick) : struggle.startB;
+
+            // === 2. AVANCE DINÁMICO SUAVE DEL CHOQUE (PUSH & PULL) ===
             float totalPoints = struggle.pointsA + struggle.pointsB;
-            float ratioA = totalPoints > 0.001F ? (struggle.pointsA / totalPoints) : 0.5F;
-            ratioA = Math.max(0.08F, Math.min(0.92F, ratioA)); // Keep clash within 8% to 92% range
+            float targetRatioA = totalPoints > 0.001F ? (struggle.pointsA / totalPoints) : 0.5F;
+            targetRatioA = Mth.clamp(targetRatioA, 0.08F, 0.92F);
 
-            Vec3 dirAB = struggle.startB.subtract(struggle.startA);
-            Vec3 collision = struggle.startA.add(dirAB.scale(ratioA));
-            boolean isPrep = struggle.phase == 0; // 0 = PREP
+            // Interpolación fluida (Lerp) para que la colisión se mueva con suavidad natural
+            struggle.smoothRatioA += (targetRatioA - struggle.smoothRatioA) * 0.15F;
 
-            // Determine beam colors
+            Vec3 beamVector = liveStartB.subtract(liveStartA);
+            Vec3 liveCollisionPoint = liveStartA.add(beamVector.scale(struggle.smoothRatioA));
+            boolean isPrep = struggle.phase == 0;
+
+            // Colores de los rayos
             float[] colorA = getOwnerColor(struggle.ownerAEntityId, mc);
             float[] colorB = getOwnerColor(struggle.ownerBEntityId, mc);
 
-            // 1. Draw 3D Volumetric Beam A from startA -> dynamic clash point
-            XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, struggle.startA, collision,
-                    colorA[0], colorA[1], colorA[2], 0.95F, 0.28F, 0.70F, now);
+            // Grosor dinámico del rayo según los puntos (quien va ganando tiene un rayo más grueso)
+            float beamRadiusA = 0.28F + (struggle.pointsA / Math.max(1.0F, totalPoints)) * 0.22F;
+            float beamRadiusB = 0.28F + (struggle.pointsB / Math.max(1.0F, totalPoints)) * 0.22F;
 
-            // 2. Draw 3D Volumetric Beam B from startB -> dynamic clash point
-            XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, struggle.startB, collision,
-                    colorB[0], colorB[1], colorB[2], 0.95F, 0.28F, 0.70F, now);
+            // 3. Renderizar Rayo Volumétrico A desde liveStartA -> liveCollisionPoint
+            XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, liveStartA, liveCollisionPoint,
+                    colorA[0], colorA[1], colorA[2], 0.95F, beamRadiusA, 0.70F, now);
 
-            // 3. Fusion Sphere at dynamic clash point
-            float totalMash = struggle.pointsA + struggle.pointsB;
-            float sphereSize = 0.6F + Math.min(1.5F, totalMash * 0.05F);
-            if (isPrep) sphereSize = 0.8F;
-            renderFusionSphere(consumer, matrix, collision, colorA, colorB, sphereSize, now, isPrep);
+            // 4. Renderizar Rayo Volumétrico B desde liveStartB -> liveCollisionPoint
+            XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, liveStartB, liveCollisionPoint,
+                    colorB[0], colorB[1], colorB[2], 0.95F, beamRadiusB, 0.70F, now);
 
-            // 4. Swirling Dual Color Rings
-            renderDualColorRings(consumer, matrix, collision, colorA, colorB, now);
+            // 5. Esfera de Fusión de Energía Central
+            float sphereSize = 0.75F + Math.min(1.8F, totalPoints * 0.04F);
+            if (isPrep) sphereSize = 0.85F;
+            renderFusionSphere(consumer, matrix, liveCollisionPoint, colorA, colorB, sphereSize, now, isPrep);
 
-            // 5. Lightning Spark connectors
-            renderSparks(consumer, matrix, collision, struggle.startA, struggle.startB, now);
-
-            // 6. Expanding Shockwave Rings
-            renderEnergyRings(consumer, matrix, collision, now, struggle.ticksElapsed);
+            // 6. Anillos de Energía Giratorios y Arcos Eléctricos
+            renderDualColorRings(consumer, matrix, liveCollisionPoint, colorA, colorB, now);
+            renderSparks(consumer, matrix, liveCollisionPoint, liveStartA, liveStartB, now);
+            renderEnergyRings(consumer, matrix, liveCollisionPoint, now, struggle.ticksElapsed);
         }
 
         bufferSource.endBatch(RenderType.lightning());
         poseStack.popPose();
     }
 
+    /**
+     * Calcula la posición exacta de emisión del rayo a la altura del pecho/ojos de la entidad.
+     */
+    private static Vec3 getBeamOrigin(Entity entity, float partialTick) {
+        double x = Mth.lerp(partialTick, entity.xo, entity.getX());
+        double y = Mth.lerp(partialTick, entity.yo, entity.getY());
+        double z = Mth.lerp(partialTick, entity.zo, entity.getZ());
+        double heightOffset = entity.getBbHeight() * 0.65D; // Altura del pecho/ojos
+        return new Vec3(x, y + heightOffset, z);
+    }
+
     private static float[] getOwnerColor(int entityId, Minecraft mc) {
         if (mc.level != null && mc.level.getEntity(entityId) != null) {
             net.minecraft.world.entity.Entity ent = mc.level.getEntity(entityId);
             String typeName = net.minecraft.world.entity.EntityType.getKey(ent.getType()).toString();
-            if (typeName.contains("tremorzilla")) return new float[]{0.25F, 1.0F, 0.5F}; // Green
-            if (typeName.contains("harbinger") || typeName.contains("leviathan")) return new float[]{0.5F, 0.2F, 1.0F}; // Purple
+            if (typeName.contains("tremorzilla")) return new float[]{0.25F, 1.0F, 0.5F}; // Verde
+            if (typeName.contains("harbinger") || typeName.contains("leviathan")) return new float[]{0.5F, 0.2F, 1.0F}; // Púrpura
             
-            // Check active item / Stand type color
             if (ent instanceof net.minecraft.world.entity.player.Player player) {
-                // If holding Broken Diamond (Crazy Diamond), Stand colors or similar.
-                // But Optic Blast default is Red.
-                // Brimstone checks:
                 net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
                 if (stack.is(org.xeb.xeb.item.ModItems.THE_TEARS.get())) {
                     int imbue = stack.getOrCreateTag().getInt("xebTearsImbueType");
-                    if (imbue == 1) return new float[]{0.7F, 0.0F, 1.0F}; // purple
-                    else if (imbue == 2) return new float[]{1.0F, 1.0F, 1.0F}; // white
-                    else if (imbue == 3) return new float[]{0.15F, 0.15F, 0.15F}; // dark
-                    else if (imbue == 4) return new float[]{0.56F, 0.88F, 1.0F}; // cold (cyan)
+                    if (imbue == 1) return new float[]{0.7F, 0.0F, 1.0F};
+                    else if (imbue == 2) return new float[]{1.0F, 1.0F, 1.0F};
+                    else if (imbue == 3) return new float[]{0.15F, 0.15F, 0.15F};
+                    else if (imbue == 4) return new float[]{0.56F, 0.88F, 1.0F};
                 }
             }
         }
-        return new float[]{1.0F, 0.1F, 0.1F}; // Default Red
-    }
-
-    private static void renderFusionBeam(VertexConsumer consumer, Matrix4f matrix,
-                                          Vec3 start, Vec3 end, float[] color, long timeMs, boolean isPrep) {
-        Vec3 dir = end.subtract(start);
-        double length = dir.length();
-        if (length < 0.1D) return;
-        Vec3 dirN = dir.normalize();
-        Vec3 perp1 = dirN.cross(new Vec3(0, 1, 0));
-        if (perp1.lengthSqr() < 0.001D) perp1 = dirN.cross(new Vec3(1, 0, 0));
-        perp1 = perp1.normalize();
-        Vec3 perp2 = dirN.cross(perp1).normalize();
-
-        float pulse = 0.9F + 0.1F * (float) Math.sin(timeMs * 0.015D);
-        if (isPrep) pulse = 0.7F + 0.3F * (float) Math.sin(timeMs * 0.02D);
-
-        float r = color[0], g = color[1], b = color[2];
-        drawBeamLayer(consumer, matrix, start, end, perp1, perp2, 0.45F * pulse, r * 0.5F, g * 0.5F, b * 0.5F, 0.15F);
-        drawBeamLayer(consumer, matrix, start, end, perp1, perp2, 0.25F * pulse, r * 0.8F, g * 0.8F, b * 0.8F, 0.5F);
-        drawBeamLayer(consumer, matrix, start, end, perp1, perp2, 0.12F * pulse, r, g, b, 0.95F);
-        drawBeamLayer(consumer, matrix, start, end, perp1, perp2, 0.04F * pulse, 1.0F, 1.0F, 1.0F, 1.0F);
-    }
-
-    private static void drawBeamLayer(VertexConsumer consumer, Matrix4f matrix, Vec3 start, Vec3 end,
-                                       Vec3 perp1, Vec3 perp2, float halfWidth,
-                                       float r, float g, float b, float a) {
-        Vec3 p1 = start.add(perp1.scale(halfWidth)).add(perp2.scale(halfWidth));
-        Vec3 p2 = start.add(perp1.scale(-halfWidth)).add(perp2.scale(halfWidth));
-        Vec3 p3 = end.add(perp1.scale(-halfWidth)).add(perp2.scale(-halfWidth));
-        Vec3 p4 = end.add(perp1.scale(halfWidth)).add(perp2.scale(-halfWidth));
-
-        consumer.vertex(matrix, (float) p1.x, (float) p1.y, (float) p1.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) p2.x, (float) p2.y, (float) p2.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) p3.x, (float) p3.y, (float) p3.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) p4.x, (float) p4.y, (float) p4.z).color(r, g, b, a).endVertex();
-
-        Vec3 p5 = start.add(perp1.scale(halfWidth)).add(perp2.scale(-halfWidth));
-        Vec3 p6 = start.add(perp1.scale(-halfWidth)).add(perp2.scale(-halfWidth));
-        Vec3 p7 = end.add(perp1.scale(-halfWidth)).add(perp2.scale(halfWidth));
-        Vec3 p8 = end.add(perp1.scale(halfWidth)).add(perp2.scale(halfWidth));
-
-        consumer.vertex(matrix, (float) p5.x, (float) p5.y, (float) p5.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) p6.x, (float) p6.y, (float) p6.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) p7.x, (float) p7.y, (float) p7.z).color(r, g, b, a).endVertex();
-        consumer.vertex(matrix, (float) p8.x, (float) p8.y, (float) p8.z).color(r, g, b, a).endVertex();
+        return new float[]{1.0F, 0.1F, 0.1F}; // Rojo por defecto
     }
 
     private static void renderFusionSphere(VertexConsumer consumer, Matrix4f matrix, Vec3 center,
@@ -295,14 +268,13 @@ public class BeamStruggleRenderer {
         float pulse = 0.85F + 0.15F * (float) Math.sin(timeMs * 0.02D);
         float s = size * pulse;
 
-        // Additive color mixing
         float mixR = Math.min(1.0F, colorA[0] + colorB[0]);
         float mixG = Math.min(1.0F, colorA[1] + colorB[1]);
         float mixB = Math.min(1.0F, colorA[2] + colorB[2]);
 
-        drawCrossQuad(consumer, matrix, center, s * 1.8F, mixR, mixG, mixB, 0.2F * pulse);
-        drawCrossQuad(consumer, matrix, center, s * 1.3F, mixR * 0.9F, mixG * 0.9F, mixB * 0.9F, 0.5F * pulse);
-        drawCrossQuad(consumer, matrix, center, s * 0.8F, 1.0F, 1.0F, 1.0F, 0.9F * pulse);
+        drawCrossQuad(consumer, matrix, center, s * 1.8F, mixR, mixG, mixB, 0.25F * pulse);
+        drawCrossQuad(consumer, matrix, center, s * 1.3F, mixR * 0.9F, mixG * 0.9F, mixB * 0.9F, 0.55F * pulse);
+        drawCrossQuad(consumer, matrix, center, s * 0.8F, 1.0F, 1.0F, 1.0F, 0.95F * pulse);
         drawCrossQuad(consumer, matrix, center, s * 0.4F, 1.0F, 1.0F, 1.0F, 1.0F);
     }
 

@@ -5,11 +5,13 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "xeb.refmap.json",
   "mixins": [
-    "CameraMixin",
     "CombatTrackerMixin",
     "EnchantmentHelperMixin",
-    "HumanoidModelMixin",
     "LivingEntityMixin"
+  ],
+  "client": [
+    "CameraMixin",
+    "HumanoidModelMixin"
   ],
   "injectors": {
     "defaultRequire": 1

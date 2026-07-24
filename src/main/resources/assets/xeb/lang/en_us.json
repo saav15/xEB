@@ -875,5 +875,14 @@
   "item.xeb.quantum_cat_barrage.extreme_burst.desc": "§eFELINE BARRAGE (INSTANT):§r\nFires an instant quantum explosion of feline artillery across a 10-block radius.\n\n§aEFFECTS & DAMAGE:§r\n• Cataclysmic Damage: Distributes 100% of all damage dealt by the player over the last 60 seconds (min 2.0 damage per enemy).\n• Anti-Heal Debuff: Applies No Health Regen for 10 seconds (200 ticks).",
   "item.xeb.demon_core.enigma_effect": "Passive Volatile Relic: Emits deadly Cherenkov radiation bursts to all entities within 8 blocks.",
   "item.xeb.mob_energy.enigma_effect": "Passive Relic: Increases maximum Mana capacity by +50 and absorbs slain mob energy.",
-  "item.xeb.hot_poker.enigma_effect": "Fiery Relic Spear: Deals 7 melee damage, inflicts Charring Burn for 6s, and summons Nether Portal Rifts."
+  "item.xeb.hot_poker.enigma_effect": "Fiery Relic Spear: Deals 7 melee damage, inflicts Charring Burn for 6s, and summons Nether Portal Rifts.",
+  "gui.xeb.damagenumber.title": "FLOATING DAMAGE",
+  "gui.xeb.damagenumber.mode.off": "Disabled",
+  "gui.xeb.damagenumber.mode.off.desc": "Does not render floating damage numbers in the world.",
+  "gui.xeb.damagenumber.mode.stack": "Stack",
+  "gui.xeb.damagenumber.mode.stack.desc": "Each hit spawns an independent floating number.",
+  "gui.xeb.damagenumber.mode.combine": "Combine",
+  "gui.xeb.damagenumber.mode.combine.desc": "Accumulates consecutive hits to the same entity into a total.",
+  "gui.xeb.damagenumber.mode.hybrid": "Hybrid",
+  "gui.xeb.damagenumber.mode.hybrid.desc": "Displays small hit numbers and the accumulated total simultaneously."
 }
