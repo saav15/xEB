@@ -6,6 +6,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
@@ -24,9 +25,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Renderizador Cliente-Side 3D de alta precisión para los duelos de rayos (Beam Struggle).
- * Alinea los rayos a la altura real del pecho/ojos de las entidades y calcula el avance
- * dinámico y suave del choque (Push & Pull) según los puntos de cada participante.
+ * Renderizador Cliente-Side 3D para los duelos de rayos (Beam Struggle).
+ * Incluye efectos tipo Dragon Ball Z: Corona de picos de energía estelar en 3D,
+ * esfera de fusión de alto brillo, anillos de choque perpendiculares y partículas eléctricas.
  */
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class BeamStruggleRenderer {
@@ -204,31 +205,97 @@ public class BeamStruggleRenderer {
             float[] colorA = getOwnerColor(struggle.ownerAEntityId, mc);
             float[] colorB = getOwnerColor(struggle.ownerBEntityId, mc);
 
-            // Grosor dinámico del rayo según los puntos (quien va ganando tiene un rayo más grueso)
+            // Grosor dinámico del rayo según los puntos
             float beamRadiusA = 0.28F + (struggle.pointsA / Math.max(1.0F, totalPoints)) * 0.22F;
             float beamRadiusB = 0.28F + (struggle.pointsB / Math.max(1.0F, totalPoints)) * 0.22F;
 
-            // 3. Renderizar Rayo Volumétrico A desde liveStartA -> liveCollisionPoint
+            // 3. Renderizar Rayo Volumétrico A desde liveStartA -> liveCollisionPoint (detenido exactamente en el choque)
             XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, liveStartA, liveCollisionPoint,
                     colorA[0], colorA[1], colorA[2], 0.95F, beamRadiusA, 0.70F, now);
 
-            // 4. Renderizar Rayo Volumétrico B desde liveStartB -> liveCollisionPoint
+            // 4. Renderizar Rayo Volumétrico B desde liveStartB -> liveCollisionPoint (detenido exactamente en el choque)
             XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, liveStartB, liveCollisionPoint,
                     colorB[0], colorB[1], colorB[2], 0.95F, beamRadiusB, 0.70F, now);
 
-            // 5. Esfera de Fusión de Energía Central
-            float sphereSize = 0.75F + Math.min(1.8F, totalPoints * 0.04F);
-            if (isPrep) sphereSize = 0.85F;
+            // 5. Esfera de Fusión de Energía Central y Núcleo Brillante
+            float sphereSize = 0.85F + Math.min(2.0F, totalPoints * 0.04F);
+            if (isPrep) sphereSize = 0.95F;
             renderFusionSphere(consumer, matrix, liveCollisionPoint, colorA, colorB, sphereSize, now, isPrep);
 
-            // 6. Anillos de Energía Giratorios y Arcos Eléctricos
+            // 6. Corona de Picos de Energía Estelar Estilo Dragon Ball Z (Corona Perpendicular al Rayo)
+            renderDBZStarburstCorona(consumer, matrix, liveCollisionPoint, liveStartA, liveStartB, colorA, colorB, sphereSize, now);
+
+            // 7. Anillos de Energía Giratorios y Arcos Eléctricos
             renderDualColorRings(consumer, matrix, liveCollisionPoint, colorA, colorB, now);
             renderSparks(consumer, matrix, liveCollisionPoint, liveStartA, liveStartB, now);
             renderEnergyRings(consumer, matrix, liveCollisionPoint, now, struggle.ticksElapsed);
+
+            // 8. Ráfaga continua de partículas eléctricas en el punto de choque
+            if (mc.level != null && (now % 2 == 0)) {
+                mc.level.addParticle(ParticleTypes.FLASH, liveCollisionPoint.x, liveCollisionPoint.y, liveCollisionPoint.z, 0, 0, 0);
+                for (int p = 0; p < 3; p++) {
+                    double px = liveCollisionPoint.x + (mc.level.random.nextDouble() - 0.5D) * 1.5D;
+                    double py = liveCollisionPoint.y + (mc.level.random.nextDouble() - 0.5D) * 1.5D;
+                    double pz = liveCollisionPoint.z + (mc.level.random.nextDouble() - 0.5D) * 1.5D;
+                    mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK,
+                            px, py, pz,
+                            (mc.level.random.nextDouble() - 0.5D) * 0.4D,
+                            (mc.level.random.nextDouble() - 0.5D) * 0.4D,
+                            (mc.level.random.nextDouble() - 0.5D) * 0.4D);
+                }
+            }
         }
 
         bufferSource.endBatch(RenderType.lightning());
         poseStack.popPose();
+    }
+
+    /**
+     * Dibuja la corona dentada de picos estelares en el choque (Estilo Dragon Ball Z).
+     * Los picos proyectan en el plano perpendicular al vector de los rayos, alternando los colores A y B.
+     */
+    private static void renderDBZStarburstCorona(VertexConsumer consumer, Matrix4f matrix, Vec3 clashPos, Vec3 startA, Vec3 startB,
+                                                  float[] colorA, float[] colorB, float sphereSize, long timeMs) {
+        Vec3 beamDir = startB.subtract(startA).normalize();
+        if (beamDir.lengthSqr() < 0.001D) beamDir = new Vec3(0, 1, 0);
+
+        // Construir base ortonormal 3D para el disco de colisión perpendicular
+        Vec3 u = new Vec3(1, 0, 0);
+        if (Math.abs(beamDir.x) > 0.8D) u = new Vec3(0, 1, 0);
+        Vec3 v = beamDir.cross(u).normalize();
+        u = v.cross(beamDir).normalize();
+
+        int spikeCount = 24;
+        float baseAngle = (timeMs % 10000L) * 0.010F;
+
+        for (int i = 0; i < spikeCount; i++) {
+            double angle = baseAngle + (i * Math.PI * 2.0D / spikeCount);
+            float pulseFactor = 0.85F + 0.35F * (float) Math.sin(timeMs * 0.03D + i * 1.3D);
+
+            // Picos dentados largos de energía
+            float spikeLength = (1.8F + (i % 2 == 0 ? 1.5F : 0.7F)) * sphereSize * pulseFactor;
+            float halfThickness = 0.16F * sphereSize;
+
+            Vec3 radDir = u.scale(Math.cos(angle)).add(v.scale(Math.sin(angle)));
+            Vec3 tipPos = clashPos.add(radDir.scale(spikeLength));
+
+            // Alternar paletas de color A y B
+            float[] spikeColor = (i % 2 == 0) ? colorA : colorB;
+            float r = spikeColor[0];
+            float g = spikeColor[1];
+            float b = spikeColor[2];
+
+            Vec3 perpSpike = radDir.cross(beamDir).scale(halfThickness);
+
+            Vec3 p1 = clashPos.add(perpSpike);
+            Vec3 p2 = clashPos.subtract(perpSpike);
+
+            // Núcleo blanco incandescente -> Punta neón de color
+            consumer.vertex(matrix, (float) p1.x, (float) p1.y, (float) p1.z).color(1.0F, 1.0F, 1.0F, 0.95F).endVertex();
+            consumer.vertex(matrix, (float) p2.x, (float) p2.y, (float) p2.z).color(1.0F, 1.0F, 1.0F, 0.95F).endVertex();
+            consumer.vertex(matrix, (float) tipPos.x, (float) tipPos.y, (float) tipPos.z).color(r, g, b, 0.0F).endVertex();
+            consumer.vertex(matrix, (float) p1.x, (float) p1.y, (float) p1.z).color(1.0F, 1.0F, 1.0F, 0.95F).endVertex();
+        }
     }
 
     /**
@@ -238,7 +305,7 @@ public class BeamStruggleRenderer {
         double x = Mth.lerp(partialTick, entity.xo, entity.getX());
         double y = Mth.lerp(partialTick, entity.yo, entity.getY());
         double z = Mth.lerp(partialTick, entity.zo, entity.getZ());
-        double heightOffset = entity.getBbHeight() * 0.65D; // Altura del pecho/ojos
+        double heightOffset = entity.getBbHeight() * 0.65D;
         return new Vec3(x, y + heightOffset, z);
     }
 
@@ -246,11 +313,13 @@ public class BeamStruggleRenderer {
         if (mc.level != null && mc.level.getEntity(entityId) != null) {
             net.minecraft.world.entity.Entity ent = mc.level.getEntity(entityId);
             String typeName = net.minecraft.world.entity.EntityType.getKey(ent.getType()).toString();
+            if (typeName.contains("steven")) return new float[]{1.0F, 0.2F, 0.2F}; // Rojo Carmesí Steven
             if (typeName.contains("tremorzilla")) return new float[]{0.25F, 1.0F, 0.5F}; // Verde
             if (typeName.contains("harbinger") || typeName.contains("leviathan")) return new float[]{0.5F, 0.2F, 1.0F}; // Púrpura
             
             if (ent instanceof net.minecraft.world.entity.player.Player player) {
                 net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
+                if (stack.is(org.xeb.xeb.item.ModItems.OPTIC_BLAST.get())) return new float[]{0.0F, 0.9F, 1.0F}; // Cyan Cíclope
                 if (stack.is(org.xeb.xeb.item.ModItems.THE_TEARS.get())) {
                     int imbue = stack.getOrCreateTag().getInt("xebTearsImbueType");
                     if (imbue == 1) return new float[]{0.7F, 0.0F, 1.0F};
@@ -260,7 +329,7 @@ public class BeamStruggleRenderer {
                 }
             }
         }
-        return new float[]{1.0F, 0.1F, 0.1F}; // Rojo por defecto
+        return new float[]{1.0F, 0.1F, 0.1F};
     }
 
     private static void renderFusionSphere(VertexConsumer consumer, Matrix4f matrix, Vec3 center,

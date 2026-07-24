@@ -40,6 +40,7 @@ public class HUDPositionScreen extends Screen {
     }
 
     private HUDCategory currentCategory = HUDCategory.GENERAL_COOLDOWNS;
+    private int selectedActiva = 1; // 1, 2, or 3
 
     private int hudX;
     private int hudY;
@@ -92,9 +93,19 @@ public class HUDPositionScreen extends Screen {
     private void loadCategoryConfig() {
         switch (this.currentCategory) {
             case GENERAL_COOLDOWNS -> {
-                this.hudX = Config.hudX;
-                this.hudY = Config.hudY;
-                this.hudScale = Config.hudScale;
+                if (this.selectedActiva == 1) {
+                    this.hudX = Config.activa1HudX;
+                    this.hudY = Config.activa1HudY;
+                    this.hudScale = Config.activa1HudScale;
+                } else if (this.selectedActiva == 2) {
+                    this.hudX = Config.activa2HudX;
+                    this.hudY = Config.activa2HudY;
+                    this.hudScale = Config.activa2HudScale;
+                } else if (this.selectedActiva == 3) {
+                    this.hudX = Config.activa3HudX;
+                    this.hudY = Config.activa3HudY;
+                    this.hudScale = Config.activa3HudScale;
+                }
             }
             case DOOMFIST_V1, DOOMFIST_V2 -> {
                 this.hudX = Config.doomfistHudX;
@@ -141,9 +152,19 @@ public class HUDPositionScreen extends Screen {
     private void saveCategoryConfigInMemory() {
         switch (this.currentCategory) {
             case GENERAL_COOLDOWNS -> {
-                Config.hudX = this.hudX;
-                Config.hudY = this.hudY;
-                Config.hudScale = this.hudScale;
+                if (this.selectedActiva == 1) {
+                    Config.activa1HudX = this.hudX;
+                    Config.activa1HudY = this.hudY;
+                    Config.activa1HudScale = this.hudScale;
+                } else if (this.selectedActiva == 2) {
+                    Config.activa2HudX = this.hudX;
+                    Config.activa2HudY = this.hudY;
+                    Config.activa2HudScale = this.hudScale;
+                } else if (this.selectedActiva == 3) {
+                    Config.activa3HudX = this.hudX;
+                    Config.activa3HudY = this.hudY;
+                    Config.activa3HudScale = this.hudScale;
+                }
             }
             case DOOMFIST_V1, DOOMFIST_V2 -> {
                 Config.doomfistHudX = this.hudX;
@@ -191,9 +212,19 @@ public class HUDPositionScreen extends Screen {
         saveCategoryConfigInMemory();
         switch (this.currentCategory) {
             case GENERAL_COOLDOWNS -> {
-                Config.GENERAL_HUD_X.set(this.hudX);
-                Config.GENERAL_HUD_Y.set(this.hudY);
-                Config.GENERAL_HUD_SCALE.set((double) this.hudScale);
+                if (this.selectedActiva == 1) {
+                    Config.ACTIVA1_HUD_X.set(this.hudX);
+                    Config.ACTIVA1_HUD_Y.set(this.hudY);
+                    Config.ACTIVA1_HUD_SCALE.set((double) this.hudScale);
+                } else if (this.selectedActiva == 2) {
+                    Config.ACTIVA2_HUD_X.set(this.hudX);
+                    Config.ACTIVA2_HUD_Y.set(this.hudY);
+                    Config.ACTIVA2_HUD_SCALE.set((double) this.hudScale);
+                } else if (this.selectedActiva == 3) {
+                    Config.ACTIVA3_HUD_X.set(this.hudX);
+                    Config.ACTIVA3_HUD_Y.set(this.hudY);
+                    Config.ACTIVA3_HUD_SCALE.set((double) this.hudScale);
+                }
             }
             case DOOMFIST_V1, DOOMFIST_V2 -> {
                 Config.DOOMFIST_HUD_X.set(this.hudX);
@@ -240,23 +271,13 @@ public class HUDPositionScreen extends Screen {
     protected void init() {
         super.init();
 
-        boolean isItemContext = !this.targetStack.isEmpty();
-
-        // Botón de cambio de categoría (DESACTIVADO si proviene de un ítem específico)
+        // Botón de título superior (DESACTIVADO por solicitud del usuario para evitar navegación innecesaria)
         Button categoryBtn = Button.builder(
                 Component.literal("HUD: " + this.currentCategory.displayName),
-                button -> {
-                    saveCategoryConfigToDisk();
-                    int nextIdx = (this.currentCategory.ordinal() + 1) % HUDCategory.values().length;
-                    this.currentCategory = HUDCategory.values()[nextIdx];
-                    loadCategoryConfig();
-                    button.setMessage(Component.literal("HUD: " + this.currentCategory.displayName));
-                }
+                button -> {}
         ).bounds(this.width / 2 - 120, 10, 240, 20).build();
 
-        if (isItemContext) {
-            categoryBtn.active = false;
-        }
+        categoryBtn.active = false;
         this.addRenderableWidget(categoryBtn);
 
         // Botón Reducir Escala
@@ -274,9 +295,19 @@ public class HUDPositionScreen extends Screen {
                 button -> {
                     switch (this.currentCategory) {
                         case GENERAL_COOLDOWNS -> {
-                            this.hudX = 10;
-                            this.hudY = 42;
-                            this.hudScale = 1.0f;
+                            if (this.selectedActiva == 1) {
+                                this.hudX = 10;
+                                this.hudY = 42;
+                                this.hudScale = 1.0f;
+                            } else if (this.selectedActiva == 2) {
+                                this.hudX = 40;
+                                this.hudY = 42;
+                                this.hudScale = 1.0f;
+                            } else if (this.selectedActiva == 3) {
+                                this.hudX = 70;
+                                this.hudY = 42;
+                                this.hudScale = 1.0f;
+                            }
                         }
                         case OPTIC_BLAST -> {
                             this.hudX = -29;
@@ -327,7 +358,11 @@ public class HUDPositionScreen extends Screen {
         this.renderBackground(g);
 
         g.drawCenteredString(this.font, Component.translatable("gui.xeb.hud_customizer.instruction"), this.width / 2, 35, 0xFFFFFFFF);
-        g.drawCenteredString(this.font, String.format("Pos X: %d | Y: %d | Scale: %.1fx", this.hudX, this.hudY, this.hudScale), this.width / 2, 48, 0x88FFFFFF);
+        if (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) {
+            g.drawCenteredString(this.font, String.format("Pos X: %d | Y: %d | Scale: %.1fx  [Modificando Activa %d]", this.hudX, this.hudY, this.hudScale, this.selectedActiva), this.width / 2, 48, 0xFF00FFCC);
+        } else {
+            g.drawCenteredString(this.font, String.format("Pos X: %d | Y: %d | Scale: %.1fx", this.hudX, this.hudY, this.hudScale), this.width / 2, 48, 0x88FFFFFF);
+        }
 
         // Crosshair de guía central
         int centerX = this.width / 2;
@@ -345,17 +380,21 @@ public class HUDPositionScreen extends Screen {
             renderY = centerY + this.hudY;
         }
 
-        g.pose().pushPose();
-        g.pose().translate(renderX, renderY, 0);
-        g.pose().scale(this.hudScale, this.hudScale, 1.0f);
+        if (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) {
+            renderAllActivasPreview(g);
+        } else {
+            g.pose().pushPose();
+            g.pose().translate(renderX, renderY, 0);
+            g.pose().scale(this.hudScale, this.hudScale, 1.0f);
 
-        // Renderizado de vista previa 1:1 exacta de la interfaz del juego
-        renderCrosshairHUDPreview(g);
+            // Renderizado de vista previa 1:1 exacta de la interfaz del juego
+            renderCrosshairHUDPreview(g);
 
-        g.pose().popPose();
+            g.pose().popPose();
+        }
 
         // Cuadro de selección para arrastrar
-        int boxWidth = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? 84 : 54;
+        int boxWidth = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? 24 : 54;
         int boxHeight = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? 24 : 36;
         int boundX = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? renderX : renderX - 27;
         int boundY = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? renderY : renderY - 18;
@@ -373,6 +412,39 @@ public class HUDPositionScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
     }
 
+    private void renderAllActivasPreview(GuiGraphics g) {
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        renderActivaPreviewBox(g, 1, Config.activa1HudX, this.height - Config.activa1HudY, Config.activa1HudScale, this.selectedActiva == 1);
+        renderActivaPreviewBox(g, 2, Config.activa2HudX, this.height - Config.activa2HudY, Config.activa2HudScale, this.selectedActiva == 2);
+        renderActivaPreviewBox(g, 3, Config.activa3HudX, this.height - Config.activa3HudY, Config.activa3HudScale, this.selectedActiva == 3);
+
+        RenderSystem.disableBlend();
+    }
+
+    private void renderActivaPreviewBox(GuiGraphics g, int num, int x, int y, float scale, boolean isSelected) {
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0);
+        g.pose().scale(scale, scale, 1.0f);
+
+        int border = isSelected ? 0xFFFFAA00 : 0x88AAAAAA;
+        int bg = isSelected ? 0x66000000 : 0x22000000;
+        int txtColor = isSelected ? 0xFFFFAA00 : 0x88AAAAAA;
+
+        g.fill(-1, -1, 25, 25, 0xFF000000);
+        g.fill(0, 0, 24, 24, bg);
+        g.fill(0, 0, 24, 1, border);
+        g.fill(0, 23, 24, 24, border);
+        g.fill(0, 0, 1, 24, border);
+        g.fill(23, 0, 24, 24, border);
+
+        String label = "ACT " + num;
+        g.drawString(this.font, label, 2, 8, txtColor, false);
+
+        g.pose().popPose();
+    }
+
     private void renderCrosshairHUDPreview(GuiGraphics g) {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -381,19 +453,6 @@ public class HUDPositionScreen extends Screen {
         float time = (float) System.currentTimeMillis() / 50.0F;
 
         switch (this.currentCategory) {
-            case GENERAL_COOLDOWNS -> {
-                for (int b = 0; b < 3; b++) {
-                    int bx = b * 30;
-                    g.fill(bx - 1, -1, bx + 25, 25, 0xFF000000);
-                    g.fill(bx, 0, bx + 24, 24, 0x44000000);
-                    g.fill(bx, 0, bx + 24, 1, 0xFF00FFCC);
-                    g.fill(bx, 23, bx + 24, 24, 0xFF00FFCC);
-                    g.fill(bx, 0, bx + 1, 24, 0xFF00FFCC);
-                    g.fill(bx + 23, 0, bx + 24, 24, 0xFF00FFCC);
-                    String label = "ACT " + (b + 1);
-                    g.drawString(this.font, label, bx + 2, 8, 0xFF00FFCC, false);
-                }
-            }
             case DOOMFIST_V2 -> {
                 int segmentCount = 4;
                 int segmentW = 10;
@@ -486,6 +545,7 @@ public class HUDPositionScreen extends Screen {
                 DoomfistHUDOverlay.drawDonutPublic(g, 0, 0, 4, 2, 0xFFB000FF);
                 g.drawCenteredString(this.font, "BRIMSTONE", 0, 14, 0xFF00FF00);
             }
+            default -> {}
         }
 
         RenderSystem.disableBlend();
@@ -494,30 +554,42 @@ public class HUDPositionScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            int centerX = this.width / 2;
-            int centerY = this.height / 2;
-            int renderX;
-            int renderY;
             if (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) {
-                renderX = this.hudX;
-                renderY = this.height - this.hudY;
+                for (int act = 1; act <= 3; act++) {
+                    int bx = (act == 1) ? Config.activa1HudX : (act == 2 ? Config.activa2HudX : Config.activa3HudX);
+                    int by = this.height - ((act == 1) ? Config.activa1HudY : (act == 2 ? Config.activa2HudY : Config.activa3HudY));
+                    float bscale = (act == 1) ? Config.activa1HudScale : (act == 2 ? Config.activa2HudScale : Config.activa3HudScale);
+                    int ew = (int) (24 * bscale);
+                    int eh = (int) (24 * bscale);
+
+                    if (mouseX >= bx && mouseX <= bx + ew && mouseY >= by && mouseY <= by + eh) {
+                        this.selectedActiva = act;
+                        loadCategoryConfig();
+                        this.dragging = true;
+                        this.dragOffsetX = (int) mouseX - bx;
+                        this.dragOffsetY = (int) mouseY - by;
+                        return true;
+                    }
+                }
             } else {
-                renderX = centerX + this.hudX;
-                renderY = centerY + this.hudY;
-            }
+                int centerX = this.width / 2;
+                int centerY = this.height / 2;
+                int renderX = centerX + this.hudX;
+                int renderY = centerY + this.hudY;
 
-            int boxWidth = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? 84 : 54;
-            int boxHeight = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? 24 : 36;
-            int boundX = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? renderX : renderX - 27;
-            int boundY = (this.currentCategory == HUDCategory.GENERAL_COOLDOWNS) ? renderY : renderY - 18;
-            int effectiveW = (int) (boxWidth * this.hudScale);
-            int effectiveH = (int) (boxHeight * this.hudScale);
+                int boxWidth = 54;
+                int boxHeight = 36;
+                int boundX = renderX - 27;
+                int boundY = renderY - 18;
+                int effectiveW = (int) (boxWidth * this.hudScale);
+                int effectiveH = (int) (boxHeight * this.hudScale);
 
-            if (mouseX >= boundX && mouseX <= boundX + effectiveW && mouseY >= boundY && mouseY <= boundY + effectiveH) {
-                this.dragging = true;
-                this.dragOffsetX = (int) mouseX - renderX;
-                this.dragOffsetY = (int) mouseY - renderY;
-                return true;
+                if (mouseX >= boundX && mouseX <= boundX + effectiveW && mouseY >= boundY && mouseY <= boundY + effectiveH) {
+                    this.dragging = true;
+                    this.dragOffsetX = (int) mouseX - renderX;
+                    this.dragOffsetY = (int) mouseY - renderY;
+                    return true;
+                }
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);

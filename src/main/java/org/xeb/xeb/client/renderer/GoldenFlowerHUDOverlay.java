@@ -91,15 +91,16 @@ public class GoldenFlowerHUDOverlay {
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
 
-            int boxW = 24;
-            int xStart = org.xeb.xeb.Config.hudX;
-            int yStart = screenH - org.xeb.xeb.Config.hudY;
-
             // --- Flower Dance (Activa 1) ---
             int danceCD = player.getPersistentData().getInt("xebGoldenFlowerDanceCooldown");
             boolean danceActive = player.getPersistentData().getBoolean("xebFlowerDanceActive");
             String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
-            renderAbilityBox(g, mc, xStart, yStart, key1, "DANC", danceCD, 400, danceActive);
+
+            g.pose().pushPose();
+            g.pose().translate(org.xeb.xeb.Config.activa1HudX, screenH - org.xeb.xeb.Config.activa1HudY, 0);
+            g.pose().scale(org.xeb.xeb.Config.activa1HudScale, org.xeb.xeb.Config.activa1HudScale, 1.0f);
+            renderAbilityBox(g, mc, 0, 0, key1, "DANC", danceCD, 400, danceActive);
+            g.pose().popPose();
 
             // --- Jarona (Activa 2) ---
             int jaronaCharges = player.getPersistentData().getInt("xebJaronaCharges");
@@ -110,10 +111,13 @@ public class GoldenFlowerHUDOverlay {
             boolean jaronaActive = org.xeb.xeb.client.JaronaAttack.getKick(player) != null;
             String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
 
-            // Render Jarona box
-            renderJaronaBox(g, mc, xStart + boxW + 6, yStart, key2, "JARO", jaronaCharges, jaronaTimer, jaronaActive);
+            g.pose().pushPose();
+            g.pose().translate(org.xeb.xeb.Config.activa2HudX, screenH - org.xeb.xeb.Config.activa2HudY, 0);
+            g.pose().scale(org.xeb.xeb.Config.activa2HudScale, org.xeb.xeb.Config.activa2HudScale, 1.0f);
+            renderJaronaBox(g, mc, 0, 0, key2, "JARO", jaronaCharges, jaronaTimer, jaronaActive);
+            g.pose().popPose();
 
-            // Extreme Burst curio box
+            // Extreme Burst curio box (Activa 3)
             org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry =
                     org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
             if (org.xeb.xeb.render.DoomfistHUDOverlay.shouldShowBurstHUD(player, burstEntry,

@@ -320,13 +320,6 @@ public class OpticBlastHUDOverlay {
      */
     private static void renderAbilityIcons(GuiGraphics g, Minecraft mc, Player player,
                                             int screenH, float time) {
-        int boxW = 24;
-        int boxH = 24;
-        int spacing = 6;
-        
-        int xStart = org.xeb.xeb.Config.hudX;
-        int yStart = screenH - org.xeb.xeb.Config.hudY;
-
         // Read cooldowns from synced data
         int cycloneCD = player.getPersistentData().getInt("xebCyclonePushCooldown");
         int spliceCD = player.getPersistentData().getInt("xebGeneSpliceCooldown");
@@ -337,15 +330,23 @@ public class OpticBlastHUDOverlay {
         String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
 
-        // Cyclone Push icon
-        renderAbilityBox(g, mc, xStart, yStart, key1, "CYCL", cycloneCD,
+        // Cyclone Push icon (Activa 1)
+        g.pose().pushPose();
+        g.pose().translate(org.xeb.xeb.Config.activa1HudX, screenH - org.xeb.xeb.Config.activa1HudY, 0);
+        g.pose().scale(org.xeb.xeb.Config.activa1HudScale, org.xeb.xeb.Config.activa1HudScale, 1.0f);
+        renderAbilityBox(g, mc, 0, 0, key1, "CYCL", cycloneCD,
                 OpticBlastItem.CYCLONE_PUSH_COOLDOWN, cycloneFiring, time);
+        g.pose().popPose();
 
-        // Gene Splice icon
-        renderAbilityBox(g, mc, xStart + boxW + spacing, yStart, key2, "GENE", spliceCD,
+        // Gene Splice icon (Activa 2)
+        g.pose().pushPose();
+        g.pose().translate(org.xeb.xeb.Config.activa2HudX, screenH - org.xeb.xeb.Config.activa2HudY, 0);
+        g.pose().scale(org.xeb.xeb.Config.activa2HudScale, org.xeb.xeb.Config.activa2HudScale, 1.0f);
+        renderAbilityBox(g, mc, 0, 0, key2, "GENE", spliceCD,
                 OpticBlastItem.GENE_SPLICE_COOLDOWN, spliceFiring, time);
+        g.pose().popPose();
 
-        // Extreme Burst curio box — only show when properly equipped and weapon condition met
+        // Extreme Burst curio box (Activa 3)
         org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry =
                 org.xeb.xeb.extremeburst.ExtremeBurstRegistry.findActiveBurst(player);
         if (DoomfistHUDOverlay.shouldShowBurstHUD(player, burstEntry,

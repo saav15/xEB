@@ -174,12 +174,26 @@ public class Config {
             .defineInRange("permanight.voteDurationSeconds", 30, 5, 120);
 
     // HUD Group (Persistent Positions & Scales for All Categories)
-    public static final ForgeConfigSpec.IntValue GENERAL_HUD_X = BUILDER
-            .defineInRange("hud.generalHudX", 10, -5000, 5000);
-    public static final ForgeConfigSpec.IntValue GENERAL_HUD_Y = BUILDER
-            .defineInRange("hud.generalHudY", 42, -5000, 5000);
-    public static final ForgeConfigSpec.DoubleValue GENERAL_HUD_SCALE = BUILDER
-            .defineInRange("hud.generalHudScale", 1.0D, 0.5D, 3.0D);
+    public static final ForgeConfigSpec.IntValue ACTIVA1_HUD_X = BUILDER
+            .defineInRange("hud.activa1HudX", 10, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue ACTIVA1_HUD_Y = BUILDER
+            .defineInRange("hud.activa1HudY", 42, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue ACTIVA1_HUD_SCALE = BUILDER
+            .defineInRange("hud.activa1HudScale", 1.0D, 0.5D, 3.0D);
+
+    public static final ForgeConfigSpec.IntValue ACTIVA2_HUD_X = BUILDER
+            .defineInRange("hud.activa2HudX", 40, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue ACTIVA2_HUD_Y = BUILDER
+            .defineInRange("hud.activa2HudY", 42, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue ACTIVA2_HUD_SCALE = BUILDER
+            .defineInRange("hud.activa2HudScale", 1.0D, 0.5D, 3.0D);
+
+    public static final ForgeConfigSpec.IntValue ACTIVA3_HUD_X = BUILDER
+            .defineInRange("hud.activa3HudX", 70, -5000, 5000);
+    public static final ForgeConfigSpec.IntValue ACTIVA3_HUD_Y = BUILDER
+            .defineInRange("hud.activa3HudY", 42, -5000, 5000);
+    public static final ForgeConfigSpec.DoubleValue ACTIVA3_HUD_SCALE = BUILDER
+            .defineInRange("hud.activa3HudScale", 1.0D, 0.5D, 3.0D);
 
     public static final ForgeConfigSpec.IntValue DOOMFIST_HUD_X = BUILDER
             .defineInRange("hud.doomfistHudX", 0, -5000, 5000);
@@ -360,9 +374,17 @@ public class Config {
     public static int permanightVoteDurationSeconds = 30;
 
     // General Ability Cooldown HUD config (Bottom-Left)
-    public static int hudX = 10;
-    public static int hudY = 42;
-    public static float hudScale = 1.0f;
+    public static int activa1HudX = 10;
+    public static int activa1HudY = 42;
+    public static float activa1HudScale = 1.0f;
+
+    public static int activa2HudX = 40;
+    public static int activa2HudY = 42;
+    public static float activa2HudScale = 1.0f;
+
+    public static int activa3HudX = 70;
+    public static int activa3HudY = 42;
+    public static float activa3HudScale = 1.0f;
 
     // Per-Mythic Crosshair Gauge HUD position & scale config
     public static int doomfistHudX = 0;
@@ -480,9 +502,17 @@ public class Config {
         permanightVoteDurationSeconds = PERMANIGHT_VOTE_DURATION_SECONDS.get();
 
         // Load HUD config (Persistent Across Sessions & Deaths)
-        hudX = GENERAL_HUD_X.get();
-        hudY = GENERAL_HUD_Y.get();
-        hudScale = GENERAL_HUD_SCALE.get().floatValue();
+        activa1HudX = ACTIVA1_HUD_X.get();
+        activa1HudY = ACTIVA1_HUD_Y.get();
+        activa1HudScale = ACTIVA1_HUD_SCALE.get().floatValue();
+
+        activa2HudX = ACTIVA2_HUD_X.get();
+        activa2HudY = ACTIVA2_HUD_Y.get();
+        activa2HudScale = ACTIVA2_HUD_SCALE.get().floatValue();
+
+        activa3HudX = ACTIVA3_HUD_X.get();
+        activa3HudY = ACTIVA3_HUD_Y.get();
+        activa3HudScale = ACTIVA3_HUD_SCALE.get().floatValue();
 
         doomfistHudX = DOOMFIST_HUD_X.get();
         doomfistHudY = DOOMFIST_HUD_Y.get();

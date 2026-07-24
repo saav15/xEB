@@ -485,14 +485,22 @@ public class StevenBossEntity extends Monster implements GeoEntity {
 
             if (this.level() instanceof ServerLevel serverLevel) {
                 long gameTick = serverLevel.getGameTime();
+
+                if (inStruggle) {
+                    Vec3 struggleCollision = BeamStruggleManager.getCollisionPointFor(this.getUUID());
+                    if (struggleCollision != null) {
+                        beamEnd = struggleCollision;
+                    }
+                }
+
                 BeamData beam = new BeamData(this.getUUID(), this.getId(), origin, beamEnd, 0xFF050505, gameTick, gameTick + 10, "steven_laser");
                 ActiveBeamManager.get().putBeam(this.getUUID(), beam);
 
                 XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> this),
                         new StevenLaserSyncPacket(this.getId(), true, origin, beamEnd));
 
-                // Efectos limpios en el punto exacto de colision con bloques
-                if (blockHit.getType() != net.minecraft.world.phys.BlockHitResult.Type.MISS) {
+                // Efectos limpios en el punto exacto de colisión con bloques
+                if (blockHit.getType() != net.minecraft.world.phys.BlockHitResult.Type.MISS && !inStruggle) {
                     StevenParticleHelper.spawnLaserImpactParticles(serverLevel, beamEnd);
                     if (this.stateTicks % 6 == 0) {
                         this.level().playSound(null, beamEnd.x, beamEnd.y, beamEnd.z,
@@ -500,34 +508,36 @@ public class StevenBossEntity extends Monster implements GeoEntity {
                     }
                 }
 
-                Vec3 collision = ActiveBeamManager.get().checkBeamVsBeamCollision(this.getUUID(), origin, beamEnd, 0.8D);
-                if (collision != null) {
-                    UUID otherOwner = ActiveBeamManager.get().findCollidingBeamOwner(this.getUUID(), origin, beamEnd, 0.8D);
-                    if (otherOwner == null && currentTarget != null) {
-                        otherOwner = currentTarget.getUUID();
-                    }
-                    if (otherOwner != null) {
-                        Vec3 otherStart = origin;
-                        net.minecraft.world.entity.Entity otherEnt = serverLevel.getEntity(otherOwner);
-                        if (otherEnt instanceof LivingEntity otherLiving) {
-                            otherStart = otherLiving.position().add(0, 1.8D, 0);
+                if (!inStruggle) {
+                    Vec3 collision = ActiveBeamManager.get().checkBeamVsBeamCollision(this.getUUID(), origin, beamEnd, 0.8D);
+                    if (collision != null) {
+                        UUID otherOwner = ActiveBeamManager.get().findCollidingBeamOwner(this.getUUID(), origin, beamEnd, 0.8D);
+                        if (otherOwner == null && currentTarget != null) {
+                            otherOwner = currentTarget.getUUID();
                         }
-                        BeamStruggleManager.onBeamCollision(this.getUUID(), otherOwner, origin, otherStart, collision, gameTick, serverLevel);
+                        if (otherOwner != null) {
+                            Vec3 otherStart = origin;
+                            net.minecraft.world.entity.Entity otherEnt = serverLevel.getEntity(otherOwner);
+                            if (otherEnt instanceof LivingEntity otherLiving) {
+                                otherStart = otherLiving.position().add(0, 1.8D, 0);
+                            }
+                            BeamStruggleManager.onBeamCollision(this.getUUID(), otherOwner, origin, otherStart, collision, gameTick, serverLevel);
+                        }
                     }
-                }
 
-                // Deteccion precisa de victimas sobre el segmento del haz
-                AABB searchBox = new AABB(origin, beamEnd).inflate(1.2D);
-                List<LivingEntity> potentialVictims = serverLevel.getEntitiesOfClass(LivingEntity.class, searchBox,
-                        e -> e != this && !(e instanceof StevenBossEntity) && !(e instanceof StevenCloneEntity) && e.isAlive());
+                    // Detección precisa de víctimas sobre el segmento del haz (NO dañar durante Beam Struggle activo)
+                    AABB searchBox = new AABB(origin, beamEnd).inflate(1.2D);
+                    List<LivingEntity> potentialVictims = serverLevel.getEntitiesOfClass(LivingEntity.class, searchBox,
+                            e -> e != this && !(e instanceof StevenBossEntity) && !(e instanceof StevenCloneEntity) && e.isAlive());
 
-                float damage = empowered ? 11.0F : 7.0F;
-                for (LivingEntity victim : potentialVictims) {
-                    AABB victimBox = victim.getBoundingBox().inflate(0.4D);
-                    if (victimBox.clip(origin, beamEnd).isPresent()) {
-                        victim.hurt(this.damageSources().indirectMagic(this, this), damage);
-                        if (this.stateTicks % 4 == 0) {
-                            serverLevel.sendParticles(ParticleTypes.CRIT, victim.getX(), victim.getY(0.5D), victim.getZ(), 2, 0.1D, 0.1D, 0.1D, 0.05D);
+                    float damage = empowered ? 11.0F : 7.0F;
+                    for (LivingEntity victim : potentialVictims) {
+                        AABB victimBox = victim.getBoundingBox().inflate(0.4D);
+                        if (victimBox.clip(origin, beamEnd).isPresent()) {
+                            victim.hurt(this.damageSources().indirectMagic(this, this), damage);
+                            if (this.stateTicks % 4 == 0) {
+                                serverLevel.sendParticles(ParticleTypes.CRIT, victim.getX(), victim.getY(0.5D), victim.getZ(), 2, 0.1D, 0.1D, 0.1D, 0.05D);
+                            }
                         }
                     }
                 }

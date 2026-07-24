@@ -129,38 +129,49 @@ public class BossBeamAttackGoal extends Goal {
 
                 if (mob.level() instanceof ServerLevel serverLevel) {
                     long gameTick = serverLevel.getGameTime();
+
+                    boolean inStruggle = BeamStruggleManager.isEntityInStruggle(mob.getUUID());
+                    if (inStruggle) {
+                        Vec3 struggleCol = BeamStruggleManager.getCollisionPointFor(mob.getUUID());
+                        if (struggleCol != null) {
+                            beamEnd = struggleCol;
+                        }
+                    }
+
                     BeamData beam = new BeamData(mob.getUUID(), mob.getId(), origin, beamEnd, 0xFF050505, gameTick, gameTick + 5, "boss_beam");
                     ActiveBeamManager.get().putBeam(mob.getUUID(), beam);
 
-                    // Impact particles
-                    if (rayResult.hitSolidBlock()) {
+                    // Impact particles (only when NOT in struggle)
+                    if (rayResult.hitSolidBlock() && !inStruggle) {
                         StevenParticleHelper.spawnLaserImpactParticles(serverLevel, beamEnd);
                     }
 
-                    // Check Beam Struggle collision vs other beams
-                    Vec3 collision = ActiveBeamManager.get().checkBeamVsBeamCollision(mob.getUUID(), origin, beamEnd, 0.8D);
-                    if (collision != null) {
-                        UUID otherOwner = ActiveBeamManager.get().findCollidingBeamOwner(mob.getUUID(), origin, beamEnd, 0.8D);
-                        if (otherOwner == null && target != null) {
-                            otherOwner = target.getUUID();
-                        }
-                        if (otherOwner != null) {
-                            Vec3 otherStart = origin;
-                            if (serverLevel.getEntity(otherOwner) instanceof LivingEntity otherLiving) {
-                                otherStart = otherLiving.getEyePosition();
+                    if (!inStruggle) {
+                        // Check Beam Struggle collision vs other beams
+                        Vec3 collision = ActiveBeamManager.get().checkBeamVsBeamCollision(mob.getUUID(), origin, beamEnd, 0.8D);
+                        if (collision != null) {
+                            UUID otherOwner = ActiveBeamManager.get().findCollidingBeamOwner(mob.getUUID(), origin, beamEnd, 0.8D);
+                            if (otherOwner == null && target != null) {
+                                otherOwner = target.getUUID();
                             }
-                            BeamStruggleManager.onBeamCollision(mob.getUUID(), otherOwner, origin, otherStart, collision, gameTick, serverLevel);
+                            if (otherOwner != null) {
+                                Vec3 otherStart = origin;
+                                if (serverLevel.getEntity(otherOwner) instanceof LivingEntity otherLiving) {
+                                    otherStart = otherLiving.getEyePosition();
+                                }
+                                BeamStruggleManager.onBeamCollision(mob.getUUID(), otherOwner, origin, otherStart, collision, gameTick, serverLevel);
+                            }
                         }
-                    }
 
-                    // Deal damage per tick along the beam line segment
-                    AABB searchBox = new AABB(origin, beamEnd).inflate(1.2D);
-                    List<LivingEntity> victims = serverLevel.getEntitiesOfClass(LivingEntity.class, searchBox,
-                            e -> e != mob && e.isAlive());
+                        // Deal damage per tick along the beam line segment (ONLY when NOT in active struggle)
+                        AABB searchBox = new AABB(origin, beamEnd).inflate(1.2D);
+                        List<LivingEntity> victims = serverLevel.getEntitiesOfClass(LivingEntity.class, searchBox,
+                                e -> e != mob && e.isAlive());
 
-                    for (LivingEntity victim : victims) {
-                        if (victim.getBoundingBox().inflate(0.4D).clip(origin, beamEnd).isPresent()) {
-                            victim.hurt(mob.damageSources().indirectMagic(mob, mob), damagePerTick);
+                        for (LivingEntity victim : victims) {
+                            if (victim.getBoundingBox().inflate(0.4D).clip(origin, beamEnd).isPresent()) {
+                                victim.hurt(mob.damageSources().indirectMagic(mob, mob), damagePerTick);
+                            }
                         }
                     }
 
