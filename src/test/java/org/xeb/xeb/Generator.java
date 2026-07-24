@@ -119,7 +119,9 @@ public class Generator {
         deleteDir(new File(baseDir, "assets/xeb/models/tool_materials"));
 
         File modDefDir = new File(baseDir, "data/tconstruct/tinkering/modifiers");
+        File modDefDirXeb = new File(baseDir, "data/xeb/tinkering/modifiers");
         File modRecDir = new File(baseDir, "data/tconstruct/recipes/modifiers");
+        File modRecDirXeb = new File(baseDir, "data/xeb/recipes/modifiers");
         File modelItemDir = new File(baseDir, "assets/xeb/models/item");
         File textureItemDir = new File(baseDir, "assets/xeb/textures/item");
         File langDir = new File(baseDir, "assets/xeb/lang");
@@ -135,7 +137,9 @@ public class Generator {
         File toolMatModelDir = new File(baseDir, "assets/tconstruct/models/tool_materials");
 
         modDefDir.mkdirs();
+        modDefDirXeb.mkdirs();
         modRecDir.mkdirs();
+        modRecDirXeb.mkdirs();
         modelItemDir.mkdirs();
         textureItemDir.mkdirs();
         tconTagItemMaterialDir.mkdirs();
@@ -249,12 +253,13 @@ public class Generator {
                     "  \"modules\": []\n" +
                     "}";
             writeFile(new File(modDefDir, buffId + ".json"), defJson);
+            writeFile(new File(modDefDirXeb, buffId + ".json"), defJson);
 
             // Determine nugget type based on buffId tier
             String nugget = getNuggetItem(buffId);
 
             // 2. Recipe JSON (allows all modifiable tools, requires essence + tier nugget + moon tear)
-            String recJson = "{\n" +
+            String recJsonTcon = "{\n" +
                     "  \"type\": \"tconstruct:modifier\",\n" +
                     "  \"inputs\": [\n" +
                     "    { \"item\": \"xeb:" + buffId + "_essence\" },\n" +
@@ -266,7 +271,20 @@ public class Generator {
                     "  \"max_level\": 3,\n" +
                     "  \"slots\": { \"upgrades\": 1 }\n" +
                     "}";
-            writeFile(new File(modRecDir, buffId + ".json"), recJson);
+            String recJsonXeb = "{\n" +
+                    "  \"type\": \"tconstruct:modifier\",\n" +
+                    "  \"inputs\": [\n" +
+                    "    { \"item\": \"xeb:" + buffId + "_essence\" },\n" +
+                    "    { \"item\": \"" + nugget + "\" },\n" +
+                    "    { \"item\": \"xeb:moon_tear\" }\n" +
+                    "  ],\n" +
+                    "  \"tools\": { \"tag\": \"tconstruct:modifiable\" },\n" +
+                    "  \"result\": { \"name\": \"xeb:" + buffId + "\", \"level\": 1 },\n" +
+                    "  \"max_level\": 3,\n" +
+                    "  \"slots\": { \"upgrades\": 1 }\n" +
+                    "}";
+            writeFile(new File(modRecDir, buffId + ".json"), recJsonTcon);
+            writeFile(new File(modRecDirXeb, buffId + ".json"), recJsonXeb);
 
             // 3. Item Model JSON
             String modelJson = "{\n" +
@@ -286,6 +304,9 @@ public class Generator {
         writeFile(new File(modDefDir, "spiked_conditioning.json"), "{\n  \"type\": \"tconstruct:composable\",\n  \"modules\": []\n}");
         writeFile(new File(modDefDir, "elite_reflexes.json"), "{\n  \"type\": \"tconstruct:composable\",\n  \"modules\": []\n}");
         writeFile(new File(modDefDir, "elite_slayer.json"), "{\n  \"type\": \"tconstruct:composable\",\n  \"modules\": []\n}");
+        writeFile(new File(modDefDirXeb, "spiked_conditioning.json"), "{\n  \"type\": \"tconstruct:composable\",\n  \"modules\": []\n}");
+        writeFile(new File(modDefDirXeb, "elite_reflexes.json"), "{\n  \"type\": \"tconstruct:composable\",\n  \"modules\": []\n}");
+        writeFile(new File(modDefDirXeb, "elite_slayer.json"), "{\n  \"type\": \"tconstruct:composable\",\n  \"modules\": []\n}");
 
         // ── Generate Bits (Nuggets), Ingots & Molten Buckets PNGs ──
         writeNuggetPng(new File(textureItemDir, "bronze_elite_bit.png"), new Color(0xcd, 0x7f, 0x32)); // Bronze Nugget
@@ -325,6 +346,12 @@ public class Generator {
         enAdditions.put("modifier.tconstruct.elite_reflexes.description", "+10% attack speed when below 50% HP");
         enAdditions.put("modifier.tconstruct.elite_slayer", "Elite Slayer");
         enAdditions.put("modifier.tconstruct.elite_slayer.description", "+25% damage against medallion-bearing mobs, -10% against others");
+        enAdditions.put("modifier.xeb.spiked_conditioning", "Spiked Conditioning");
+        enAdditions.put("modifier.xeb.spiked_conditioning.description", "When blocking with this tool, gain 0.5 armor for 3 seconds");
+        enAdditions.put("modifier.xeb.elite_reflexes", "Elite Reflexes");
+        enAdditions.put("modifier.xeb.elite_reflexes.description", "+10% attack speed when below 50% HP");
+        enAdditions.put("modifier.xeb.elite_slayer", "Elite Slayer");
+        enAdditions.put("modifier.xeb.elite_slayer.description", "+25% damage against medallion-bearing mobs, -10% against others");
         
         enAdditions.put("material.tconstruct.bronze_elite", "Bronze Elite");
         enAdditions.put("material.tconstruct.silver_elite", "Silver Elite");
@@ -343,7 +370,11 @@ public class Generator {
             }
             enAdditions.put("item.xeb." + buffId + "_essence", capName + " Essence");
             enAdditions.put("modifier.tconstruct." + buffId, capName);
+            enAdditions.put("modifier.tconstruct." + buffId + ".flavor", desc);
             enAdditions.put("modifier.tconstruct." + buffId + ".description", desc);
+            enAdditions.put("modifier.xeb." + buffId, capName);
+            enAdditions.put("modifier.xeb." + buffId + ".flavor", desc);
+            enAdditions.put("modifier.xeb." + buffId + ".description", desc);
         }
         appendTranslations(enLangFile, enAdditions);
 
@@ -368,11 +399,23 @@ public class Generator {
             esAdditions.put("fluid.xeb.molten_gold_elite", "Oro Elite Fundido");
             
             esAdditions.put("modifier.tconstruct.spiked_conditioning", "Condicionamiento Espinoso");
+            esAdditions.put("modifier.tconstruct.spiked_conditioning.flavor", "Al bloquear con esta herramienta, ganas 0.5 de armadura por 3 segundos");
             esAdditions.put("modifier.tconstruct.spiked_conditioning.description", "Al bloquear con esta herramienta, ganas 0.5 de armadura por 3 segundos");
             esAdditions.put("modifier.tconstruct.elite_reflexes", "Reflejos de Elite");
+            esAdditions.put("modifier.tconstruct.elite_reflexes.flavor", "+10% velocidad de ataque al estar por debajo del 50% de vida");
             esAdditions.put("modifier.tconstruct.elite_reflexes.description", "+10% velocidad de ataque al estar por debajo del 50% de vida");
             esAdditions.put("modifier.tconstruct.elite_slayer", "Cazador de Elites");
+            esAdditions.put("modifier.tconstruct.elite_slayer.flavor", "+25% daño contra monstruos con medallón, -10% contra otros");
             esAdditions.put("modifier.tconstruct.elite_slayer.description", "+25% daño contra monstruos con medallón, -10% contra otros");
+            esAdditions.put("modifier.xeb.spiked_conditioning", "Condicionamiento Espinoso");
+            esAdditions.put("modifier.xeb.spiked_conditioning.flavor", "Al bloquear con esta herramienta, ganas 0.5 de armadura por 3 segundos");
+            esAdditions.put("modifier.xeb.spiked_conditioning.description", "Al bloquear con esta herramienta, ganas 0.5 de armadura por 3 segundos");
+            esAdditions.put("modifier.xeb.elite_reflexes", "Reflejos de Elite");
+            esAdditions.put("modifier.xeb.elite_reflexes.flavor", "+10% velocidad de ataque al estar por debajo del 50% de vida");
+            esAdditions.put("modifier.xeb.elite_reflexes.description", "+10% velocidad de ataque al estar por debajo del 50% de vida");
+            esAdditions.put("modifier.xeb.elite_slayer", "Cazador de Elites");
+            esAdditions.put("modifier.xeb.elite_slayer.flavor", "+25% daño contra monstruos con medallón, -10% contra otros");
+            esAdditions.put("modifier.xeb.elite_slayer.description", "+25% daño contra monstruos con medallón, -10% contra otros");
             
             esAdditions.put("material.tconstruct.bronze_elite", "Bronce Elite");
             esAdditions.put("material.tconstruct.silver_elite", "Plata Elite");
@@ -385,12 +428,16 @@ public class Generator {
                 String spName = nameMapEs.get(buffId);
                 esAdditions.put("item.xeb." + buffId + "_essence", "Esencia de " + spName);
                 esAdditions.put("modifier.tconstruct." + buffId, spName);
+                esAdditions.put("modifier.tconstruct." + buffId + ".flavor", descEs);
                 esAdditions.put("modifier.tconstruct." + buffId + ".description", descEs);
+                esAdditions.put("modifier.xeb." + buffId, spName);
+                esAdditions.put("modifier.xeb." + buffId + ".flavor", descEs);
+                esAdditions.put("modifier.xeb." + buffId + ".description", descEs);
             }
             appendTranslations(esLangFile, esAdditions);
         }
 
-        System.out.println("Generated all JSONs under tconstruct namespace, textures, and updated lang files successfully!");
+        System.out.println("Generated all JSONs under tconstruct and xeb namespaces, textures, and updated lang files successfully!");
     }
 
     private String getNuggetItem(String id) {

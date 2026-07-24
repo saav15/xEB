@@ -50,6 +50,9 @@ public class Xeb {
         net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
                 () -> () -> org.xeb.xeb.client.ClientAccess.registerClientConfigScreen());
 
+        // Register essences BEFORE ModItems.register so DeferredRegister contains them
+        registerAllEssences();
+
         // Register custom systems
         ModAttributes.register(modEventBus);
         ModEffects.register(modEventBus);
@@ -61,6 +64,14 @@ public class Xeb {
         org.xeb.xeb.block.ModBlocks.register(modEventBus);
         org.xeb.xeb.fluid.ModFluids.register(modEventBus);
         org.xeb.xeb.fluid.ModFluidTypes.FLUID_TYPES.register(modEventBus);
+
+        if (net.minecraftforge.fml.ModList.get().isLoaded("tconstruct")) {
+            try {
+                org.xeb.xeb.compat.tconstruct.XEBTinkersModifiers.register(modEventBus);
+            } catch (Throwable t) {
+                LOGGER.error("Failed to register Tinkers' Construct modifiers", t);
+            }
+        }
 
         // Register lifecycle listeners
         modEventBus.addListener(this::commonSetup);
@@ -76,7 +87,6 @@ public class Xeb {
 
         // Register all 28 buffs
         registerAllBuffs();
-        registerAllEssences();
 
         LOGGER.info("xEB (xd Elite Buffs) loaded!");
     }
