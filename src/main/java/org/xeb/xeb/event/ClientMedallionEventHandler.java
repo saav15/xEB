@@ -27,17 +27,34 @@ public class ClientMedallionEventHandler {
         LivingEntity entity = event.getEntity();
         if (entity == null) return;
 
-        List<MedallionData> medallions = MedallionManager.getMedallions(entity);
-        if (medallions.isEmpty()) return;
+        boolean pushedPose = false;
 
-        int megaCount = 0;
-        for (MedallionData m : medallions) {
-            if (m.getBuff().getId().equals("mega")) megaCount++;
+        // Materialize effect scaling (starts at 10% size, grows to 100% over 10 ticks)
+        if (entity.getPersistentData().contains("xebMaterializingTicks")) {
+            int matTicks = entity.getPersistentData().getInt("xebMaterializingTicks");
+            if (matTicks > 0) {
+                float matScale = 1.0F - (matTicks / 10.0F * 0.9F);
+                event.getPoseStack().pushPose();
+                event.getPoseStack().scale(matScale, matScale, matScale);
+                entity.getPersistentData().putBoolean("xebPushedMatPose", true);
+                pushedPose = true;
+            }
         }
-        if (megaCount > 0) {
-            float scaleFactor = 1.0F + 0.30F * megaCount;
-            event.getPoseStack().pushPose();
-            event.getPoseStack().scale(scaleFactor, scaleFactor, scaleFactor);
+
+        List<MedallionData> medallions = MedallionManager.getMedallions(entity);
+        if (!medallions.isEmpty()) {
+            int megaCount = 0;
+            for (MedallionData m : medallions) {
+                if (m.getBuff().getId().equals("mega")) megaCount++;
+            }
+            if (megaCount > 0) {
+                float scaleFactor = 1.0F + 0.30F * megaCount;
+                if (!pushedPose) {
+                    event.getPoseStack().pushPose();
+                    entity.getPersistentData().putBoolean("xebPushedMatPose", true);
+                }
+                event.getPoseStack().scale(scaleFactor, scaleFactor, scaleFactor);
+            }
         }
     }
 
@@ -46,16 +63,8 @@ public class ClientMedallionEventHandler {
         LivingEntity entity = event.getEntity();
         if (entity == null) return;
 
-        List<MedallionData> medallions = MedallionManager.getMedallions(entity);
-        if (medallions.isEmpty()) return;
-
-        int megaCount = 0;
-        for (MedallionData m : medallions) {
-            if (m.getBuff().getId().equals("mega")) megaCount++;
-        }
-
-        // Pop the Mega scale pose that was pushed in Pre
-        if (megaCount > 0) {
+        if (entity.getPersistentData().getBoolean("xebPushedMatPose")) {
+            entity.getPersistentData().remove("xebPushedMatPose");
             event.getPoseStack().popPose();
         }
     }

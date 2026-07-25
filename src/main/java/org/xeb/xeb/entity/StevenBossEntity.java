@@ -764,10 +764,13 @@ public class StevenBossEntity extends Monster implements GeoEntity {
             this.setStandActive(false);
             this.setFlowerDanceActive(false);
             if (this.level() instanceof ServerLevel serverLevel) {
-                StevenPortalEntity portal = new StevenPortalEntity(ModEntities.STEVEN_PORTAL.get(), serverLevel);
+                StaticPortalEntity portal = new StaticPortalEntity(ModEntities.STATIC_PORTAL.get(), serverLevel);
                 portal.setPos(this.getX(), this.getY(), this.getZ());
+                portal.setPortalLifetime(60);
+                portal.setMaxSpawns(0);
                 serverLevel.addFreshEntity(portal);
             }
+            this.getPersistentData().putInt("xebMaterializingTicks", 10);
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                     SoundEvents.PORTAL_TRAVEL, SoundSource.HOSTILE, 1.0F, 1.5F);
         }

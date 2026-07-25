@@ -90,7 +90,8 @@ public class HotPokerEntity extends Monster implements GeoEntity {
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType spawnType, @Nullable SpawnGroupData data, @Nullable CompoundTag dataTag) {
         SpawnGroupData result = super.finalizeSpawn(level, difficulty, spawnType, data, dataTag);
 
-        // Equip Trident in left hand
+        // Equip Dual Tridents in both hands (MAINHAND -> HANDleft, OFFHAND -> HANDright)
+        this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.TRIDENT));
         this.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.TRIDENT));
 
         if (level instanceof ServerLevel serverLevel) {
@@ -181,6 +182,8 @@ public class HotPokerEntity extends Monster implements GeoEntity {
 
         // Handle step sounds manually synced to walking animation
         if (!this.level().isClientSide()) {
+            boolean hasTarget = this.getTarget() != null && this.getTarget().isAlive();
+            this.setSprinting(hasTarget);
             boolean isAttemptingToMove = this.getNavigation().isInProgress() || Math.abs(this.zza) > 0.001F || Math.abs(this.xxa) > 0.001F;
             this.entityData.set(DATA_IS_WALKING, isAttemptingToMove);
 
@@ -207,22 +210,6 @@ public class HotPokerEntity extends Monster implements GeoEntity {
 
     @Override
     public void travel(net.minecraft.world.phys.Vec3 travelVector) {
-        if (this.isEffectiveAi() || this.isControlledByLocalInstance()) {
-            boolean isAttemptingToMove = this.getNavigation().isInProgress() || Math.abs(this.zza) > 0.001F || Math.abs(this.xxa) > 0.001F;
-            if (this.onGround() && isAttemptingToMove) {
-                int tickInCycle = this.walkTimer % 20;
-                boolean canMove = (tickInCycle >= 4 && tickInCycle <= 5) || (tickInCycle >= 8 && tickInCycle <= 9);
-                if (!canMove) {
-                    super.travel(new net.minecraft.world.phys.Vec3(0, travelVector.y, 0));
-                    this.setDeltaMovement(0, this.getDeltaMovement().y, 0);
-                    return;
-                } else if (tickInCycle == 4 || tickInCycle == 8) {
-                    // Micro jump: push the mob slightly upward and forward to gain more step distance
-                    net.minecraft.world.phys.Vec3 currentVel = this.getDeltaMovement();
-                    this.setDeltaMovement(currentVel.x * 1.8D, 0.18D, currentVel.z * 1.8D);
-                }
-            }
-        }
         super.travel(travelVector);
     }
 
@@ -367,8 +354,11 @@ public class HotPokerEntity extends Monster implements GeoEntity {
             return event.setAndContinue(RawAnimation.begin().thenLoop("Idle"));
         }));
 
-        controllers.add(new AnimationController<>(this, "walk_controller", 5, event -> {
-            if (this.entityData.get(DATA_IS_WALKING)) {
+        controllers.add(new AnimationController<>(this, "walk_controller", 3, event -> {
+            if (this.entityData.get(DATA_IS_WALKING) || event.isMoving()) {
+                if (this.isSprinting() || this.getTarget() != null) {
+                    return event.setAndContinue(RawAnimation.begin().thenLoop("run"));
+                }
                 return event.setAndContinue(RawAnimation.begin().thenLoop("walk"));
             }
             return PlayState.STOP;

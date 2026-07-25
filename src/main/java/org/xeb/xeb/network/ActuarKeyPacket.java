@@ -668,7 +668,10 @@ public class ActuarKeyPacket {
                                         charges--;
                                     } else {
                                         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                                net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 2.0F);
+                                                net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 2.0F);
+                                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                                net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME, net.minecraft.sounds.SoundSource.PLAYERS, 1.2F, 1.8F);
+                                        player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§a✨ ¡Zelo Floricultor conservó tu carga del Spindash!"), true);
                                     }
                                     pData.putInt("xebSpindashCharges", charges);
                                     Vec3 playerLook = player.getLookAngle().normalize();

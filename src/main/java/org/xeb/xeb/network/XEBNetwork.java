@@ -50,6 +50,7 @@ public class XEBNetwork {
         CHANNEL.registerMessage(id++, FlourishPacket.class, FlourishPacket::encode, FlourishPacket::decode, FlourishPacket::handle);
         CHANNEL.registerMessage(id++, OpenEnigmaBiosPacket.class, OpenEnigmaBiosPacket::encode, OpenEnigmaBiosPacket::decode, OpenEnigmaBiosPacket::handle);
         CHANNEL.registerMessage(id++, DamageNumberPacket.class, DamageNumberPacket::encode, DamageNumberPacket::decode, DamageNumberPacket::handle);
+        CHANNEL.registerMessage(id++, StaticPortalSyncPacket.class, StaticPortalSyncPacket::encode, StaticPortalSyncPacket::decode, StaticPortalSyncPacket::handle);
     }
 
     public static class EliteMasterySyncPacket {

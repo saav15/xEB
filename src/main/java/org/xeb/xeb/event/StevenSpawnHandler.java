@@ -47,14 +47,19 @@ public class StevenSpawnHandler {
                 (RANDOM.nextDouble() - 0.5D) * 6.0D
         );
 
-        // Spawn Portal
-        StevenPortalEntity portal = new StevenPortalEntity(ModEntities.STEVEN_PORTAL.get(), level);
+        // Spawn TV Static Portal
+        org.xeb.xeb.entity.StaticPortalEntity portal = new org.xeb.xeb.entity.StaticPortalEntity(ModEntities.STATIC_PORTAL.get(), level);
         portal.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
+        portal.setPortalLifetime(120);
+        portal.setMaxSpawns(0);
         level.addFreshEntity(portal);
 
-        // Spawn Steven Boss Entity
+        // Spawn Steven Boss Entity with materializing effect
         StevenBossEntity steven = new StevenBossEntity(ModEntities.STEVEN_BOSS.get(), level);
         steven.setPos(spawnPos.x, spawnPos.y + 0.2D, spawnPos.z);
+        steven.getPersistentData().putInt("xebMaterializingTicks", 10);
+        steven.setInvulnerable(true);
+        steven.setNoAi(true);
 
         if (isFullMode) {
             steven.setFullMode(true);

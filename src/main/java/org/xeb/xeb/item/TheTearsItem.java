@@ -510,6 +510,23 @@ public class TheTearsItem extends Item implements GeoItem {
                     }
                 }
 
+                int purifyingLvl = player.getMainHandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.PURIFYING_BEAM.get());
+                if (purifyingLvl == 0) {
+                    purifyingLvl = player.getOffhandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.PURIFYING_BEAM.get());
+                }
+                if (purifyingLvl > 0) {
+                    boolean hasNegativeStatus = target.hasEffect(org.xeb.xeb.effect.ModEffects.MANA_LEECH.get())
+                            || target.hasEffect(org.xeb.xeb.effect.ModEffects.MADNESS.get())
+                            || target.hasEffect(org.xeb.xeb.effect.ModEffects.BLIND.get())
+                            || target.hasEffect(org.xeb.xeb.effect.ModEffects.BURN.get())
+                            || target.hasEffect(org.xeb.xeb.effect.ModEffects.MAGIC_WEAKNESS.get())
+                            || target.hasEffect(org.xeb.xeb.effect.ModEffects.NO_HEALTH_REGEN.get())
+                            || target.hasEffect(org.xeb.xeb.effect.ModEffects.EXHAUSTED.get());
+                    if (hasNegativeStatus) {
+                        baseDmg *= (1.0F + purifyingLvl * 0.20F);
+                    }
+                }
+
                 target.getPersistentData().putString("xebLastAttackWeapon", "the_tears");
                 target.getPersistentData().putString("xebLastAttackType", "right_click");
                 target.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());

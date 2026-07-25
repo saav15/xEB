@@ -47,6 +47,30 @@ public class BuffTickHandler {
             entityData.putInt("xebDecoherencePlayerCooldown", decocd - 1);
         }
 
+        // Materialize tick countdown for spawned entities
+        if (entityData.contains("xebMaterializingTicks")) {
+            int matTicks = entityData.getInt("xebMaterializingTicks");
+            if (matTicks > 0) {
+                matTicks--;
+                entityData.putInt("xebMaterializingTicks", matTicks);
+                entity.setInvulnerable(true);
+                if (entity instanceof net.minecraft.world.entity.Mob mob) {
+                    mob.setNoAi(true);
+                }
+                if (entity.level() instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK,
+                            entity.getX(), entity.getY(0.5D), entity.getZ(), 4, 0.3D, 0.5D, 0.3D, 0.05D);
+                }
+                if (matTicks <= 0) {
+                    entityData.remove("xebMaterializingTicks");
+                    entity.setInvulnerable(false);
+                    if (entity instanceof net.minecraft.world.entity.Mob mob) {
+                        mob.setNoAi(false);
+                    }
+                }
+            }
+        }
+
         // === Spore Cloud ticking (Golden Flower retorno) ===
         if (entity instanceof ServerPlayer sp) {
             // Natural Shattered Rift Spawning (once every 600 ticks / 30 seconds per player)
@@ -297,6 +321,14 @@ public class BuffTickHandler {
                 if (rechargeTimer >= rechargeInterval) {
                     charges++;
                     rechargeTimer = 0;
+                    if (floriculturaLvl > 0) {
+                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, net.minecraft.sounds.SoundSource.PLAYERS, 0.7F, 1.8F);
+                        if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                            serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER,
+                                    player.getX(), player.getY(0.5D), player.getZ(), 4, 0.3D, 0.3D, 0.3D, 0.05D);
+                        }
+                    }
                 }
                 pData.putInt("xebGoldenFlowerCharges", charges);
                 pData.putInt("xebGoldenFlowerRechargeTimer", rechargeTimer);

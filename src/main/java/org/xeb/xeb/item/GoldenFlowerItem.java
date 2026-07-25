@@ -205,7 +205,12 @@ public class GoldenFlowerItem extends Item implements GeoItem {
                     consumed = Math.max(0, loaded - refunded);
                     if (refunded > 0) {
                         level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                                net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 2.0F);
+                                net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 2.0F);
+                        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                                net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME, net.minecraft.sounds.SoundSource.PLAYERS, 1.2F, 1.8F);
+                        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                            serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.literal("§a✨ ¡Zelo Floricultor recuperó " + refunded + " carga(s)!"), true);
+                        }
                     }
                 }
                 charges = Math.max(0, charges - consumed);

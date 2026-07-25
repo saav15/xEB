@@ -51,6 +51,22 @@ public class BuffDamageHandler {
         LivingEntity target = event.getEntity();
         if (target == null) return;
 
+        // Quantum Phase damage immunity check
+        if (target instanceof net.minecraft.world.entity.player.Player player && player.isUsingItem()) {
+            net.minecraft.world.item.ItemStack using = player.getUseItem();
+            if (using.getItem() instanceof org.xeb.xeb.item.OpticBlastItem || using.getItem() instanceof org.xeb.xeb.item.TheTearsItem) {
+                if (player.getMainHandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.QUANTUM_PHASE.get()) > 0
+                        || player.getOffhandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.QUANTUM_PHASE.get()) > 0) {
+                    event.setAmount(0.0F);
+                    event.setCanceled(true);
+                    if (player.level() instanceof ServerLevel serverLevel) {
+                        serverLevel.sendParticles(ParticleTypes.PORTAL, player.getX(), player.getY(0.5D), player.getZ(), 8, 0.3D, 0.3D, 0.3D, 0.1D);
+                    }
+                    return;
+                }
+            }
+        }
+
         if (target instanceof net.minecraft.world.entity.player.Player player && player.getPersistentData().getBoolean("xebHolyShieldActive")) {
             event.setAmount(event.getAmount() * 0.3F);
             Level level = player.level();
@@ -123,6 +139,102 @@ public class BuffDamageHandler {
                                         5, 0.3D, 0.3D, 0.3D, 0.05D);
                             }
                         }
+                    }
+                }
+
+                // Rift Siphon
+                int siphLvl = held.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.RIFT_SIPHON.get());
+                if (siphLvl > 0 && !MedallionManager.getMedallions(target).isEmpty()) {
+                    int duration = 120 + siphLvl * 40;
+                    net.minecraft.world.effect.MobEffect effect = switch (attackerPlayer.getRandom().nextInt(3)) {
+                        case 0 -> MobEffects.MOVEMENT_SPEED;
+                        case 1 -> MobEffects.DAMAGE_RESISTANCE;
+                        default -> MobEffects.FIRE_RESISTANCE;
+                    };
+                    attackerPlayer.addEffect(new MobEffectInstance(effect, duration, Math.min(1, siphLvl - 1)));
+                    if (attackerPlayer.level() instanceof ServerLevel serverLevel) {
+                        serverLevel.sendParticles(ParticleTypes.WITCH, attackerPlayer.getX(), attackerPlayer.getY(0.5D), attackerPlayer.getZ(), 6, 0.2D, 0.4D, 0.2D, 0.05D);
+                    }
+                }
+
+                // Resonant Cleave
+                int cleaveLvl = held.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.RESONANT_CLEAVE.get());
+                if (cleaveLvl > 0 && !MedallionManager.getMedallions(target).isEmpty()) {
+                    float aoeRatio = 0.33F * cleaveLvl;
+                    float baseAoeDmg = event.getAmount() * aoeRatio;
+                    java.util.List<MedallionData> targetMeds = MedallionManager.getMedallions(target);
+                    net.minecraft.world.phys.AABB area = target.getBoundingBox().inflate(4.0D + cleaveLvl);
+                    for (LivingEntity nearby : target.level().getEntitiesOfClass(LivingEntity.class, area)) {
+                        if (nearby != target && nearby != attackerPlayer && nearby.isAlive()) {
+                            boolean sharesMed = false;
+                            for (MedallionData nm : MedallionManager.getMedallions(nearby)) {
+                                for (MedallionData tm : targetMeds) {
+                                    if (nm.getBuff().getId().equals(tm.getBuff().getId())) {
+                                        sharesMed = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            float finalAoeDmg = sharesMed ? baseAoeDmg * 2.0F : baseAoeDmg;
+                            nearby.hurt(target.damageSources().playerAttack(attackerPlayer), finalAoeDmg);
+                        }
+                    }
+                    target.level().playSound(null, target.getX(), target.getY(), target.getZ(),
+                            SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 0.4F, 1.5F);
+                }
+
+                // Chronostasis
+                int chronoLvl = held.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.CHRONOSTASIS.get());
+                if (chronoLvl > 0) {
+                    boolean hasSpeedyOrReactive = false;
+                    for (MedallionData m : MedallionManager.getMedallions(target)) {
+                        String id = m.getBuff().getId();
+                        if (id.equals("speedy") || id.equals("reactive")) {
+                            hasSpeedyOrReactive = true;
+                            break;
+                        }
+                    }
+                    if (hasSpeedyOrReactive && (attackerPlayer.fallDistance > 0.0F || attackerPlayer.hasEffect(ModEffects.ADRENALINE.get()))) {
+                        target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 4));
+                        target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 80, 4));
+                        target.level().playSound(null, target.getX(), target.getY(), target.getZ(),
+                                SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.0F, 1.8F);
+                    }
+                }
+
+                // Medallion Overload check on fatal hit
+                int overloadLvl = held.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.MEDALLION_OVERLOAD.get());
+                if (overloadLvl > 0 && target.getHealth() - event.getAmount() <= 0.0F) {
+                    java.util.List<MedallionData> meds = MedallionManager.getMedallions(target);
+                    if (!meds.isEmpty()) {
+                        float radius = 2.0F + meds.size() * 1.0F;
+                        target.level().explode(attackerPlayer, target.getX(), target.getY(0.5D), target.getZ(), radius, Level.ExplosionInteraction.NONE);
+                    }
+                }
+            }
+        }
+
+        // Feedback Loop enchantment check
+        if (target instanceof net.minecraft.world.entity.player.Player victimPlayer && !victimPlayer.level().isClientSide()) {
+            net.minecraft.world.item.ItemStack victimHeld = victimPlayer.getMainHandItem();
+            if (victimHeld.isEmpty() || !org.xeb.xeb.enchantment.ModEnchantments.isSpecialItem(victimHeld.getItem())) {
+                victimHeld = victimPlayer.getOffhandItem();
+            }
+            if (!victimHeld.isEmpty() && org.xeb.xeb.enchantment.ModEnchantments.isSpecialItem(victimHeld.getItem())) {
+                int feedbackLvl = victimHeld.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.FEEDBACK_LOOP.get());
+                if (feedbackLvl > 0 && event.getSource().getEntity() instanceof LivingEntity directAttacker && directAttacker != victimPlayer) {
+                    float reflectRatio = 0.25F * feedbackLvl;
+                    float reflectedDmg = event.getAmount() * reflectRatio;
+                    
+                    boolean attackerHasSpikyOrReflect = directAttacker.hasEffect(ModEffects.REFLECT.get())
+                            || MedallionManager.hasBuff(directAttacker, "spiky");
+                    if (attackerHasSpikyOrReflect) {
+                        reflectedDmg *= 2.0F;
+                    }
+                    if (reflectedDmg > 0.5F) {
+                        directAttacker.hurt(target.damageSources().thorns(victimPlayer), reflectedDmg);
+                        victimPlayer.level().playSound(null, victimPlayer.getX(), victimPlayer.getY(), victimPlayer.getZ(),
+                                SoundEvents.ANVIL_HIT, SoundSource.PLAYERS, 0.8F, 1.5F);
                     }
                 }
             }
@@ -631,6 +743,16 @@ public class BuffDamageHandler {
         LivingEntity entity = event.getEntity();
         if (entity != null && MedallionManager.hasBuff(entity, "hardy")) {
             event.setCanceled(true);
+            return;
+        }
+        if (entity instanceof net.minecraft.world.entity.player.Player player && player.isUsingItem()) {
+            net.minecraft.world.item.ItemStack using = player.getUseItem();
+            if (using.getItem() instanceof org.xeb.xeb.item.OpticBlastItem || using.getItem() instanceof org.xeb.xeb.item.TheTearsItem) {
+                if (player.getMainHandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.QUANTUM_PHASE.get()) > 0
+                        || player.getOffhandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.QUANTUM_PHASE.get()) > 0) {
+                    event.setCanceled(true);
+                }
+            }
         }
     }
 

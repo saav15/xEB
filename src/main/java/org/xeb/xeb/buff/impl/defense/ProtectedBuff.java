@@ -93,11 +93,25 @@ public class ProtectedBuff extends EliteBuff {
 
     @Override
     public void onDamageTaken(LivingEntity entity, LivingHurtEvent event) {
+        CompoundTag tag = entity.getPersistentData();
+        int holyShield = tag.contains(HOLY_SHIELD_KEY) ? tag.getInt(HOLY_SHIELD_KEY) : 0;
+
         Entity attacker = event.getSource().getEntity();
         if (attacker instanceof net.minecraft.world.entity.player.Player player) {
             ItemStack held = player.getMainHandItem();
             if (!held.isEmpty() && org.xeb.xeb.enchantment.ModEnchantments.isSpecialItem(held.getItem())) {
                 if (held.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.AEGIS_SHATTER.get()) > 0) {
+                    if (holyShield > 0) {
+                        tag.putInt(HOLY_SHIELD_KEY, 0);
+                        tag.putInt("xebHolyShieldRegenTimer", 200);
+                        entity.removeEffect(ModEffects.HOLY_SHIELD.get());
+                        entity.level().playSound(null, entity.getX(), entity.getY(), entity.getZ(),
+                                SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 1.5F, 1.2F);
+                        if (!entity.level().isClientSide()) {
+                            BuffParticlePacket packet = new BuffParticlePacket(entity.getX(), entity.getY(), entity.getZ(), "revival", 20);
+                            XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), packet);
+                        }
+                    }
                     return;
                 }
             }
@@ -108,8 +122,6 @@ public class ProtectedBuff extends EliteBuff {
                 || entity.getPersistentData().getBoolean("xebDelayedPainTriggering")) {
             return;
         }
-        CompoundTag tag = entity.getPersistentData();
-        int holyShield = tag.contains(HOLY_SHIELD_KEY) ? tag.getInt(HOLY_SHIELD_KEY) : 0;
         if (holyShield > 0) {
             // Absorb the full hit!
             tag.putInt(HOLY_SHIELD_KEY, 0);

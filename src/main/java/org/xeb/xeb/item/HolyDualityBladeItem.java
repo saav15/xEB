@@ -55,6 +55,11 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
         super(Tiers.IRON, 3, -2.4F, properties);
     }
 
+    @Override
+    public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
+        return org.xeb.xeb.enchantment.ModEnchantments.isModEnchantment(enchantment) || super.canApplyAtEnchantingTable(stack, enchantment);
+    }
+
     @SubscribeEvent
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
         if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {

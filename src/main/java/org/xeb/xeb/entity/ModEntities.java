@@ -146,9 +146,16 @@ public class ModEntities {
                     .build("steven_boss")
     );
 
-    public static final RegistryObject<EntityType<StevenPortalEntity>> STEVEN_PORTAL = ENTITY_TYPES.register("steven_portal",
-            () -> EntityType.Builder.<StevenPortalEntity>of(StevenPortalEntity::new, MobCategory.MISC)
-                    .sized(2.0F, 2.0F)
+    public static final RegistryObject<EntityType<StaticPortalEntity>> STATIC_PORTAL = ENTITY_TYPES.register("static_portal",
+            () -> EntityType.Builder.<StaticPortalEntity>of(StaticPortalEntity::new, MobCategory.MISC)
+                    .sized(2.0F, 3.0F)
+                    .clientTrackingRange(10)
+                    .build("static_portal")
+    );
+
+    public static final RegistryObject<EntityType<StaticPortalEntity>> STEVEN_PORTAL = ENTITY_TYPES.register("steven_portal",
+            () -> EntityType.Builder.<StaticPortalEntity>of(StaticPortalEntity::new, MobCategory.MISC)
+                    .sized(2.0F, 3.0F)
                     .clientTrackingRange(10)
                     .build("steven_portal")
     );

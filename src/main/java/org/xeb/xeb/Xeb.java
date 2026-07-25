@@ -284,8 +284,10 @@ public class Xeb {
                     org.xeb.xeb.render.StevenBossRenderer::new);
             event.registerEntityRenderer(ModEntities.STEVEN_CLONE.get(),
                     org.xeb.xeb.render.StevenCloneRenderer::new);
+            event.registerEntityRenderer(ModEntities.STATIC_PORTAL.get(),
+                    org.xeb.xeb.client.renderer.StaticPortalRenderer::new);
             event.registerEntityRenderer(ModEntities.STEVEN_PORTAL.get(),
-                    org.xeb.xeb.render.StevenPortalRenderer::new);
+                    org.xeb.xeb.client.renderer.StaticPortalRenderer::new);
         }
 
         private static final java.util.Set<Object> patchedRenderers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());

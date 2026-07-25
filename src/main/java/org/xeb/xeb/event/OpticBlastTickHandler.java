@@ -321,10 +321,28 @@ public class OpticBlastTickHandler {
                 }
             }
 
+            float finalBeamDamage = OpticBlastItem.BEAM_DAMAGE_PER_TICK;
+            int purifyingLvl = player.getMainHandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.PURIFYING_BEAM.get());
+            if (purifyingLvl == 0) {
+                purifyingLvl = player.getOffhandItem().getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.PURIFYING_BEAM.get());
+            }
+            if (purifyingLvl > 0) {
+                boolean hasNegativeStatus = hitEntity.hasEffect(org.xeb.xeb.effect.ModEffects.MANA_LEECH.get())
+                        || hitEntity.hasEffect(org.xeb.xeb.effect.ModEffects.MADNESS.get())
+                        || hitEntity.hasEffect(org.xeb.xeb.effect.ModEffects.BLIND.get())
+                        || hitEntity.hasEffect(org.xeb.xeb.effect.ModEffects.BURN.get())
+                        || hitEntity.hasEffect(org.xeb.xeb.effect.ModEffects.MAGIC_WEAKNESS.get())
+                        || hitEntity.hasEffect(org.xeb.xeb.effect.ModEffects.NO_HEALTH_REGEN.get())
+                        || hitEntity.hasEffect(org.xeb.xeb.effect.ModEffects.EXHAUSTED.get());
+                if (hasNegativeStatus) {
+                    finalBeamDamage *= (1.0F + purifyingLvl * 0.20F);
+                }
+            }
+
             hitEntity.getPersistentData().putString("xebLastAttackWeapon", "optic_blast");
             hitEntity.getPersistentData().putString("xebLastAttackType", "right_click");
             hitEntity.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
-            hitEntity.hurt(player.damageSources().playerAttack(player), OpticBlastItem.BEAM_DAMAGE_PER_TICK);
+            hitEntity.hurt(player.damageSources().playerAttack(player), finalBeamDamage);
         }
 
         // --- 6. Update beam manager ---
