@@ -38,21 +38,15 @@ public class EliteAdvancementHandler {
         }
     }
 
-    /** Notifies players when their Elite Meter level increases after earning an advancement. */
+    /**
+     * No longer responsible for level-up notifications.
+     * Kept for structural reference — level-up toasts are now triggered by
+     * BuffTickHandler which has reliable before/after level state via xebLastSyncedEliteLvl.
+     */
     @SubscribeEvent
     public static void onAdvancementEarn(AdvancementEvent.AdvancementEarnEvent event) {
-        if (!org.xeb.xeb.Config.enabled || !org.xeb.xeb.Config.eliteMeterEnabled) return;
-        if (event.getEntity() instanceof ServerPlayer serverPlayer) {
-            int currentLevel = MedallionManager.getEliteMeterLevel(serverPlayer, false);
-            net.minecraft.nbt.CompoundTag data = serverPlayer.getPersistentData();
-            int lastNotifiedLevel = data.contains("xebLastNotifiedLevel") ? data.getInt("xebLastNotifiedLevel") : 1;
-
-            if (currentLevel > lastNotifiedLevel) {
-                data.putInt("xebLastNotifiedLevel", currentLevel);
-                serverPlayer.sendSystemMessage(
-                        net.minecraft.network.chat.Component.translatable("chat.xeb.elitemeter.up", currentLevel));
-            }
-        }
+        // Level-up detection moved to BuffTickHandler (N24 sync block).
+        // No action needed here to avoid double-firing on advancement registration timing.
     }
 
     /** Grants "Elite Slayer III" advancement when a player kills an entity with 3+ medallions. */

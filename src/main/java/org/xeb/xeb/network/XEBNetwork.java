@@ -51,6 +51,7 @@ public class XEBNetwork {
         CHANNEL.registerMessage(id++, OpenEnigmaBiosPacket.class, OpenEnigmaBiosPacket::encode, OpenEnigmaBiosPacket::decode, OpenEnigmaBiosPacket::handle);
         CHANNEL.registerMessage(id++, DamageNumberPacket.class, DamageNumberPacket::encode, DamageNumberPacket::decode, DamageNumberPacket::handle);
         CHANNEL.registerMessage(id++, StaticPortalSyncPacket.class, StaticPortalSyncPacket::encode, StaticPortalSyncPacket::decode, StaticPortalSyncPacket::handle);
+        CHANNEL.registerMessage(id++, EliteMasteryLevelUpPacket.class, EliteMasteryLevelUpPacket::encode, EliteMasteryLevelUpPacket::decode, EliteMasteryLevelUpPacket::handle);
     }
 
     public static class EliteMasterySyncPacket {
@@ -76,6 +77,34 @@ public class XEBNetwork {
                     if (mc.player != null) {
                         mc.player.getPersistentData().putInt("xebEliteMeterLevel", msg.baseLevel);
                     }
+                });
+            });
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    // ── Elite Mastery Level-Up Toast Packet ────────────────────────────────────
+    /** Sent server→client when the player's Elite Mastery level increases. Triggers the visual toast. */
+    public static class EliteMasteryLevelUpPacket {
+        private final int newLevel;
+
+        public EliteMasteryLevelUpPacket(int newLevel) {
+            this.newLevel = newLevel;
+        }
+
+        public static void encode(EliteMasteryLevelUpPacket msg, net.minecraft.network.FriendlyByteBuf buf) {
+            buf.writeInt(msg.newLevel);
+        }
+
+        public static EliteMasteryLevelUpPacket decode(net.minecraft.network.FriendlyByteBuf buf) {
+            return new EliteMasteryLevelUpPacket(buf.readInt());
+        }
+
+        public static void handle(EliteMasteryLevelUpPacket msg, java.util.function.Supplier<net.minecraftforge.network.NetworkEvent.Context> ctxSupplier) {
+            net.minecraftforge.network.NetworkEvent.Context ctx = ctxSupplier.get();
+            ctx.enqueueWork(() -> {
+                net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT, () -> () -> {
+                    org.xeb.xeb.client.ClientAccess.showEliteMasteryLevelUpToast(msg.newLevel);
                 });
             });
             ctx.setPacketHandled(true);

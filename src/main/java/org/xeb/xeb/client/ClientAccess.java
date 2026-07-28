@@ -17,6 +17,10 @@ public class ClientAccess {
         XebCompletionToast.show(newlyUnlocked);
     }
 
+    public static void showEliteMasteryLevelUpToast(int newLevel) {
+        org.xeb.xeb.client.gui.EliteMasteryToast.show(newLevel);
+    }
+
     @SuppressWarnings("deprecation")
     public static void registerClientConfigScreen() {
         net.minecraftforge.fml.ModLoadingContext.get().registerExtensionPoint(

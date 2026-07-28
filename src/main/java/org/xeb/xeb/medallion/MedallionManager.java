@@ -163,10 +163,16 @@ public class MedallionManager {
     public static int getEliteMeterLevel(Player player, boolean includeModifiers) {
         if (!org.xeb.xeb.Config.eliteMeterEnabled) return 10;
 
+        // xebEliteMeterLevel > 0 → explicit manual override, takes full priority over advancements.
+        // xebEliteMeterLevel == 0 (or key absent) → use advancement-based count.
         int manualLevel = player.getPersistentData().getInt("xebEliteMeterLevel");
-        int baseLevel = manualLevel;
+        int baseLevel;
 
-        if (player instanceof ServerPlayer serverPlayer) {
+        if (manualLevel > 0) {
+            // Manual override: ignore advancements entirely so testers can force any level.
+            baseLevel = manualLevel;
+        } else if (player instanceof ServerPlayer serverPlayer) {
+            // Advancement-based count (normal gameplay path).
             int completedCount = 0;
             List<String> list = org.xeb.xeb.Config.eliteMeterAdvancements;
             PlayerAdvancements advancements = serverPlayer.getAdvancements();
@@ -180,10 +186,13 @@ public class MedallionManager {
                     }
                 }
             }
-            baseLevel = Math.max(manualLevel, completedCount);
+            baseLevel = completedCount;
+        } else {
+            // Client-side fallback: read the synced level from PersistentData.
+            baseLevel = player.getPersistentData().getInt("xebEliteMeterLevel");
         }
 
-        // Add +2 levels if Permanight is active in this level and modifiers are enabled
+        // Permanight modifier (+2 levels)
         if (includeModifiers) {
             boolean isPermanight = false;
             if (player.level().isClientSide()) {
@@ -196,7 +205,8 @@ public class MedallionManager {
             }
         }
 
-        return Math.max(1, baseLevel);
+        // Level 0 is valid: it means "no progression yet" (no advancements, no manual override).
+        return Math.max(0, baseLevel);
     }
 
     public static int getProgressionMaxMedallions(int level, Difficulty difficulty) {

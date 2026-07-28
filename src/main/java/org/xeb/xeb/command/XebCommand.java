@@ -421,12 +421,18 @@ public class XebCommand {
                                 .then(
                                     Commands.literal("set")
                                         .then(
-                                            Commands.argument("level", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+                                            Commands.argument("level", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0))
                                                 .executes(ctx -> {
                                                     net.minecraft.server.level.ServerPlayer player = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
                                                     int lvl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "level");
-                                                    player.getPersistentData().putInt("xebEliteMeterLevel", lvl);
-                                                    ctx.getSource().sendSuccess(() -> Component.literal("Set Elite Meter level of " + player.getScoreboardName() + " to " + lvl), true);
+                                                    // 0 = remove manual override → revert to advancement-based counting.
+                                                    if (lvl == 0) {
+                                                        player.getPersistentData().remove("xebEliteMeterLevel");
+                                                        ctx.getSource().sendSuccess(() -> Component.literal("Reset Elite Meter override for " + player.getScoreboardName() + " (advancement-based counting restored)"), true);
+                                                    } else {
+                                                        player.getPersistentData().putInt("xebEliteMeterLevel", lvl);
+                                                        ctx.getSource().sendSuccess(() -> Component.literal("Set Elite Meter level of " + player.getScoreboardName() + " to " + lvl), true);
+                                                    }
                                                     return 1;
                                                 })
                                         )

@@ -227,7 +227,23 @@ public class BuffTickHandler {
             if (player instanceof ServerPlayer serverPlayer) {
                 int baseLvl = MedallionManager.getEliteMeterLevel(serverPlayer, false);
                 int lastSyncedLvl = pData.getInt("xebLastSyncedEliteLvl");
-                if (baseLvl != lastSyncedLvl || serverPlayer.tickCount % 40 == 0) {
+                boolean initialized = pData.getBoolean("xebEliteSyncInitialized");
+
+                if (!initialized) {
+                    // First tick after login: store current level without showing a toast.
+                    pData.putBoolean("xebEliteSyncInitialized", true);
+                    pData.putInt("xebLastSyncedEliteLvl", baseLvl);
+                    XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
+                            new XEBNetwork.EliteMasterySyncPacket(baseLvl));
+                } else if (baseLvl != lastSyncedLvl || serverPlayer.tickCount % 40 == 0) {
+                    // Genuine level-up (initialized, level actually changed): show toast + chat
+                    if (baseLvl > lastSyncedLvl) {
+                        serverPlayer.sendSystemMessage(
+                                net.minecraft.network.chat.Component.translatable(
+                                        "chat.xeb.elitemeter.up", baseLvl));
+                        XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
+                                new XEBNetwork.EliteMasteryLevelUpPacket(baseLvl));
+                    }
                     pData.putInt("xebLastSyncedEliteLvl", baseLvl);
                     XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
                             new XEBNetwork.EliteMasterySyncPacket(baseLvl));

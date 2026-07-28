@@ -153,6 +153,7 @@ public class EnigmaBiosScreen extends Screen {
         this.renderBackground(g);
 
         int borderColor = 0xFF00FFCC;
+        boolean permanight = org.xeb.xeb.client.PermanightClientHandler.isPermanightActive();
 
         long elapsed = System.currentTimeMillis() - this.lastAnalyzedTime;
         boolean flashing = this.lastAnalyzedUnknown && (elapsed < 800L);
@@ -166,8 +167,15 @@ public class EnigmaBiosScreen extends Screen {
         // Fondo Principal
         g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, 0xEE08111E);
 
+        // Permanight: gradiente morado difuminado desde abajo
+        if (permanight) {
+            g.fill(this.leftPos + 2, this.topPos + this.guiHeight - 100, this.leftPos + this.guiWidth - 2, this.topPos + this.guiHeight - 70, 0x0F3B005A);
+            g.fill(this.leftPos + 2, this.topPos + this.guiHeight - 70,  this.leftPos + this.guiWidth - 2, this.topPos + this.guiHeight - 40, 0x1F2B0072);
+            g.fill(this.leftPos + 2, this.topPos + this.guiHeight - 40,  this.leftPos + this.guiWidth - 2, this.topPos + this.guiHeight - 2,  0x3A3B0099);
+        }
+
         // Scanlines Sci-Fi
-        renderFuturisticBackgroundScanlines(g, borderColor);
+        renderFuturisticBackgroundScanlines(g, borderColor, permanight);
 
         // Marco Exterior
         g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + 2, borderColor);
@@ -189,9 +197,11 @@ public class EnigmaBiosScreen extends Screen {
         renderDamageDropdownOverlay(g, mouseX, mouseY);
     }
 
-    private void renderFuturisticBackgroundScanlines(GuiGraphics g, int borderColor) {
+    private void renderFuturisticBackgroundScanlines(GuiGraphics g, int borderColor, boolean permanight) {
         long time = System.currentTimeMillis();
-        int scanY = (int) ((time % 8000L) / 80.0F * (this.guiHeight / 100.0F));
+        // Permanight: scanlines move at half speed
+        long period = permanight ? 16000L : 8000L;
+        int scanY = (int) ((time % period) / (period / 100.0F) * (this.guiHeight / 100.0F));
 
         g.enableScissor(this.leftPos + 2, this.topPos + 2, this.leftPos + this.guiWidth - 2, this.topPos + this.guiHeight - 2);
 
@@ -601,14 +611,31 @@ public class EnigmaBiosScreen extends Screen {
                     stratText = "Usa encantamientos especiales o ataques combinados para contrarrestar este efecto.";
                 }
 
+                // Lore log data for this buff
+                int buffLogNum = getBuffLogNumber(selBuff.getId());
+                boolean loreUnlocked = buffLogNum > 0 && this.minecraft != null && this.minecraft.player != null
+                        && this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + buffLogNum);
+                String loreText;
+                if (buffLogNum <= 0) {
+                    loreText = "";
+                } else if (loreUnlocked) {
+                    loreText = translate("gui.xeb.enigma_bios.log" + buffLogNum + ".content");
+                } else {
+                    loreText = translate("gui.xeb.enigma_bios.bestiary.lore.corrupted");
+                }
+
                 List<FormattedText> descLines = this.font.getSplitter().splitLines(descText, detW - 68, net.minecraft.network.chat.Style.EMPTY);
                 List<FormattedText> qualityLines = this.font.getSplitter().splitLines(tierQualityText, detW - 68, net.minecraft.network.chat.Style.EMPTY);
                 List<FormattedText> counterLines = this.font.getSplitter().splitLines(stratText, detW - 68, net.minecraft.network.chat.Style.EMPTY);
+                List<FormattedText> loreLines = loreText.isEmpty() ? java.util.Collections.emptyList()
+                        : this.font.getSplitter().splitLines(loreText, detW - 68, net.minecraft.network.chat.Style.EMPTY);
 
                 int descStartY = detY + 32;
-                int descMaxH = areaH - 40;
+                int scissorBottom = areaY + areaH - 4;
+                int descMaxH = scissorBottom - descStartY;
 
-                int totalBestiaryH = (descLines.size() * 10) + 14 + (qualityLines.size() * 10) + 14 + (counterLines.size() * 10) + 8;
+                int loreSection = loreLines.isEmpty() ? 0 : (14 + loreLines.size() * 10);
+                int totalBestiaryH = (descLines.size() * 10) + 14 + (qualityLines.size() * 10) + 14 + (counterLines.size() * 10) + 8 + loreSection;
                 int maxBestiaryDetailsScroll = Math.max(0, totalBestiaryH - descMaxH);
                 this.bestiaryDetailsScrollAmount = Mth.clamp(this.bestiaryDetailsScrollAmount, 0.0F, maxBestiaryDetailsScroll);
 
@@ -616,7 +643,7 @@ public class EnigmaBiosScreen extends Screen {
                 renderAutoHidingScrollbar(g, detX + detW - 62, descStartY, 3, descMaxH, this.bestiaryDetailsScrollAmount, maxBestiaryDetailsScroll, totalBestiaryH, this.lastBestiaryDetailsScrollTime, this.isDraggingBestiaryDetailsScroll);
 
                 // Renderizado Estructurado con Scissor Estricto (Sin Traslape de Texto)
-                g.enableScissor(detX, descStartY, detX + detW - 65, detY + areaH - 4);
+                g.enableScissor(detX, descStartY, detX + detW - 65, scissorBottom);
                 int bY = descStartY - (int) bestiaryDetailsScrollAmount;
 
                 // Sección 1: Descripción
@@ -641,6 +668,24 @@ public class EnigmaBiosScreen extends Screen {
                 for (FormattedText line : counterLines) {
                     g.drawString(this.font, line.getString(), detX, bY, 0xFFE0E0E0, false);
                     bY += 10;
+                }
+
+                // Sección 4: Lore (Log #N)
+                if (!loreLines.isEmpty() && buffLogNum > 0) {
+                    bY += 4;
+                    String loreHeader;
+                    if (loreUnlocked) {
+                        loreHeader = translate("gui.xeb.enigma_bios.bestiary.lore.header", buffLogNum);
+                    } else {
+                        loreHeader = translate("gui.xeb.enigma_bios.bestiary.lore.header.locked", buffLogNum);
+                    }
+                    g.drawString(this.font, loreHeader, detX, bY, loreUnlocked ? 0xFF00FFCC : 0xFFFF3333, false);
+                    bY += 10;
+                    int loreColor = loreUnlocked ? 0xFFFFCC55 : 0xFF773333;
+                    for (FormattedText line : loreLines) {
+                        g.drawString(this.font, line.getString(), detX, bY, loreColor, false);
+                        bY += 10;
+                    }
                 }
 
                 g.disableScissor();
@@ -688,6 +733,47 @@ public class EnigmaBiosScreen extends Screen {
                 }
             }
         }
+    }
+
+    /** Returns the Enigma Bios log number (1-based) linked to this buff's lore, or -1 if unknown. */
+    private static int getBuffLogNumber(String buffId) {
+        // Matches registration order in Xeb.registerAllBuffs() starting at log #6.
+        return switch (buffId) {
+            case "spiky"               -> 6;
+            case "reactive"            -> 7;
+            case "damaging"            -> 8;
+            case "tough"               -> 9;
+            case "shielded"            -> 10;
+            case "protected"           -> 11;
+            case "speedy"              -> 12;
+            case "flaming"             -> 13;
+            case "creepy"              -> 14;
+            case "lucky"               -> 15;
+            case "static"              -> 16;
+            case "bouncy"              -> 17;
+            case "mirror"              -> 18;
+            case "resonant"            -> 19;
+            case "undying"             -> 20;
+            case "healthy"             -> 21;
+            case "sandy"               -> 22;
+            case "infested"            -> 23;
+            case "absorbent"           -> 24;
+            case "depressing"          -> 25;
+            case "slightly_depressing" -> 26;
+            case "evolving"            -> 27;
+            case "plow"                -> 28;
+            case "mega"                -> 29;
+            case "mad"                 -> 30;
+            case "twin"                -> 31;
+            case "hardy"               -> 32;
+            case "sticky"              -> 33;
+            default                    -> -1;
+        };
+    }
+
+    /** Translates a key that takes a single integer argument (e.g. "Lore (Log %d):"). */
+    private String translate(String key, int arg) {
+        return Component.translatable(key, arg).getString();
     }
 
     private String getBuffTierQualityDescription(EliteBuff buff, MedallionType tier) {
@@ -886,6 +972,7 @@ public class EnigmaBiosScreen extends Screen {
         }
 
         renderDamageDropdownWidget(g, mouseX, mouseY);
+        renderEliteMasteryWidget(g, mouseX, mouseY);
 
         if (!hoveredStack.isEmpty()) {
             g.renderTooltip(this.font, hoveredStack, mouseX, mouseY);
@@ -894,7 +981,7 @@ public class EnigmaBiosScreen extends Screen {
 
     private void renderDamageDropdownWidget(GuiGraphics g, int mouseX, int mouseY) {
         int dropX = this.leftPos + 268;
-        int dropY = this.topPos + 160;
+        int dropY = this.topPos + 182; // Below the inventory rows (+22px from original)
         int dropW = 84;
         int dropH = 18;
 
@@ -933,34 +1020,167 @@ public class EnigmaBiosScreen extends Screen {
     private void renderDamageDropdownOverlay(GuiGraphics g, int mouseX, int mouseY) {
         if (!isDamageDropdownOpen) return;
 
-        int dropX = this.leftPos + 268;
-        int dropY = this.topPos + 180;
+        int dropX2 = this.leftPos + 268;
+        int dropY2 = this.topPos + 200; // Overlay opens below scanner label+box
         int dropW = 84;
         int itemH = 16;
         org.xeb.xeb.damagenumber.DamageNumberMode[] modes = org.xeb.xeb.damagenumber.DamageNumberMode.values();
         int totalH = modes.length * itemH;
 
         // Fondo semi-transparente Sci-Fi y Borde Verde Neon
-        g.fill(dropX, dropY, dropX + dropW, dropY + totalH, 0xFE050C16);
-        g.fill(dropX - 1, dropY - 1, dropX + dropW + 1, dropY, 0xFF00FFCC);
-        g.fill(dropX - 1, dropY + totalH, dropX + dropW + 1, dropY + totalH + 1, 0xFF00FFCC);
-        g.fill(dropX - 1, dropY - 1, dropX, dropY + totalH + 1, 0xFF00FFCC);
-        g.fill(dropX + dropW, dropY - 1, dropX + dropW + 1, dropY + totalH + 1, 0xFF00FFCC);
+        g.fill(dropX2, dropY2, dropX2 + dropW, dropY2 + totalH, 0xFE050C16);
+        g.fill(dropX2 - 1, dropY2 - 1, dropX2 + dropW + 1, dropY2, 0xFF00FFCC);
+        g.fill(dropX2 - 1, dropY2 + totalH, dropX2 + dropW + 1, dropY2 + totalH + 1, 0xFF00FFCC);
+        g.fill(dropX2 - 1, dropY2 - 1, dropX2, dropY2 + totalH + 1, 0xFF00FFCC);
+        g.fill(dropX2 + dropW, dropY2 - 1, dropX2 + dropW + 1, dropY2 + totalH + 1, 0xFF00FFCC);
 
         org.xeb.xeb.damagenumber.DamageNumberMode selected = org.xeb.xeb.damagenumber.DamageNumberConfig.getMode();
 
         for (int i = 0; i < modes.length; i++) {
             org.xeb.xeb.damagenumber.DamageNumberMode mode = modes[i];
-            int itemY = dropY + i * itemH;
-            boolean isHovered = mouseX >= dropX && mouseX < dropX + dropW && mouseY >= itemY && mouseY < itemY + itemH;
+            int itemY = dropY2 + i * itemH;
+            boolean isHovered = mouseX >= dropX2 && mouseX < dropX2 + dropW && mouseY >= itemY && mouseY < itemY + itemH;
             boolean isCurrent = (mode == selected);
 
             int itemBg = isCurrent ? 0xCC00FFCC : (isHovered ? 0x4400FFCC : 0x2200FFCC);
             int itemTxt = isCurrent ? 0xFF08111E : (isHovered ? 0xFFFFFFFF : 0xFF00FFCC);
 
-            g.fill(dropX + 1, itemY + 1, dropX + dropW - 1, itemY + itemH - 1, itemBg);
-            g.drawString(this.font, mode.getDisplayName(), dropX + 5, itemY + 4, itemTxt, false);
+            g.fill(dropX2 + 1, itemY + 1, dropX2 + dropW - 1, itemY + itemH - 1, itemBg);
+            g.drawString(this.font, mode.getDisplayName(), dropX2 + 5, itemY + 4, itemTxt, false);
         }
+    }
+
+    /**
+     * Renders the Elite Mastery status widget on the left side of the inventory area.
+     * Layout: title, level number, horizontal cone meter, lore description.
+     * Space: leftPos+6 to leftPos+94 (88px wide), topPos+150 to topPos+255
+     */
+    private void renderEliteMasteryWidget(GuiGraphics g, int mouseX, int mouseY) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+
+        int level = mc.player.getPersistentData().getInt("xebEliteMeterLevel");
+        // Advancement-based fallback: read from NBT if available
+        // (level 0 means no override, use advancement-based — read it from sync key)
+        // Actually the synced value is stored directly. Use it as-is.
+
+        int wx = this.leftPos + 6;
+        int wy = this.topPos + 150;
+        int ww = 88; // width of the widget
+
+        // ── Title ────────────────────────────────────────────────────────────────
+        String titleStr = Component.translatable("gui.xeb.enigma_bios.mastery.title").getString();
+        g.drawString(this.font, titleStr, wx, wy, 0xFF00FFCC, false);
+
+        // ── Level number ─────────────────────────────────────────────────────────
+        wy += 10;
+        String levelStr = Component.translatable("gui.xeb.enigma_bios.mastery.level", level).getString();
+        g.drawString(this.font, levelStr, wx, wy, 0xFFFFFFFF, false);
+
+        // ── Cone/Trapezoid meter ──────────────────────────────────────────────────
+        wy += 12;
+        int coneW = ww - 4;   // total width of the cone base
+        int coneH = 14;       // total height
+        int coneX = wx + 2;
+        int coneY = wy;
+
+        boolean overflow = level > 10;
+        float fillFrac = overflow ? 1.0F : Math.min(1.0F, level / 10.0F);
+
+        // Cone color based on level tier
+        int fillColor;
+        if (overflow) {
+            // Pulsing gold-white glow for >10
+            long t = System.currentTimeMillis();
+            float pulse = (float)(Math.sin(t * 0.006) * 0.5 + 0.5); // 0 to 1
+            int r = (int)(0xFF * (0.8f + 0.2f * pulse));
+            int gC = (int)(0xCC * (0.6f + 0.4f * pulse));
+            int b = (int)(0x00 * pulse);
+            fillColor = (0xFF << 24) | (r << 16) | (gC << 8) | b;
+        } else if (level >= 10) {
+            fillColor = 0xFFCC0000; // Deep red
+        } else if (level >= 7) {
+            fillColor = 0xFFFF5500; // Orange-red
+        } else if (level >= 4) {
+            fillColor = 0xFFAAFF00; // Yellow-green
+        } else if (level >= 1) {
+            fillColor = 0xFF00FFCC; // Cyan
+        } else {
+            fillColor = 0xFF444444; // Gray – no mastery
+        }
+
+        int emptyColor = 0x33FFFFFF;
+
+        // The "cone pointing right" is a trapezoid:
+        // - Left edge is tall (full coneH), right edge tapers to 4px
+        // Each row i (0 to coneH-1) has a width that tapers from coneW at row=0 to ~4px at row=coneH-1
+        // But since it's horizontal (wide→narrow going right), we draw column by column:
+        // At column cx (0..coneW-1), the height of the trapezoid at that column is:
+        //   rowH = coneH - (int)((cx / (float)coneW) * (coneH - 4))
+        //   centered vertically
+        for (int cx = 0; cx < coneW; cx++) {
+            float frac = cx / (float) coneW;
+            int rowH = coneH - (int)(frac * (coneH - 4));
+            int rowY = coneY + (coneH - rowH) / 2;
+
+            boolean filled = (cx < (int)(fillFrac * coneW));
+            int col = filled ? fillColor : emptyColor;
+
+            // Extra glow column for overflow
+            if (overflow && filled) {
+                long t2 = System.currentTimeMillis();
+                float glowPulse = (float)(Math.sin(t2 * 0.008 + cx * 0.2) * 0.5 + 0.5);
+                int glowA = (int)(80 * glowPulse);
+                g.fill(coneX + cx, rowY - 1, coneX + cx + 1, rowY + rowH + 1, (glowA << 24) | 0xFFFFAA);
+            }
+
+            g.fill(coneX + cx, rowY, coneX + cx + 1, rowY + rowH, col);
+        }
+
+        // Border around cone
+        g.fill(coneX, coneY, coneX + coneW, coneY + 1, 0x5500FFCC);
+        g.fill(coneX, coneY + coneH - 1, coneX + coneW, coneY + coneH, 0x5500FFCC);
+
+        // Lore/overflow start position (anchored from coneY)
+        int textY = coneY + coneH + 5;
+
+        // Overflow label
+        if (overflow) {
+            String overflowStr = Component.translatable("gui.xeb.enigma_bios.mastery.overflow").getString();
+            g.drawString(this.font, overflowStr, wx, textY, 0xFFFFD700, false);
+            textY += 10;
+        }
+
+        // ── Lore text ─────────────────────────────────────────────────────────────
+        String descKey;
+        if (level >= 10) {
+            descKey = "chat.xeb.mastery.desc.10";
+        } else if (level >= 7) {
+            descKey = "chat.xeb.mastery.desc.7";
+        } else if (level >= 4) {
+            descKey = "chat.xeb.mastery.desc.4";
+        } else if (level >= 1) {
+            descKey = "chat.xeb.mastery.desc.1";
+        } else {
+            descKey = "gui.xeb.enigma_bios.mastery.level0";
+        }
+
+        // Strip Minecraft §x color codes for the GUI display
+        String rawDesc = Component.translatable(descKey).getString();
+        String cleanDesc = rawDesc.replaceAll("§[0-9a-fklmnorA-FKLMNOR]", "");
+
+        List<FormattedText> loreWrapped = this.font.getSplitter().splitLines(cleanDesc, ww - 2, net.minecraft.network.chat.Style.EMPTY);
+        int loreColor = overflow ? 0xFFFFD700 : (level >= 7 ? 0xFFFF7733 : (level >= 4 ? 0xFF99FF33 : (level >= 1 ? 0xFF88EEDD : 0xFF666666)));
+
+        // Scissor to panel bottom
+        int scissorBottom = this.topPos + this.guiHeight - 6;
+        g.enableScissor(wx, textY, wx + ww, scissorBottom);
+        for (FormattedText line : loreWrapped) {
+            g.drawString(this.font, line.getString(), wx, textY, loreColor, false);
+            textY += 9;
+            if (textY + 9 > scissorBottom) break;
+        }
+        g.disableScissor();
     }
 
     private ItemStack getStackAtMouse(double mouseX, double mouseY) {
@@ -1060,8 +1280,20 @@ public class EnigmaBiosScreen extends Screen {
                         List<FormattedText> qualityLines = this.font.getSplitter().splitLines(tierQualityText, detW - 68, net.minecraft.network.chat.Style.EMPTY);
                         List<FormattedText> counterLines = this.font.getSplitter().splitLines(stratText, detW - 68, net.minecraft.network.chat.Style.EMPTY);
 
-                        int totalH = (descLines.size() * 10) + 14 + (qualityLines.size() * 10) + 14 + (counterLines.size() * 10) + 8;
-                        int maxScroll = Math.max(0, totalH - (areaH - 40));
+                        // Compute lore section size (same formula as in renderContent)
+                        int logNum2 = getBuffLogNumber(selBuff.getId());
+                        boolean loreUnlocked2 = logNum2 > 0 && this.minecraft != null && this.minecraft.player != null
+                                && this.minecraft.player.getPersistentData().getBoolean("xebUnlockedBitacora" + logNum2);
+                        String loreText2 = logNum2 <= 0 ? ""
+                                : loreUnlocked2
+                                    ? translate("gui.xeb.enigma_bios.log" + logNum2 + ".content")
+                                    : translate("gui.xeb.enigma_bios.bestiary.lore.corrupted");
+                        List<FormattedText> loreLines2 = loreText2.isEmpty() ? java.util.Collections.emptyList()
+                                : this.font.getSplitter().splitLines(loreText2, detW - 68, net.minecraft.network.chat.Style.EMPTY);
+                        int loreSection2 = loreLines2.isEmpty() ? 0 : (14 + loreLines2.size() * 10);
+
+                        int totalH = (descLines.size() * 10) + 14 + (qualityLines.size() * 10) + 14 + (counterLines.size() * 10) + 8 + loreSection2;
+                        int maxScroll = Math.max(0, totalH - (areaH - 42));
                         if (maxScroll > 0) {
                             this.lastBestiaryDetailsScrollTime = System.currentTimeMillis();
                             this.bestiaryDetailsScrollAmount = Mth.clamp(this.bestiaryDetailsScrollAmount - (float) delta * 10.0F, 0.0F, maxScroll);

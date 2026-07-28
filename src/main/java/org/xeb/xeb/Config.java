@@ -142,18 +142,20 @@ public class Config {
             .defineInRange("progression.bossMinLevelRequired", 7, 1, 100);
 
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> ELITE_METER_ADVANCEMENTS = BUILDER
-            .comment("Ordered list of advancement IDs for Elite Meter level progression (levels 1 to N).")
+            .comment("Ordered list of advancement IDs for Elite Meter level progression (levels 1 to N).\n"
+                    + "Level 1 = first entry completed, Level N = all entries completed.\n"
+                    + "Default list starts at mid-game (first diamonds) and ends at true endgame (End City).")
             .defineList("progression.eliteMeterAdvancements", java.util.List.of(
-                    "minecraft:story/root",
-                    "minecraft:story/mine_stone",
-                    "minecraft:story/smelt_iron",
-                    "minecraft:story/mine_diamond",
-                    "minecraft:story/enchant_item",
-                    "minecraft:story/enter_the_nether",
-                    "minecraft:story/obtain_blaze_rod",
-                    "minecraft:story/follow_ender_eye",
-                    "minecraft:story/enter_the_end",
-                    "minecraft:story/kill_dragon"
+                    "minecraft:story/mine_diamond",       // Level 1 – First diamonds (mid-game gate)
+                    "minecraft:story/enchant_item",       // Level 2 – First enchantment
+                    "minecraft:story/enter_the_nether",   // Level 3 – Enter the Nether
+                    "minecraft:story/obtain_blaze_rod",   // Level 4 – Blaze rod obtained
+                    "minecraft:nether/find_fortress",     // Level 5 – Nether Fortress discovered
+                    "minecraft:nether/brew_potion",       // Level 6 – Brewing mastered
+                    "minecraft:story/follow_ender_eye",   // Level 7 – Stronghold found
+                    "minecraft:story/enter_the_end",      // Level 8 – Enter The End
+                    "minecraft:story/kill_dragon",        // Level 9 – Ender Dragon slain
+                    "minecraft:end/find_end_city"         // Level 10 – True endgame: End City
             ), obj -> obj instanceof String);
 
     // Permanight Group
