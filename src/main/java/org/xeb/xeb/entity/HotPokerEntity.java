@@ -90,9 +90,9 @@ public class HotPokerEntity extends Monster implements GeoEntity {
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType spawnType, @Nullable SpawnGroupData data, @Nullable CompoundTag dataTag) {
         SpawnGroupData result = super.finalizeSpawn(level, difficulty, spawnType, data, dataTag);
 
-        // Equip Dual Tridents in both hands (MAINHAND -> HANDleft, OFFHAND -> HANDright)
+        // Equip Trident in left main hand only
         this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.TRIDENT));
-        this.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.TRIDENT));
+        this.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
 
         if (level instanceof ServerLevel serverLevel) {
             int targetLevel = 1;

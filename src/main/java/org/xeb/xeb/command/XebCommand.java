@@ -4,6 +4,9 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import org.xeb.xeb.Xeb;
 import org.xeb.xeb.buff.EliteBuff;
 import org.xeb.xeb.buff.EliteBuffRegistry;
 import org.xeb.xeb.medallion.MedallionData;
@@ -22,8 +25,14 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class XebCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -376,39 +385,12 @@ public class XebCommand {
                     Commands.literal("summon")
                         .requires(source -> source.hasPermission(2))
                         .then(
-                            Commands.argument("entity", ResourceLocationArgument.id())
-                                .suggests((ctx, builder) -> {
-                                    for (ResourceLocation key : ForgeRegistries.ENTITY_TYPES.getKeys()) {
-                                        builder.suggest(key.toString());
-                                    }
-                                    return builder.buildFuture();
-                                })
+                            Commands.argument("entity", StringArgumentType.string())
+                                .suggests(XebCommand::suggestEntityTypes)
                                 .executes(ctx -> executeSpawn(ctx, ""))
                                 .then(
                                     Commands.argument("medallions", StringArgumentType.greedyString())
-                                        .suggests((ctx, builder) -> {
-                                            String input = builder.getRemaining();
-                                            int lastSpace = input.lastIndexOf(' ');
-                                            String prefix = lastSpace == -1 ? "" : input.substring(0, lastSpace + 1);
-                                            String lastWord = lastSpace == -1 ? input : input.substring(lastSpace + 1);
-
-                                            for (EliteBuff buff : EliteBuffRegistry.getAll()) {
-                                                String bSuggest = "bronze" + buff.getId();
-                                                String sSuggest = "silver" + buff.getId();
-                                                String gSuggest = "golden" + buff.getId();
-
-                                                if (bSuggest.startsWith(lastWord)) {
-                                                    builder.suggest(prefix + bSuggest);
-                                                }
-                                                if (sSuggest.startsWith(lastWord)) {
-                                                    builder.suggest(prefix + sSuggest);
-                                                }
-                                                if (gSuggest.startsWith(lastWord)) {
-                                                    builder.suggest(prefix + gSuggest);
-                                                }
-                                            }
-                                            return builder.buildFuture();
-                                        })
+                                        .suggests(XebCommand::suggestMedallions)
                                         .executes(ctx -> executeSpawn(ctx, StringArgumentType.getString(ctx, "medallions")))
                                 )
                         )
@@ -547,15 +529,197 @@ public class XebCommand {
         );
     }
 
+    private static CompletableFuture<Suggestions> suggestEntityTypes(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String remaining = builder.getRemaining().toLowerCase(Locale.ROOT);
+        Set<String> added = new HashSet<>();
+
+        for (ResourceLocation key : ForgeRegistries.ENTITY_TYPES.getKeys()) {
+            String fullId = key.toString();
+            String path = key.getPath();
+
+            if (remaining.isEmpty() || path.toLowerCase(Locale.ROOT).contains(remaining) || fullId.toLowerCase(Locale.ROOT).contains(remaining)) {
+                if (added.add(path)) {
+                    builder.suggest(path);
+                }
+                if (added.add(fullId)) {
+                    builder.suggest(fullId);
+                }
+            }
+        }
+        return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestMedallions(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String input = builder.getRemaining();
+        int lastSpace = input.lastIndexOf(' ');
+        String prefix = lastSpace == -1 ? "" : input.substring(0, lastSpace + 1);
+        String lastWord = (lastSpace == -1 ? input : input.substring(lastSpace + 1)).toLowerCase(Locale.ROOT);
+
+        if (lastWord.contains(":")) {
+            String base = lastWord.substring(0, lastWord.indexOf(':'));
+            for (int count : new int[]{1, 2, 5, 10}) {
+                String candidate = base + ":" + count;
+                if (candidate.startsWith(lastWord)) {
+                    builder.suggest(prefix + candidate);
+                }
+            }
+            return builder.buildFuture();
+        }
+
+        List<String> prefixes = List.of("golden", "silver", "bronze", "g", "s", "b");
+        Set<String> suggestions = new LinkedHashSet<>();
+
+        for (String p : prefixes) {
+            suggestions.add(p + "all");
+        }
+
+        for (EliteBuff buff : EliteBuffRegistry.getAll()) {
+            String id = buff.getId();
+            for (String p : prefixes) {
+                suggestions.add(p + id);
+                if (id.equalsIgnoreCase("mad")) {
+                    suggestions.add(p + "madness");
+                }
+            }
+        }
+
+        for (String s : suggestions) {
+            if (lastWord.isEmpty() || s.toLowerCase(Locale.ROOT).contains(lastWord)) {
+                builder.suggest(prefix + s);
+            }
+        }
+
+        return builder.buildFuture();
+    }
+
+    private static EntityType<?> resolveEntityType(String input) {
+        if (input == null || input.trim().isEmpty()) return null;
+        String trimmed = input.trim();
+
+        if (trimmed.contains(":")) {
+            ResourceLocation loc = ResourceLocation.tryParse(trimmed);
+            if (loc != null && ForgeRegistries.ENTITY_TYPES.containsKey(loc)) {
+                return ForgeRegistries.ENTITY_TYPES.getValue(loc);
+            }
+        }
+
+        String path = trimmed.toLowerCase(Locale.ROOT);
+        // Priority 1: minecraft:path
+        ResourceLocation mcLoc = new ResourceLocation("minecraft", path);
+        if (ForgeRegistries.ENTITY_TYPES.containsKey(mcLoc)) {
+            return ForgeRegistries.ENTITY_TYPES.getValue(mcLoc);
+        }
+
+        // Priority 2: xeb:path
+        ResourceLocation xebLoc = new ResourceLocation(Xeb.MODID, path);
+        if (ForgeRegistries.ENTITY_TYPES.containsKey(xebLoc)) {
+            return ForgeRegistries.ENTITY_TYPES.getValue(xebLoc);
+        }
+
+        // Priority 3: any registered entity path matching
+        for (Map.Entry<net.minecraft.resources.ResourceKey<EntityType<?>>, EntityType<?>> entry : ForgeRegistries.ENTITY_TYPES.getEntries()) {
+            if (entry.getKey().location().getPath().equalsIgnoreCase(path)) {
+                return entry.getValue();
+            }
+        }
+
+        return null;
+    }
+
+    private static EliteBuff findBuffByIdOrAlias(String key) {
+        if (key.isEmpty()) return null;
+        EliteBuff exact = EliteBuffRegistry.getById(key);
+        if (exact != null) return exact;
+
+        if (key.equalsIgnoreCase("madness") || key.equalsIgnoreCase("mad")) {
+            EliteBuff madBuff = EliteBuffRegistry.getById("mad");
+            if (madBuff != null) return madBuff;
+        }
+
+        for (EliteBuff buff : EliteBuffRegistry.getAll()) {
+            if (buff.getId().equalsIgnoreCase(key) || buff.getId().toLowerCase(Locale.ROOT).startsWith(key)) {
+                return buff;
+            }
+        }
+        return null;
+    }
+
+    private static void parseAndAddMedallions(String medallionsStr, List<MedallionData> medallions) {
+        if (medallionsStr == null || medallionsStr.trim().isEmpty()) return;
+        String[] tokens = medallionsStr.trim().split("\\s+");
+
+        for (String rawToken : tokens) {
+            String token = rawToken.trim();
+            if (token.isEmpty()) continue;
+
+            String namePart = token;
+            int count = 1;
+
+            int colonIdx = token.indexOf(':');
+            if (colonIdx != -1) {
+                namePart = token.substring(0, colonIdx);
+                String countStr = token.substring(colonIdx + 1);
+                try {
+                    count = Math.min(50, Math.max(1, Integer.parseInt(countStr)));
+                } catch (NumberFormatException ignored) {
+                    count = 1;
+                }
+            }
+
+            namePart = namePart.toLowerCase(Locale.ROOT);
+
+            MedallionType tier = MedallionType.LEGENDARY; // default to gold
+            String buffKey = namePart;
+
+            if (namePart.startsWith("golden")) {
+                tier = MedallionType.LEGENDARY;
+                buffKey = namePart.substring("golden".length());
+            } else if (namePart.startsWith("silver")) {
+                tier = MedallionType.RARE;
+                buffKey = namePart.substring("silver".length());
+            } else if (namePart.startsWith("bronze")) {
+                tier = MedallionType.COMMON;
+                buffKey = namePart.substring("bronze".length());
+            } else if (namePart.startsWith("g")) {
+                tier = MedallionType.LEGENDARY;
+                buffKey = namePart.substring(1);
+            } else if (namePart.startsWith("s")) {
+                tier = MedallionType.RARE;
+                buffKey = namePart.substring(1);
+            } else if (namePart.startsWith("b")) {
+                tier = MedallionType.COMMON;
+                buffKey = namePart.substring(1);
+            }
+
+            if (buffKey.equals("all")) {
+                for (EliteBuff buff : EliteBuffRegistry.getAll()) {
+                    for (int c = 0; c < count; c++) {
+                        medallions.add(new MedallionData(buff, tier, UUID.randomUUID()));
+                    }
+                }
+                continue;
+            }
+
+            EliteBuff buff = findBuffByIdOrAlias(buffKey);
+            if (buff != null) {
+                for (int c = 0; c < count; c++) {
+                    medallions.add(new MedallionData(buff, tier, UUID.randomUUID()));
+                }
+            }
+        }
+    }
+
     private static int executeSpawn(CommandContext<CommandSourceStack> ctx, String medallionsStr) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
-        ResourceLocation entityId = ResourceLocationArgument.getId(ctx, "entity");
-        
-        EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(entityId);
+        String entityArg = StringArgumentType.getString(ctx, "entity");
+        EntityType<?> entityType = resolveEntityType(entityArg);
+
         if (entityType == null) {
-            source.sendFailure(Component.literal("Unknown entity type: " + entityId));
+            source.sendFailure(Component.literal("Unknown entity type: " + entityArg));
             return 0;
         }
+
+        ResourceLocation entityId = ForgeRegistries.ENTITY_TYPES.getKey(entityType);
 
         Vec3 pos = source.getPosition();
         ServerLevel level = source.getLevel();
@@ -573,29 +737,7 @@ public class XebCommand {
         }
 
         List<MedallionData> medallions = new ArrayList<>();
-        if (medallionsStr != null && !medallionsStr.trim().isEmpty()) {
-            String[] tokens = medallionsStr.trim().split("\\s+");
-            for (String token : tokens) {
-                MedallionType tier = MedallionType.LEGENDARY; // default to gold
-                String buffId = token;
-
-                if (token.startsWith("bronze")) {
-                    tier = MedallionType.COMMON;
-                    buffId = token.substring("bronze".length());
-                } else if (token.startsWith("silver")) {
-                    tier = MedallionType.RARE;
-                    buffId = token.substring("silver".length());
-                } else if (token.startsWith("golden")) {
-                    tier = MedallionType.LEGENDARY;
-                    buffId = token.substring("golden".length());
-                }
-
-                EliteBuff buff = EliteBuffRegistry.getById(buffId);
-                if (buff != null) {
-                    medallions.add(new MedallionData(buff, tier, UUID.randomUUID()));
-                }
-            }
-        }
+        parseAndAddMedallions(medallionsStr, medallions);
 
         if (!medallions.isEmpty()) {
             MedallionManager.saveMedallions(living, medallions);
@@ -611,7 +753,7 @@ public class XebCommand {
         MedallionManager.syncToTracking(living);
 
         net.minecraft.network.chat.MutableComponent feedback = Component.literal("Spawned elite ")
-                .append(Component.literal(entityId.getPath()).withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE))
+                .append(Component.literal(entityId != null ? entityId.toString() : entityArg).withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE))
                 .append(Component.literal(" with "));
 
         if (medallions.isEmpty()) {

@@ -187,7 +187,9 @@ public class BuffTickHandler {
 
             bossEvent.setProgress(entity.getHealth() / entity.getMaxHealth());
             if (hasMadness) {
-                bossEvent.setName(net.minecraft.network.chat.Component.literal(entity.getDisplayName().getString() + " (Madness x" + finalMadStacks + ")"));
+                bossEvent.setName(net.minecraft.network.chat.Component.empty()
+                        .append(entity.getDisplayName())
+                        .append(net.minecraft.network.chat.Component.literal(" (Madness x" + finalMadStacks + ")").withStyle(net.minecraft.ChatFormatting.DARK_PURPLE, net.minecraft.ChatFormatting.BOLD)));
             } else {
                 bossEvent.setName(entity.getDisplayName());
             }

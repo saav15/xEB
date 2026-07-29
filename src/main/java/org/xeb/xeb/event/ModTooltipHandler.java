@@ -127,8 +127,8 @@ public class ModTooltipHandler {
         long time = System.currentTimeMillis();
         for (int i = 0; i < nameText.length(); i++) {
             char c = nameText.charAt(i);
-            // Color wave phase offset based on character index
-            double phase = ((time % 2000) / 2000.0 * 2.0 * Math.PI) - (i * 0.25);
+            // Color wave phase offset based on character index (50% slower: 4000ms cycle)
+            double phase = ((time % 4000) / 4000.0 * 2.0 * Math.PI) - (i * 0.25);
             // Cycle between deep crimson red and bright orange-gold
             int r = (int) (210 + 45 * Math.sin(phase));
             int g = (int) (40 + 40 * Math.sin(phase));
@@ -145,8 +145,8 @@ public class ModTooltipHandler {
         long time = System.currentTimeMillis();
         for (int i = 0; i < nameText.length(); i++) {
             char c = nameText.charAt(i);
-            // Wave phase offset based on character index
-            double phase = ((time % 2000) / 2000.0 * 2.0 * Math.PI) - (i * 0.25);
+            // Wave phase offset based on character index (50% slower: 4000ms cycle)
+            double phase = ((time % 4000) / 4000.0 * 2.0 * Math.PI) - (i * 0.25);
             // Cycle between bright aqua and soft mint-cyan
             int r = (int) (10 + 10 * Math.sin(phase));
             int g = (int) (225 + 30 * Math.sin(phase));
@@ -163,7 +163,8 @@ public class ModTooltipHandler {
         long time = System.currentTimeMillis();
         for (int i = 0; i < nameText.length(); i++) {
             char c = nameText.charAt(i);
-            double phase = ((time % 2000) / 2000.0 * 2.0 * Math.PI) - (i * 0.25);
+            // 50% slower: 4000ms cycle
+            double phase = ((time % 4000) / 4000.0 * 2.0 * Math.PI) - (i * 0.25);
             int r = (int) (185 + 55 * Math.sin(phase));
             int g = (int) (50 + 30 * Math.sin(phase));
             int b = (int) (210 + 30 * Math.sin(phase));
@@ -179,7 +180,8 @@ public class ModTooltipHandler {
         long time = System.currentTimeMillis();
         for (int i = 0; i < nameText.length(); i++) {
             char c = nameText.charAt(i);
-            double phase = ((time % 2000) / 2000.0 * 2.0 * Math.PI) - (i * 0.25);
+            // 50% slower: 4000ms cycle
+            double phase = ((time % 4000) / 4000.0 * 2.0 * Math.PI) - (i * 0.25);
             int r = 255;
             int g = (int) (200 + 50 * Math.sin(phase));
             int b = (int) (30 + 30 * Math.sin(phase));
@@ -330,6 +332,10 @@ public class ModTooltipHandler {
             } else {
                 tooltip.add(Component.literal(""));
                 tooltip.add(Component.translatable("gui.xeb.tooltip.description"));
+
+                if (!desc1Key.isEmpty()) {
+                    tooltip.add(Component.translatable(desc1Key).withStyle(ChatFormatting.GRAY));
+                }
                 
                 String typeStr = entry.type == ExtremeBurstRegistry.BurstType.UNIVERSAL 
                         ? Component.translatable("gui.xeb.tooltip.extreme_burst.accessibility.universal").getString() 
@@ -338,39 +344,45 @@ public class ModTooltipHandler {
                 
                 String verStr = entry.version == ExtremeBurstRegistry.BurstVersion.INSTANT 
                         ? Component.translatable("gui.xeb.tooltip.extreme_burst.type.instant").getString() 
-                        : Component.translatable("gui.xeb.tooltip.extreme_burst.type.instance").getString();
+                        : Component.translatable("gui.xeb.tooltip.extreme_burst.type.instance", (entry.durationTicks / 20)).getString();
                 
-                tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.description_label")
-                        .withStyle(ChatFormatting.DARK_PURPLE)
-                        .append(Component.literal(typeStr + " / " + verStr).withStyle(ChatFormatting.LIGHT_PURPLE)));
+                tooltip.add(Component.literal("  §d• ")
+                        .append(Component.translatable("gui.xeb.tooltip.extreme_burst.type_label").withStyle(ChatFormatting.LIGHT_PURPLE))
+                        .append(Component.literal(": " + typeStr + " / " + verStr).withStyle(ChatFormatting.GRAY)));
 
                 tooltip.add(Component.literal(""));
                 tooltip.add(Component.translatable("gui.xeb.tooltip.stats"));
                 
                 double cdSec = entry.cooldownTicks / 20.0;
-                tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.cooldown_label")
-                        .withStyle(ChatFormatting.DARK_PURPLE)
-                        .append(Component.translatable("gui.xeb.tooltip.extreme_burst.seconds_value", cdSec).withStyle(ChatFormatting.LIGHT_PURPLE)));
+                tooltip.add(Component.literal("  §e⚡ ")
+                        .append(Component.translatable("gui.xeb.tooltip.extreme_burst.cooldown_stat").withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal(": " + cdSec + "s").withStyle(ChatFormatting.LIGHT_PURPLE)));
                 
                 if (entry.durationTicks > 0) {
                     double durSec = entry.durationTicks / 20.0;
-                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.duration_label")
-                            .withStyle(ChatFormatting.DARK_PURPLE)
-                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.seconds_value", durSec).withStyle(ChatFormatting.LIGHT_PURPLE)));
+                    tooltip.add(Component.literal("  §b⏱ ")
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.duration_stat").withStyle(ChatFormatting.AQUA))
+                            .append(Component.literal(": " + durSec + "s").withStyle(ChatFormatting.LIGHT_PURPLE)));
                 }
 
                 tooltip.add(Component.literal(""));
                 tooltip.add(Component.translatable("gui.xeb.tooltip.abilities"));
                 
                 if (curioItem == ModItems.QUANTUM_CAT_BARRAGE.get()) {
-                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.cat").withStyle(ChatFormatting.LIGHT_PURPLE));
+                    tooltip.add(Component.literal("  §b• ")
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.burst_ability_title").withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal(": "))
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.cat").withStyle(ChatFormatting.GRAY)));
                 } else if (curioItem == ModItems.DOGMA.get()) {
-                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.dogma").withStyle(ChatFormatting.LIGHT_PURPLE));
+                    tooltip.add(Component.literal("  §b• ")
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.burst_ability_title").withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal(": "))
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.dogma").withStyle(ChatFormatting.GRAY)));
                 } else if (curioItem == ModItems.OMEGA_FLOWERY.get()) {
-                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery").withStyle(ChatFormatting.LIGHT_PURPLE));
-                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery.act1").withStyle(ChatFormatting.AQUA));
-                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery.act2").withStyle(ChatFormatting.AQUA));
-                    tooltip.add(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery.act3").withStyle(ChatFormatting.AQUA));
+                    tooltip.add(Component.literal("  §b• ")
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.burst_ability_title").withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal(": "))
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery").withStyle(ChatFormatting.GRAY)));
                 }
 
                 if (!loreKey.isEmpty()) {
@@ -461,7 +473,7 @@ public class ModTooltipHandler {
         ItemStack stack = event.getItemStack();
         if (isModWeapon(stack) || isExtremeBurstCurio(stack) || stack.is(ModItems.ENIGMA_BIOS.get())) {
             long time = System.currentTimeMillis();
-            double phaseStart = (time % 1500) / 1500.0 * 2.0 * Math.PI;
+            double phaseStart = (time % 3000) / 3000.0 * 2.0 * Math.PI;
             double phaseEnd = phaseStart + Math.PI;
 
             if (stack.is(ModItems.ENIGMA_BIOS.get())) {

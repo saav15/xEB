@@ -1,7 +1,6 @@
 package org.xeb.xeb.client.renderer;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -17,15 +16,15 @@ public class HotPokerGeoRenderer extends GeoEntityRenderer<HotPokerEntity> {
     public HotPokerGeoRenderer(EntityRendererProvider.Context renderManager) {
         super(renderManager, new HotPokerGeoModel());
 
-        // Layer to render items held in the custom bones HANDright and HANDleft
+        // Capa para renderizar los ítems en las manos del Hotpoker usando los nuevos huesos locator right_hand_item y left_hand_item
         this.addRenderLayer(new BlockAndItemGeoLayer<HotPokerEntity>(this) {
             @Nullable
             @Override
             protected ItemStack getStackForBone(GeoBone bone, HotPokerEntity animatable) {
-                if (bone.getName().equals("HANDleft")) {
+                if (bone.getName().equals("left_hand_item")) {
                     return animatable.getMainHandItem();
                 }
-                if (bone.getName().equals("HANDright")) {
+                if (bone.getName().equals("right_hand_item")) {
                     return animatable.getOffhandItem();
                 }
                 return null;
@@ -33,10 +32,7 @@ public class HotPokerGeoRenderer extends GeoEntityRenderer<HotPokerEntity> {
 
             @Override
             protected ItemDisplayContext getTransformTypeForStack(GeoBone bone, ItemStack stack, HotPokerEntity animatable) {
-                if (bone.getName().equals("HANDleft")) {
-                    return ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
-                }
-                if (bone.getName().equals("HANDright")) {
+                if (bone.getName().equals("left_hand_item") || bone.getName().equals("right_hand_item")) {
                     return ItemDisplayContext.THIRD_PERSON_RIGHT_HAND;
                 }
                 return ItemDisplayContext.NONE;
@@ -45,12 +41,10 @@ public class HotPokerGeoRenderer extends GeoEntityRenderer<HotPokerEntity> {
             @Override
             protected void renderStackForBone(PoseStack poseStack, GeoBone bone, ItemStack stack, HotPokerEntity animatable, MultiBufferSource bufferSource, float partialTick, int packedLight, int packedOverlay) {
                 poseStack.pushPose();
-                if (bone.getName().equals("HANDleft")) {
-                    poseStack.scale(0.5F, 0.5F, 0.5F);
-                    poseStack.mulPose(Axis.XP.rotationDegrees(125.0F));
-                } else if (bone.getName().equals("HANDright")) {
-                    poseStack.scale(0.5F, 0.5F, 0.5F);
-                    poseStack.mulPose(Axis.XP.rotationDegrees(180.0F));
+                if (bone.getName().equals("left_hand_item") || bone.getName().equals("right_hand_item")) {
+                    // Escala al 80% (20% reducida) y rotación a 250°
+                    poseStack.scale(0.80F, 0.80F, 0.80F);
+                    poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(250.0F));
                 }
                 super.renderStackForBone(poseStack, bone, stack, animatable, bufferSource, partialTick, packedLight, packedOverlay);
                 poseStack.popPose();
