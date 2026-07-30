@@ -155,13 +155,13 @@ public class BuffTickHandler {
             if (entity instanceof org.xeb.xeb.entity.StevenCloneEntity) {
                 qualifies = false;
             } else {
-                hasMadness = MedallionManager.hasBuff(entity, "mad");
+                hasMadness = MedallionManager.hasBuff(entity, "mad") || entity.hasEffect(org.xeb.xeb.effect.ModEffects.MADNESS.get());
                 madStacks = entity.getPersistentData().getInt("xebMadStacks");
-                boolean escalatedMadness = hasMadness && madStacks > 0;
+                boolean escalatedMadness = madStacks >= 2;
 
                 int megaCount = 0;
                 for (MedallionData m : MedallionManager.getMedallions(entity)) {
-                    if (m.getBuff().getId().equals("mega")) {
+                    if (m.getBuff() != null && m.getBuff().getId().equals("mega")) {
                         megaCount++;
                     }
                 }
@@ -186,18 +186,25 @@ public class BuffTickHandler {
             });
 
             bossEvent.setProgress(entity.getHealth() / entity.getMaxHealth());
-            if (hasMadness) {
-                bossEvent.setName(net.minecraft.network.chat.Component.empty()
-                        .append(entity.getDisplayName())
-                        .append(net.minecraft.network.chat.Component.literal(" (Madness x" + finalMadStacks + ")").withStyle(net.minecraft.ChatFormatting.DARK_PURPLE, net.minecraft.ChatFormatting.BOLD)));
-            } else {
-                bossEvent.setName(entity.getDisplayName());
+
+            net.minecraft.network.chat.MutableComponent title = net.minecraft.network.chat.Component.empty();
+            if (finalHasMultipleMega && hasMadness) {
+                title.append(net.minecraft.network.chat.Component.literal("§d§l[MEGA MADNESS] §r"));
+            } else if (finalHasMultipleMega) {
+                title.append(net.minecraft.network.chat.Component.literal("§d§l[MEGA BOSS] §r"));
+            } else if (hasMadness) {
+                title.append(net.minecraft.network.chat.Component.literal("§c§l[MADNESS] §r"));
             }
+            title.append(entity.getDisplayName());
+            if (hasMadness) {
+                title.append(net.minecraft.network.chat.Component.literal(" (Madness x" + finalMadStacks + ")").withStyle(net.minecraft.ChatFormatting.DARK_PURPLE, net.minecraft.ChatFormatting.BOLD));
+            }
+            bossEvent.setName(title);
 
             if (entity.level() instanceof ServerLevel serverLevel) {
                 java.util.Set<ServerPlayer> currentPlayers = new java.util.HashSet<>();
                 for (ServerPlayer player : serverLevel.players()) {
-                    if (player.distanceToSqr(entity) <= 32.0D * 32.0D) {
+                    if (player.distanceToSqr(entity) <= 64.0D * 64.0D) {
                         currentPlayers.add(player);
                     }
                 }

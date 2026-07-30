@@ -32,7 +32,7 @@ public class PermanightLootHandler {
                     org.xeb.xeb.world.PermanightSavedData.get(serverPlayer.serverLevel());
             org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
                     net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> serverPlayer),
-                    new org.xeb.xeb.network.PermanightSyncPacket(data.isActive()));
+                    new org.xeb.xeb.network.PermanightSyncPacket(data.isActive(), data.getTicksRemaining()));
         }
     }
 
@@ -56,6 +56,11 @@ public class PermanightLootHandler {
                 if (timeOfDay < 13000L || timeOfDay > 23000L) {
                     serverLevel.setDayTime(serverLevel.getDayTime() - timeOfDay + 18000L);
                 }
+                if (remaining % 20 == 0) {
+                    org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
+                            net.minecraftforge.network.PacketDistributor.ALL.noArg(),
+                            new org.xeb.xeb.network.PermanightSyncPacket(true, remaining));
+                }
                 // N11 — flush ticksRemaining to disk every 200 ticks (~10 s) to avoid
                 // I/O spam while still surviving a crash with at most 10 s of lost progress.
                 if (remaining % 200 == 0) {
@@ -66,7 +71,7 @@ public class PermanightLootHandler {
                 data.setActive(false);
                 org.xeb.xeb.network.XEBNetwork.CHANNEL.send(
                         net.minecraftforge.network.PacketDistributor.ALL.noArg(),
-                        new org.xeb.xeb.network.PermanightSyncPacket(false));
+                        new org.xeb.xeb.network.PermanightSyncPacket(false, 0));
 
                 serverLevel.players().forEach(p -> {
                     p.sendSystemMessage(net.minecraft.network.chat.Component.translatable("chat.xeb.permanight.end"));

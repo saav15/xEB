@@ -17,7 +17,9 @@ public class XebBossBar {
         OBSIDIAN_COSMIC(0xFF0D0D11, 0xFFF0F0F0, 0xFF777788, 0xFF050508, 0xFFFFFFFF),
         FIERY_NETHER(0xFF1D0905, 0xFFFF4400, 0xFF772200, 0xFF0D0302, 0xFFFF6600),
         VOID_ENDER(0xFF0F051A, 0xFFD044FF, 0xFF551177, 0xFF06020A, 0xFFE088FF),
-        GOLDEN_DIVINE(0xFF1F1B05, 0xFFFFDD44, 0xFF887711, 0xFF0A0802, 0xFFFFEE88);
+        GOLDEN_DIVINE(0xFF1F1B05, 0xFFFFDD44, 0xFF887711, 0xFF0A0802, 0xFFFFEE88),
+        EMERALD_NATURE(0xFF041A0B, 0xFF00FF66, 0xFF007733, 0xFF020A05, 0xFF55FF88),
+        MADNESS_CORRUPTED(0xFF1C001C, 0xFFFF0055, 0xFF880044, 0xFF080008, 0xFFFF2277);
 
         public final int coreBg;
         public final int topBorder;
@@ -39,22 +41,31 @@ public class XebBossBar {
 
     public void render(GuiGraphics gui, Font font, int yOffset, String bossTitle, float targetHpRatio,
                        int currentHp, int maxHp, int charges, String phaseTagLeft, Theme theme) {
-        render(gui, font, yOffset, bossTitle, targetHpRatio, currentHp, maxHp, null, charges, phaseTagLeft, theme);
+        render(gui, font, yOffset, bossTitle, targetHpRatio, currentHp, maxHp, null, charges, phaseTagLeft, null, 1.0F, theme);
     }
 
     public void render(GuiGraphics gui, Font font, int yOffset, String bossTitle, float targetHpRatio,
                        int currentHp, int maxHp, String extraStatusRight, String phaseTagLeft, Theme theme) {
-        render(gui, font, yOffset, bossTitle, targetHpRatio, currentHp, maxHp, extraStatusRight, 0, phaseTagLeft, theme);
+        render(gui, font, yOffset, bossTitle, targetHpRatio, currentHp, maxHp, extraStatusRight, 0, phaseTagLeft, null, 1.0F, theme);
     }
 
     public void render(GuiGraphics gui, Font font, int yOffset, String bossTitle, float targetHpRatio,
                        int currentHp, int maxHp, String extraStatusRight, int charges, String phaseTagLeft, Theme theme) {
+        render(gui, font, yOffset, bossTitle, targetHpRatio, currentHp, maxHp, extraStatusRight, charges, phaseTagLeft, null, 1.0F, theme);
+    }
+
+    public void render(GuiGraphics gui, Font font, int yOffset, String bossTitle, float targetHpRatio,
+                       int currentHp, int maxHp, String extraStatusRight, int charges, String phaseTagLeft,
+                       net.minecraft.world.entity.LivingEntity mobEntity, float animScale, Theme theme) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 
-        int screenWidth = mc.getWindow().getGuiScaledWidth();
-        int barWidth = 260;
+        float scale = Math.max(0.05F, Math.min(1.0F, animScale));
+        int fullBarWidth = 260;
+        int barWidth = (int) (fullBarWidth * scale);
         int barHeight = 14;
+
+        int screenWidth = mc.getWindow().getGuiScaledWidth();
         int startX = (screenWidth - barWidth) / 2;
         int startY = yOffset;
 
@@ -93,13 +104,25 @@ public class XebBossBar {
             }
         }
 
+        // FLASH DE APERTURA SI LA ANIMACIÓN ESTÁ TRANSCURRIENDO
+        if (scale < 0.99F) {
+            int flashAlpha = (int) (200 * (1.0F - scale));
+            int flashColor = (flashAlpha << 24) | (theme.topBorder & 0x00FFFFFF);
+            gui.fill(startX - 10, startY - 6, startX + barWidth + 10, startY + barHeight + 6, flashColor);
+        }
+
         // 4. MARCO PIXEL-ART ESCULPIDO CON ALAS ESPINOSAS
         renderSpikyFrame(gui, startX, startY, barWidth, barHeight, gameTime, theme);
 
-        // 5. TÍTULO ANIMADO Y FLOTANTE POR CARÁCTER
+        // 5. ICONO / MODELO 3D DEL MOB EN EL ALAMBRE IZQUIERDO
+        if (mobEntity != null && scale > 0.5F) {
+            renderMobIconBadge(gui, font, startX - 38, startY - 4, mobEntity, theme);
+        }
+
+        // 6. TÍTULO ANIMADO Y FLOTANTE POR CARÁCTER
         renderFloatingTitle(gui, font, startX + (barWidth / 2), startY - 16, bossTitle, gameTime);
 
-        // 6. VALORES EN NÚMEROS Y ETIQUETAS
+        // 7. VALORES EN NÚMEROS Y ETIQUETAS
         String hpText = String.format("%d / %d HP (%d%%)", currentHp, maxHp, (int) (targetHpRatio * 100));
         int fontW = font.width(hpText);
         gui.drawString(font, hpText, startX + (barWidth - fontW) / 2, startY + 3, 0xFFFFFFFF, true);
@@ -112,10 +135,83 @@ public class XebBossBar {
             gui.drawString(font, phaseTagLeft, startX - font.width(phaseTagLeft) - 8, startY + 3, 0xFFFF2222, true);
         }
 
-        // 7. BADGE ESTILIZADO DE CARGAS ACOMODADO CENTRADO DEBAJO DE LA BARRA
+        // 8. BADGE ESTILIZADO DE CARGAS ACOMODADO CENTRADO DEBAJO DE LA BARRA
         if (charges > 0) {
             renderChargesBadge(gui, font, startX + (barWidth / 2), startY + barHeight + 5, charges, theme);
         }
+
+        RenderSystem.disableBlend();
+    }
+
+    private static void renderMobIconBadge(GuiGraphics gui, Font font, int badgeX, int badgeY, net.minecraft.world.entity.LivingEntity entity, Theme theme) {
+        int size = 22;
+        gui.fill(badgeX - 1, badgeY - 1, badgeX + size + 1, badgeY + size + 1, 0xE6020204);
+        gui.fill(badgeX, badgeY, badgeX + size, badgeY + size, theme.frameBg);
+        gui.fill(badgeX, badgeY, badgeX + size, badgeY + 1, theme.topBorder);
+        gui.fill(badgeX, badgeY + size - 1, badgeX + size, badgeY + size, theme.bottomBorder);
+
+        try {
+            float scale = 10.0F;
+            if (entity.getBbHeight() > 2.0F) {
+                scale = 6.0F;
+            } else if (entity.getBbWidth() > 1.5F) {
+                scale = 7.0F;
+            }
+            net.minecraft.client.gui.screens.inventory.InventoryScreen.renderEntityInInventoryFollowsAngle(
+                    gui, badgeX + 11, badgeY + 18, (int) scale, 0.0F, 0.0F, entity
+            );
+        } catch (Throwable ignored) {
+            net.minecraft.world.item.Item egg = net.minecraft.world.item.SpawnEggItem.byId(entity.getType());
+            if (egg != null) {
+                gui.renderItem(new net.minecraft.world.item.ItemStack(egg), badgeX + 3, badgeY + 3);
+            }
+        }
+    }
+
+    public void renderMini(GuiGraphics gui, Font font, int startX, int startY, String bossTitle, float targetHpRatio,
+                           int currentHp, int maxHp, int charges, String phaseTagLeft, Theme theme) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) return;
+
+        int barWidth = 105;
+        int barHeight = 10;
+
+        smoothHpRatio = Mth.lerp(0.20F, smoothHpRatio, targetHpRatio);
+        if (smoothGhostHpRatio < smoothHpRatio) {
+            smoothGhostHpRatio = smoothHpRatio;
+        } else {
+            smoothGhostHpRatio = Mth.lerp(0.04F, smoothGhostHpRatio, smoothHpRatio);
+        }
+
+        double gameTime = mc.level.getGameTime() + mc.getFrameTime();
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        // 1. SOMBRA EXTERIOR MINI
+        gui.fill(startX - 3, startY - 3, startX + barWidth + 3, startY + barHeight + 3, 0xE6020204);
+
+        // 2. RASTRO GHOST
+        int ghostWidth = (int) (barWidth * Math.max(0.0F, Math.min(1.0F, smoothGhostHpRatio)));
+        if (ghostWidth > 0) {
+            gui.fill(startX, startY, startX + ghostWidth, startY + barHeight, 0xFFB32424);
+        }
+
+        // 3. VIDA PRINCIPAL
+        int currentHpWidth = (int) (barWidth * Math.max(0.0F, Math.min(1.0F, smoothHpRatio)));
+        if (currentHpWidth > 0) {
+            gui.fill(startX, startY, startX + currentHpWidth, startY + barHeight, theme.coreBg);
+            gui.fill(startX, startY, startX + currentHpWidth, startY + 2, theme.topBorder);
+            gui.fill(startX, startY + barHeight - 2, startX + currentHpWidth, startY + barHeight, theme.bottomBorder);
+        }
+
+        // 4. MARCO DE ALAS ESPINOSAS STEVEN MINI
+        renderSpikyFrame(gui, startX, startY, barWidth, barHeight, gameTime, theme);
+
+        // 5. TÍTULO Y HP
+        gui.drawString(font, bossTitle, startX + 2, startY - 9, 0xFFFFFFFF, true);
+        String hpText = String.format("%d%%", (int) (targetHpRatio * 100));
+        gui.drawString(font, hpText, startX + barWidth - font.width(hpText) - 2, startY + 1, 0xFF00FFFF, true);
 
         RenderSystem.disableBlend();
     }

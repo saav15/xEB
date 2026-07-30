@@ -13,10 +13,10 @@ public class PermanightClientRenderer {
     @SubscribeEvent
     public static void onComputeFogColor(ViewportEvent.ComputeFogColor event) {
         if (isPermanightActive) {
-            // Dark reddish fog tint (RGB: 75, 10, 10 / 255 -> 0.29F, 0.04F, 0.04F)
-            event.setRed(0.29F);
-            event.setGreen(0.04F);
-            event.setBlue(0.04F);
+            // Dark void purple fog tint
+            event.setRed(0.12F);
+            event.setGreen(0.02F);
+            event.setBlue(0.25F);
         }
     }
 

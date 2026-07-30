@@ -17,7 +17,7 @@ import java.util.List;
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class StevenBossBarHUDOverlay {
 
-    private static final XebBossBar STEVEN_BOSS_BAR = new XebBossBar();
+    public static final XebBossBar STEVEN_BOSS_BAR = new XebBossBar();
 
     private static List<StevenBossEntity> getActiveStevensNearPlayer() {
         Minecraft mc = Minecraft.getInstance();
@@ -35,8 +35,6 @@ public class StevenBossBarHUDOverlay {
         String cleanName = bossEvent.getName().getString().replace(" ", "").toUpperCase();
 
         if (cleanName.contains("STEVEN")) {
-            // Cancelar el dibujado por defecto de la barra vainilla de Steven
-            // Y calcular el desplazamiento necesario segun el numero total de Stevens activos
             int activeCount = getActiveStevensNearPlayer().size();
             int totalSpacing = Math.max(1, activeCount) * 63;
 
@@ -45,42 +43,5 @@ public class StevenBossBarHUDOverlay {
         }
     }
 
-    @SubscribeEvent
-    public static void onRenderGuiOverlayPost(RenderGuiOverlayEvent.Post event) {
-        if (!event.getOverlay().id().equals(VanillaGuiOverlay.BOSS_EVENT_PROGRESS.id())) return;
-
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.player == null || mc.options.hideGui) return;
-
-        List<StevenBossEntity> stevens = getActiveStevensNearPlayer();
-        if (stevens.isEmpty()) return;
-
-        int currentY = 18;
-        int index = 1;
-
-        for (StevenBossEntity steven : stevens) {
-            float targetHpRatio = steven.getHealth() / steven.getMaxHealth();
-            int charges = steven.getStevenCharges();
-            String phaseTag = targetHpRatio < 0.25F ? "OVERDRIVE" : "";
-
-            String title = stevens.size() > 1 ? "S T E V E N  #" + index : "S T E V E N";
-
-            // Delegar al componente reutilizable XebBossBar
-            STEVEN_BOSS_BAR.render(
-                    event.getGuiGraphics(),
-                    mc.font,
-                    currentY,
-                    title,
-                    targetHpRatio,
-                    (int) steven.getHealth(),
-                    (int) steven.getMaxHealth(),
-                    charges,
-                    phaseTag,
-                    XebBossBar.Theme.OBSIDIAN_COSMIC
-            );
-
-            currentY += 63;
-            index++;
-        }
-    }
+    // Render loop is now handled cleanly by MedallionBossBarHUDOverlay for unified priority & mini-bars
 }

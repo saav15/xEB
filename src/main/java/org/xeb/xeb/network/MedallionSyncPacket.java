@@ -14,11 +14,17 @@ public class MedallionSyncPacket {
     private final int entityId;
     private final List<String> buffIds;
     private final List<String> tiers;
+    private final int madStacks;
 
-    public MedallionSyncPacket(int entityId, List<String> buffIds, List<String> tiers) {
+    public MedallionSyncPacket(int entityId, List<String> buffIds, List<String> tiers, int madStacks) {
         this.entityId = entityId;
         this.buffIds = buffIds;
         this.tiers = tiers;
+        this.madStacks = madStacks;
+    }
+
+    public MedallionSyncPacket(int entityId, List<String> buffIds, List<String> tiers) {
+        this(entityId, buffIds, tiers, 0);
     }
 
     public int getEntityId() {
@@ -33,8 +39,13 @@ public class MedallionSyncPacket {
         return tiers;
     }
 
+    public int getMadStacks() {
+        return madStacks;
+    }
+
     public static void encode(MedallionSyncPacket msg, FriendlyByteBuf buf) {
         buf.writeInt(msg.entityId);
+        buf.writeInt(msg.madStacks);
         buf.writeInt(msg.buffIds.size());
         for (int i = 0; i < msg.buffIds.size(); i++) {
             buf.writeUtf(msg.buffIds.get(i));
@@ -44,6 +55,7 @@ public class MedallionSyncPacket {
 
     public static MedallionSyncPacket decode(FriendlyByteBuf buf) {
         int entityId = buf.readInt();
+        int madStacks = buf.readInt();
         int size = buf.readInt();
         List<String> buffIds = new ArrayList<>();
         List<String> tiers = new ArrayList<>();
@@ -51,7 +63,7 @@ public class MedallionSyncPacket {
             buffIds.add(buf.readUtf());
             tiers.add(buf.readUtf());
         }
-        return new MedallionSyncPacket(entityId, buffIds, tiers);
+        return new MedallionSyncPacket(entityId, buffIds, tiers, madStacks);
     }
 
     public static void handle(MedallionSyncPacket msg, Supplier<NetworkEvent.Context> ctxSupplier) {
@@ -62,7 +74,11 @@ public class MedallionSyncPacket {
         ctx.setPacketHandled(true);
     }
 
+    public static void addPendingSync(int entityId, ListTag tag, int madStacks) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientPacketHandler.addPendingSync(entityId, tag, madStacks));
+    }
+
     public static void addPendingSync(int entityId, ListTag tag) {
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientPacketHandler.addPendingSync(entityId, tag));
+        addPendingSync(entityId, tag, 0);
     }
 }

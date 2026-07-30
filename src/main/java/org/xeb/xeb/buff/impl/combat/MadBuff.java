@@ -70,8 +70,9 @@ public class MadBuff extends EliteBuff {
         int stacks = tag.getInt(STACKS_KEY) + 1;
         tag.putInt(STACKS_KEY, stacks);
 
-        // Update modifiers
+        // Update modifiers & sync to client
         updateStackModifiers(entity, stacks);
+        org.xeb.xeb.medallion.MedallionManager.syncToTracking(entity);
 
         // Spawn particles
         if (!entity.level().isClientSide()) {

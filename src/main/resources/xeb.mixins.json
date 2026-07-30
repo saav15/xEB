@@ -11,7 +11,8 @@
   ],
   "client": [
     "CameraMixin",
-    "HumanoidModelMixin"
+    "HumanoidModelMixin",
+    "LevelRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

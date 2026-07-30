@@ -443,6 +443,7 @@ public class MedallionManager {
     public static void syncToTracking(LivingEntity entity) {
         if (entity.level() instanceof ServerLevel serverLevel) {
             List<MedallionData> medallions = getMedallions(entity);
+            int madStacks = entity.getPersistentData().getInt("xebMadStacks");
             
             // Build the sync message
             List<String> buffIds = new ArrayList<>();
@@ -452,21 +453,22 @@ public class MedallionManager {
                 tiers.add(m.getTier().name());
             }
 
-            MedallionSyncPacket packet = new MedallionSyncPacket(entity.getId(), buffIds, tiers);
+            MedallionSyncPacket packet = new MedallionSyncPacket(entity.getId(), buffIds, tiers, madStacks);
             XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), packet);
         }
     }
 
     public static void syncToPlayer(LivingEntity entity, ServerPlayer player) {
         List<MedallionData> medallions = getMedallions(entity);
-        if (!medallions.isEmpty()) {
+        int madStacks = entity.getPersistentData().getInt("xebMadStacks");
+        if (!medallions.isEmpty() || madStacks > 0) {
             List<String> buffIds = new ArrayList<>();
             List<String> tiers = new ArrayList<>();
             for (MedallionData m : medallions) {
                 buffIds.add(m.getBuff().getId());
                 tiers.add(m.getTier().name());
             }
-            MedallionSyncPacket packet = new MedallionSyncPacket(entity.getId(), buffIds, tiers);
+            MedallionSyncPacket packet = new MedallionSyncPacket(entity.getId(), buffIds, tiers, madStacks);
             XEBNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), packet);
         }
     }

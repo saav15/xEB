@@ -52,6 +52,9 @@ public class BuffDeathHandler {
 
         // Route kill to attacker's buffs
         Entity attacker = event.getSource().getEntity();
+        if (attacker == null) {
+            attacker = event.getSource().getDirectEntity();
+        }
         if (attacker instanceof LivingEntity livingAttacker) {
             List<MedallionData> attackerMedallions = MedallionManager.getActiveMedallions(livingAttacker);
             if (!attackerMedallions.isEmpty()) {

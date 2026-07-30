@@ -36,10 +36,11 @@ public class MedallionSpawnHandler {
         // Client side: apply pending sync data received before the entity was loaded
         if (event.getLevel().isClientSide()) {
             if (event.getEntity() instanceof LivingEntity living) {
-                net.minecraft.nbt.ListTag pending =
+                org.xeb.xeb.network.ClientPacketHandler.PendingSyncData pending =
                         org.xeb.xeb.network.ClientPacketHandler.getPendingSync(living.getId());
                 if (pending != null) {
-                    living.getPersistentData().put(MedallionManager.MEDALLIONS_KEY, pending);
+                    living.getPersistentData().put(MedallionManager.MEDALLIONS_KEY, pending.listTag);
+                    living.getPersistentData().putInt("xebMadStacks", pending.madStacks);
                     try { living.refreshDimensions(); } catch (Exception ignored) {}
                 }
             }

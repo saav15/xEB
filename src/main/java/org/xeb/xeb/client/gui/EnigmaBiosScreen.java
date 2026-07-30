@@ -184,11 +184,17 @@ public class EnigmaBiosScreen extends Screen {
         // Fondo Principal
         g.fill(this.leftPos, this.topPos, this.leftPos + this.guiWidth, this.topPos + this.guiHeight, 0xEE08111E);
 
-        // Permanight: gradiente morado difuminado desde abajo
+        // Permanight: gradiente morado difuminado desde abajo y rojo sangre desde arriba hacia el centro
         if (permanight) {
+            // Gradiente morado (desde abajo)
             g.fill(this.leftPos + 2, this.topPos + this.guiHeight - 100, this.leftPos + this.guiWidth - 2, this.topPos + this.guiHeight - 70, 0x0F3B005A);
             g.fill(this.leftPos + 2, this.topPos + this.guiHeight - 70,  this.leftPos + this.guiWidth - 2, this.topPos + this.guiHeight - 40, 0x1F2B0072);
             g.fill(this.leftPos + 2, this.topPos + this.guiHeight - 40,  this.leftPos + this.guiWidth - 2, this.topPos + this.guiHeight - 2,  0x3A3B0099);
+
+            // Gradiente rojo sangre (desde arriba hacia enmedio)
+            g.fill(this.leftPos + 2, this.topPos + 2,  this.leftPos + this.guiWidth - 2, this.topPos + 35, 0x3A7A000D);
+            g.fill(this.leftPos + 2, this.topPos + 35, this.leftPos + this.guiWidth - 2, this.topPos + 65, 0x1F5C000B);
+            g.fill(this.leftPos + 2, this.topPos + 65, this.leftPos + this.guiWidth - 2, this.topPos + 95, 0x0F3A0007);
         }
 
         // Scanlines Sci-Fi
@@ -203,8 +209,33 @@ public class EnigmaBiosScreen extends Screen {
         // Header Title Bar
         g.fill(this.leftPos + 4, this.topPos + 4, this.leftPos + this.guiWidth - 4, this.topPos + 16, 0x3300FFCC);
         g.drawString(this.font, "ENIGMA BIOS v1.0", this.leftPos + 8, this.topPos + 6, borderColor, false);
+
         String statusText = translate("gui.xeb.enigma_bios.status");
-        g.drawString(this.font, statusText, this.leftPos + this.guiWidth - 8 - this.font.width(statusText), this.topPos + 6, borderColor, false);
+        int statusColor = borderColor;
+
+        if (permanight) {
+            int ticksLeft = org.xeb.xeb.client.PermanightClientHandler.getTicksRemaining();
+            int totalSecs = Math.max(0, ticksLeft / 20);
+            int mins = totalSecs / 60;
+            int secs = totalSecs % 60;
+            String timerStr = String.format("%02d:%02d", mins, secs);
+
+            long cycle = System.currentTimeMillis() % 20000L; // Glitch cycle cada 20 segundos
+            if (cycle >= 15000L) { // Durante los últimos 5s de cada ciclo de 20s
+                long glitchTime = cycle - 15000L;
+                if (glitchTime < 250L || (glitchTime > 2300L && glitchTime < 2550L)) {
+                    char glitchChar1 = (char) ('A' + (int)(System.currentTimeMillis() % 26));
+                    char glitchChar2 = (char) ('0' + (int)(System.currentTimeMillis() % 10));
+                    statusText = "PERMANIGHT " + glitchChar1 + ":" + glitchChar2 + (secs % 10);
+                    statusColor = 0xFFFF1E40; // Glitch rojo carmesí
+                } else {
+                    statusText = "PERMANIGHT " + timerStr;
+                    statusColor = 0xFFFF3355; // Rojo carmesí
+                }
+            }
+        }
+
+        g.drawString(this.font, statusText, this.leftPos + this.guiWidth - 8 - this.font.width(statusText), this.topPos + 6, statusColor, false);
 
         renderTabs(g, mouseX, mouseY);
         renderContent(g, mouseX, mouseY, borderColor, flashing, elapsed);

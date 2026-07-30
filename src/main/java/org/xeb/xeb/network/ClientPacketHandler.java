@@ -26,16 +26,30 @@ public class ClientPacketHandler {
      * accumulate indefinitely.  Each entry now carries a creation timestamp; entries older than
      * {@link #PENDING_TTL_MS} are pruned on each write to cap steady-state memory use.</p>
      */
+    public static class PendingSyncData {
+        public final ListTag listTag;
+        public final int madStacks;
+
+        public PendingSyncData(ListTag listTag, int madStacks) {
+            this.listTag = listTag;
+            this.madStacks = madStacks;
+        }
+    }
+
     private static final long PENDING_TTL_MS = 30_000L; // 30 s
     private static final ConcurrentHashMap<Integer, long[]> PENDING_TIMES = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Integer, ListTag>  PENDING_SYNCS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Integer, PendingSyncData> PENDING_SYNCS = new ConcurrentHashMap<>();
 
-    public static ListTag getPendingSync(int entityId) {
+    public static PendingSyncData getPendingSync(int entityId) {
         PENDING_TIMES.remove(entityId);
         return PENDING_SYNCS.remove(entityId);
     }
 
     public static void addPendingSync(int entityId, ListTag tag) {
+        addPendingSync(entityId, tag, 0);
+    }
+
+    public static void addPendingSync(int entityId, ListTag tag, int madStacks) {
         long now = System.currentTimeMillis();
         // Prune stale entries before inserting so the map stays bounded.
         PENDING_TIMES.entrySet().removeIf(e -> {
@@ -45,7 +59,7 @@ public class ClientPacketHandler {
             }
             return false;
         });
-        PENDING_SYNCS.put(entityId, tag);
+        PENDING_SYNCS.put(entityId, new PendingSyncData(tag, madStacks));
         PENDING_TIMES.put(entityId, new long[]{now});
     }
 
@@ -77,11 +91,12 @@ public class ClientPacketHandler {
 
         if (entity instanceof LivingEntity living) {
             living.getPersistentData().put(MedallionManager.MEDALLIONS_KEY, listTag);
+            living.getPersistentData().putInt("xebMadStacks", msg.getMadStacks());
             try {
                 living.refreshDimensions();
             } catch (Exception ignored) {}
         } else {
-            addPendingSync(msg.getEntityId(), listTag);
+            addPendingSync(msg.getEntityId(), listTag, msg.getMadStacks());
         }
     }
 
@@ -237,7 +252,7 @@ public class ClientPacketHandler {
 
     public static void handlePermanightSync(PermanightSyncPacket msg) {
         org.xeb.xeb.client.PermanightClientRenderer.isPermanightActive = msg.isActive();
-        org.xeb.xeb.client.PermanightClientHandler.setPermanightActive(msg.isActive());
+        org.xeb.xeb.client.PermanightClientHandler.setPermanightActive(msg.isActive(), msg.getTicksRemaining());
     }
 
     public static void handleMechaSync(MechaSyncPacket msg) {
