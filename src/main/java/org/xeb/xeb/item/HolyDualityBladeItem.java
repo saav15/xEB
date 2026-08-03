@@ -56,6 +56,11 @@ public class HolyDualityBladeItem extends SwordItem implements GeoItem {
     }
 
     @Override
+    public boolean onBlockStartBreak(ItemStack itemstack, BlockPos pos, Player player) {
+        return true;
+    }
+
+    @Override
     public boolean canApplyAtEnchantingTable(ItemStack stack, net.minecraft.world.item.enchantment.Enchantment enchantment) {
         return org.xeb.xeb.enchantment.ModEnchantments.isModEnchantment(enchantment) || super.canApplyAtEnchantingTable(stack, enchantment);
     }

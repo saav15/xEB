@@ -72,6 +72,7 @@ public class StevenBossEntity extends Monster implements GeoEntity {
     private boolean isFullMode = false;
     private boolean despawning = false;
     private LivingEntity currentTarget = null;
+    private Vec3 currentLaserDir = null;
     private int strafeDirection = 1;
     private boolean initialMedallionsSet = false;
 
@@ -472,7 +473,21 @@ public class StevenBossEntity extends Monster implements GeoEntity {
             Vec3 origin = this.position().add(0, 1.8D, 0);
             Vec3 dir = this.getLookAngle().normalize();
             if (currentTarget != null) {
-                dir = currentTarget.position().add(0, 1.0, 0).subtract(origin).normalize();
+                Vec3 idealDir = currentTarget.position().add(0, 1.0, 0).subtract(origin).normalize();
+                if (this.currentLaserDir == null || this.stateTicks == 1) {
+                    this.currentLaserDir = idealDir;
+                } else {
+                    // 50% heavier tracking weight (turns 50% as fast per tick, max ~4.5 degrees per tick)
+                    double angle = Math.acos(Math.max(-1.0, Math.min(1.0, this.currentLaserDir.dot(idealDir))));
+                    double maxTurnRad = Math.toRadians(4.5D);
+                    if (angle > maxTurnRad) {
+                        double step = maxTurnRad / angle;
+                        this.currentLaserDir = this.currentLaserDir.scale(1.0 - step).add(idealDir.scale(step)).normalize();
+                    } else {
+                        this.currentLaserDir = idealDir;
+                    }
+                }
+                dir = this.currentLaserDir;
             }
 
             // Raycast hasta 96 bloques de distancia (muy largo alcance)

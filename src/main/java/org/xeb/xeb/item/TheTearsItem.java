@@ -48,6 +48,11 @@ import java.util.function.Consumer;
 public class TheTearsItem extends Item implements GeoItem {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
+    @Override
+    public boolean onBlockStartBreak(ItemStack itemstack, net.minecraft.core.BlockPos pos, Player player) {
+        return true;
+    }
+
     public TheTearsItem(Properties properties) {
         super(properties);
     }

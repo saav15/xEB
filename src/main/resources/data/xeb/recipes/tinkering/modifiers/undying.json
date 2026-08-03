@@ -1,0 +1,19 @@
+﻿{
+    "type":  "tconstruct:modifier",
+    "inputs":  [
+                   {
+                       "item":  "xeb:undying_essence"
+                   },
+                   {
+                       "item":  "xeb:silver_elite_bit"
+                   }
+               ],
+    "tools":  {
+                  "tag":  "tconstruct:modifiable"
+              },
+    "result":  "xeb:undying",
+    "max_level":  3,
+    "slots":  {
+                  "upgrades":  1
+              }
+}

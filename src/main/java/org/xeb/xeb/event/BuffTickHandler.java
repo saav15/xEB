@@ -38,6 +38,25 @@ public class BuffTickHandler {
 
         // Decrement Decoherence ticks
         net.minecraft.nbt.CompoundTag entityData = entity.getPersistentData();
+
+        // Mecha Crush Wall Slam Collision Detection
+        int mechaCrushTimer = entityData.getInt("xebHitByMechaCrushTimer");
+        if (mechaCrushTimer > 0) {
+            entityData.putInt("xebHitByMechaCrushTimer", mechaCrushTimer - 1);
+            if (entity.horizontalCollision) {
+                // Execute Wall Slam!
+                entity.hurt(entity.damageSources().flyIntoWall(), 10.0F);
+                entityData.remove("xebHitByMechaCrushTimer");
+                if (entity.level() instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION_EMITTER, entity.getX(), entity.getY() + 0.5D, entity.getZ(), 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                    serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, entity.getX(), entity.getY() + 0.5D, entity.getZ(), 15, 0.5D, 0.5D, 0.5D, 0.2D);
+                }
+                entity.level().playSound(null, entity.getX(), entity.getY(), entity.getZ(),
+                        SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 1.0F, 0.8F);
+                entity.level().playSound(null, entity.getX(), entity.getY(), entity.getZ(),
+                        SoundEvents.ZOMBIE_ATTACK_WOODEN_DOOR, SoundSource.PLAYERS, 1.2F, 0.5F);
+            }
+        }
         int decoactive = entityData.getInt("xebDecoherenceActiveTicks");
         if (decoactive > 0) {
             entityData.putInt("xebDecoherenceActiveTicks", decoactive - 1);

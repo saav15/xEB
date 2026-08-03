@@ -36,6 +36,7 @@ public class XebPlayerAnimator {
         boolean levitating = data.getBoolean("xebMechaLevitating");
         double momentum = data.getDouble("xebMechaMomentum");
 
+        if (player.isCrouching() && sdState == 0) return "animation.xeb_player.mecha_crouch_stance";
         if (dashing) return "animation.xeb_player.mecha_dash";
         if (sdState == 1) return "animation.xeb_player.mecha_spindash_charge";
         if (sdState == 3) return "animation.xeb_player.mecha_spindash_attack";

@@ -25,6 +25,9 @@ public class ModItems {
     public static final RegistryObject<Item> HOT_POTATO = ITEMS.register("hot_potato",
             () -> new HotPotatoItem(new Item.Properties().stacksTo(1)));
 
+    public static final RegistryObject<Item> PHEROMONE_FLASK = ITEMS.register("pheromone_flask",
+            () -> new PheromoneFlaskItem(new Item.Properties().stacksTo(16)));
+
     public static final RegistryObject<Item> HOLY_MANTLE = ITEMS.register("holy_mantle",
             () -> new HolyMantleItem(new Item.Properties().stacksTo(1)));
 

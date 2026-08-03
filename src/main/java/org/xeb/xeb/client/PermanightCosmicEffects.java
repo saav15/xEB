@@ -72,6 +72,7 @@ public class PermanightCosmicEffects {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
+        RenderSystem.enableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
@@ -106,7 +107,7 @@ public class PermanightCosmicEffects {
         }
 
         for (LivingEntity elite : cachedElites) {
-            if (elite == null || !elite.isAlive()) continue;
+            if (elite == null || !elite.isAlive() || !mc.player.hasLineOfSight(elite)) continue;
             Vec3 pos = elite.getPosition(0.0F).add(0, elite.getBbHeight() * 0.7D, 0);
             float ceilingY = findCeilingY(mc.level, pos.x, pos.y, pos.z, 80.0F);
 

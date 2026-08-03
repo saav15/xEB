@@ -1,9 +1,11 @@
 package org.xeb.xeb.network;
 
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.phys.AABB;
@@ -606,242 +608,212 @@ public class ActuarKeyPacket {
                             }
                         }
                     } else if (holdsMecha) {
-                        if (msg.button == 1) {
-                            if (msg.press) {
-                                if (player.getPersistentData().getInt("xebMechaA1Cooldown") <= 0) {
-                                    // Jet Dash (Triggered instantly)
-                                    player.getPersistentData().putBoolean("xebMechaOverdriveDashing", true);
-                                    player.getPersistentData().putInt("xebMechaDashTicks", 15);
-                                    player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                            SoundEvents.TRIDENT_RIPTIDE_1, SoundSource.PLAYERS, 1.0F, 1.2F);
-                                    player.getPersistentData().putInt("xebMechaA1Cooldown", 160); // 8s
-                                    
-                                    // Consume overcharge on action
-                                    player.getPersistentData().putBoolean("xebMechaOvercharged", false);
-                                    
-                                    org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
-                                }
-                            }
-                        } else if (msg.button == 2) {
-                            if (msg.press) {
-                                if (player.getPersistentData().getInt("xebMechaA2Cooldown") <= 0) {
-                                    CompoundTag pData = player.getPersistentData();
-                                    if (!pData.contains("xebSpindashCharges") || pData.getInt("xebSpindashCharges") <= 0) {
-                                        pData.putInt("xebSpindashCharges", 3);
-                                    }
-                                    
-                                    int charges = pData.getInt("xebSpindashCharges");
-                                    if (charges > 0 && pData.getInt("xebMechaSpindashState") == 0) {
-                                        // Start Spindash Charge
-                                        pData.putInt("xebMechaSpindashState", 1);
-                                        pData.putInt("xebMechaSpindashCharge", 0);
-                                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                                SoundEvents.MINECART_RIDING, SoundSource.PLAYERS, 0.8F, 1.5F);
-                                        
-                                        org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
-                                    }
-                                }
-                            } else {
-                                // Spindash Release
-                                CompoundTag pData = player.getPersistentData();
-                                if (pData.getInt("xebMechaSpindashState") == 1) {
-                                    int charges = pData.getInt("xebSpindashCharges");
-                                    
-                                    // Floricultural Zeal refund check on Mecha Overdrive (The Mech II Core)
-                                    int zealLvl = 0;
-                                    net.minecraft.world.item.ItemStack mechaStack = player.getMainHandItem();
-                                    if (mechaStack.getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem) {
-                                        zealLvl = mechaStack.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURAL_ZEAL.get());
-                                    } else {
-                                        mechaStack = player.getOffhandItem();
-                                        if (mechaStack.getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem) {
-                                            zealLvl = mechaStack.getEnchantmentLevel(org.xeb.xeb.enchantment.ModEnchantments.FLORICULTURAL_ZEAL.get());
-                                        }
-                                    }
-                                    
-                                    boolean refunded = false;
-                                    if (zealLvl > 0 && player.getRandom().nextFloat() < zealLvl * 0.15F) {
-                                        refunded = true;
-                                    }
-                                    
-                                    if (!refunded) {
-                                        charges--;
-                                    } else {
-                                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                                net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 2.0F);
-                                        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                                net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME, net.minecraft.sounds.SoundSource.PLAYERS, 1.2F, 1.8F);
-                                        player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§a✨ ¡Zelo Floricultor conservó tu carga del Spindash!"), true);
-                                    }
-                                    pData.putInt("xebSpindashCharges", charges);
-                                    Vec3 playerLook = player.getLookAngle().normalize();
+                        CompoundTag pData = player.getPersistentData();
+                        int bars = pData.getInt("xebMechaOClockBars");
 
-                                    // 1. Resolve Locked-on Target or Fallback
-                                    int targetId = pData.getInt("xebSpindashTargetId");
-                                    net.minecraft.world.entity.Entity lockTarget = null;
-                                    if (targetId != -1) {
-                                        lockTarget = player.level().getEntity(targetId);
-                                    }
-                                    
+                        if (msg.button == 1) { // Activa 1: Mecha Drill Punch
+                            if (msg.press) {
+                                int a1CD = pData.getInt("xebMechaA1Cooldown");
+                                if (a1CD > 0) return;
+
+                                // 15-second cooldown (300 ticks)
+                                pData.putInt("xebMechaA1Cooldown", 300);
+
+                                // Instantly grant +60 momentum points (+1 flat O.Clock bar)
+                                int momentumNum = pData.getInt("xebMechaMomentumNum");
+                                momentumNum = Math.min(300, momentumNum + 60);
+                                pData.putInt("xebMechaMomentumNum", momentumNum);
+                                pData.putInt("xebMechaOClockBars", momentumNum / 60);
+                                pData.putDouble("xebMechaMomentum", momentumNum / 300.0D);
+
+                                // Start 6-second (120 ticks) Drill Punch aura
+                                pData.putInt("xebMechaDrillAuraTicks", 120);
+
+                                Vec3 lookDir = player.getLookAngle();
+                                Vec3 impulse = new Vec3(lookDir.x * 1.5D, 0.3D, lookDir.z * 1.5D);
+                                player.setDeltaMovement(impulse);
+                                player.hurtMarked = true;
+
+                                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                        SoundEvents.TRIDENT_RIPTIDE_3, SoundSource.PLAYERS, 1.2F, 1.0F);
+
+                                org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
+                            }
+                        } else if (msg.button == 2) { // Activa 2: Spindash Salvo / Reticle Targeted Spindash
+                            if (msg.press) {
+                                int a2CD = pData.getInt("xebMechaA2Cooldown");
+                                if (a2CD > 0) return;
+
+                                int currentMom = pData.getInt("xebMechaMomentumNum");
+                                if (currentMom < 60) {
+                                    // Condition A — Insufficient momentum (<60): enter stationary Ball charge
+                                    pData.putInt("xebMechaSpindashState", 1);
+                                    pData.putInt("xebMechaSpindashCharge", 0);
+                                    player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                            SoundEvents.MINECART_RIDING, SoundSource.PLAYERS, 0.8F, 1.5F);
+                                } else {
+                                    // Condition B — With momentum (>=60): spend 60 momentum (1 charge) for Targeted Spindash
+                                    currentMom = Math.max(0, currentMom - 60);
+                                    pData.putInt("xebMechaMomentumNum", currentMom);
+                                    pData.putInt("xebMechaOClockBars", currentMom / 60);
+                                    pData.putDouble("xebMechaMomentum", currentMom / 300.0D);
+                                    pData.putInt("xebSpindashSuspensionTicks", 40); // air suspension
+                                    pData.putBoolean("xebMechaTargetedSpindash", true);
+
+                                    // Find targeted entity in front cone (up to 24 blocks)
+                                    Vec3 look = player.getLookAngle().normalize();
+                                    List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(24.0D),
+                                            e -> e != player && e.isAlive() && !(e instanceof Player p && p.isAlliedTo(player)) && player.hasLineOfSight(e));
                                     LivingEntity nearest = null;
-                                    if (lockTarget instanceof LivingEntity living && living.isAlive() && player.distanceToSqr(living) <= 256.0D) {
-                                        nearest = living;
-                                    } else {
-                                        List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(16.0D),
-                                                e -> e != player && e.isAlive() && !(e instanceof Player p && p.isAlliedTo(player)));
-                                        double minDistance = Double.MAX_VALUE;
-                                        for (LivingEntity t : targets) {
-                                            double dist = player.distanceToSqr(t);
-                                            if (dist < minDistance) {
-                                                Vec3 toTarget = t.position().subtract(player.position()).normalize();
-                                                if (playerLook.dot(toTarget) > 0.3D) {
-                                                    minDistance = dist;
-                                                    nearest = t;
-                                                }
+                                    double minDistance = Double.MAX_VALUE;
+                                    for (LivingEntity t : targets) {
+                                        double dist = player.distanceToSqr(t);
+                                        if (dist < minDistance) {
+                                            Vec3 toTarget = t.getBoundingBox().getCenter().subtract(player.getEyePosition(1.0F)).normalize();
+                                            if (look.dot(toTarget) > 0.2D) {
+                                                minDistance = dist;
+                                                nearest = t;
                                             }
                                         }
                                     }
-                                    
-                                    Vec3 attackVector = playerLook;
-                                    if (nearest != null) {
-                                        Vec3 targetCenter = nearest.getBoundingBox().getCenter();
-                                        Vec3 diff = targetCenter.subtract(player.position().add(0, player.getEyeHeight() / 2.0D, 0));
-                                        attackVector = diff.normalize();
-                                        
-                                        // Face player towards targeted entity
-                                        player.setYRot((float) Math.toDegrees(Math.atan2(-attackVector.x, attackVector.z)));
-                                        player.setXRot((float) Math.toDegrees(-Math.atan2(attackVector.y, Math.sqrt(attackVector.x * attackVector.x + attackVector.z * attackVector.z))));
-                                    }
-                                    
-                                    // Save the locked vector
-                                    pData.putDouble("xebSpindashVectorX", attackVector.x);
-                                    pData.putDouble("xebSpindashVectorY", attackVector.y);
-                                    pData.putDouble("xebSpindashVectorZ", attackVector.z);
-                                    
-                                    int charge = pData.getInt("xebMechaSpindashCharge");
-                                    int duration = 20 + charge;
-                                    pData.putInt("xebMechaSpindashState", 3); // ATTACKING
-                                    pData.putInt("xebMechaSpindashTicks", duration);
-                                    pData.putInt("xebMechaSpindashHitCooldown", 0);
-                                    pData.putInt("xebSpindashHitCount", 0);
-                                    
-                                    double mult = 1.0D + charge * 0.08D;
-                                    player.setDeltaMovement(attackVector.x * mult * 1.5D, attackVector.y * mult * 1.5D, attackVector.z * mult * 1.5D);
-                                    player.hurtMarked = true;
-                                    
+                                    pData.putInt("xebSpindashTargetId", nearest != null ? nearest.getId() : -1);
+
                                     player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                            SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.2F, 1.0F);
-                                    
-                                    // 2. Launch Homing Missile
-                                    HomingMissileEntity missile = new HomingMissileEntity(player.level(), player, nearest);
-                                    missile.moveTo(player.getX(), player.getY() + 1.2D, player.getZ());
-                                    missile.setDeltaMovement(attackVector.scale(1.2D));
-                                    player.level().addFreshEntity(missile);
-                                    
-                                    // If all 3 charges expended: start cooldown and consume overcharged state
-                                    if (charges <= 0) {
-                                        pData.putInt("xebMechaA2Cooldown", 300); // 15s
-                                        pData.putBoolean("xebMechaOvercharged", false);
-                                    }
-                                    
-                                    org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
+                                            SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0F, 1.8F);
                                 }
+                                org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
+                            } else {
+                                // Spindash Release - No cooldown (cost is 60 momentum flat per use)
+                                pData.putInt("xebMechaA2Cooldown", 0);
+                                int sdState = pData.getInt("xebMechaSpindashState");
+                                boolean targeted = pData.getBoolean("xebMechaTargetedSpindash");
+
+                                if (sdState == 1) { // Stationary Spindash Salvo Release
+                                    pData.putInt("xebMechaSpindashState", 0);
+                                    Vec3 look = player.getLookAngle();
+                                    Vec3 launch = new Vec3(look.x * 1.8D, 0.4D, look.z * 1.8D);
+                                    player.setDeltaMovement(launch);
+                                    player.hurtMarked = true;
+
+                                    // Auto-step up to 4 blocks
+                                    var attr = player.getAttribute(net.minecraftforge.common.ForgeMod.STEP_HEIGHT_ADDITION.get());
+                                    if (attr != null && attr.getModifier(MechaOverdriveItem.STEP_HEIGHT_UUID) == null) {
+                                        attr.addTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(
+                                                MechaOverdriveItem.STEP_HEIGHT_UUID, "Spindash Step Height", 3.0D, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADDITION));
+                                    }
+
+                                    // Launch 1 Eggman Missile per side (Left & Right)
+                                    Vec3 rightOffset = new Vec3(-look.z, 0, look.x).normalize().scale(0.8D);
+                                    org.xeb.xeb.entity.MechaEggmanMissileEntity leftMissile = new org.xeb.xeb.entity.MechaEggmanMissileEntity(player.level(), player, true);
+                                    leftMissile.moveTo(player.getX() - rightOffset.x, player.getY() + 1.0D, player.getZ() - rightOffset.z);
+                                    leftMissile.setDeltaMovement(look.scale(1.5D));
+                                    player.level().addFreshEntity(leftMissile);
+
+                                    org.xeb.xeb.entity.MechaEggmanMissileEntity rightMissile = new org.xeb.xeb.entity.MechaEggmanMissileEntity(player.level(), player, false);
+                                    rightMissile.moveTo(player.getX() + rightOffset.x, player.getY() + 1.0D, player.getZ() + rightOffset.z);
+                                    rightMissile.setDeltaMovement(look.scale(1.5D));
+                                    player.level().addFreshEntity(rightMissile);
+
+                                    player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                            SoundEvents.FIREWORK_ROCKET_SHOOT, SoundSource.PLAYERS, 1.2F, 1.0F);
+                                } else if (targeted) {
+                                    pData.putBoolean("xebMechaTargetedSpindash", false);
+                                    pData.putBoolean("xebMechaTargetedDashing", true); // Enable targeted homing dash
+                                    pData.putInt("xebMechaTargetedDashTicks", 0); // Reset dash duration timer
+
+                                    int targetId = pData.getInt("xebSpindashTargetId");
+                                    Entity targetEntity = targetId != -1 ? player.level().getEntity(targetId) : null;
+                                    Vec3 dir = player.getLookAngle();
+                                    if (targetEntity instanceof LivingEntity target && target.isAlive()) {
+                                        dir = target.getBoundingBox().getCenter().subtract(player.getEyePosition(1.0F)).normalize();
+                                    }
+
+                                    // 50% chance to spawn an Eggman Missile on aerial spindash launch
+                                    if (player.level().random.nextFloat() < 0.5F) {
+                                        org.xeb.xeb.entity.MechaEggmanMissileEntity missile = new org.xeb.xeb.entity.MechaEggmanMissileEntity(player.level(), player, false);
+                                        missile.moveTo(player.getX(), player.getY() + 1.0D, player.getZ());
+                                        missile.setDeltaMovement(dir.scale(1.5D));
+                                        player.level().addFreshEntity(missile);
+                                    }
+
+                                    // Smooth controllable launch speed towards target
+                                    player.setDeltaMovement(dir.scale(1.8D));
+                                    player.hurtMarked = true;
+                                    player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                            SoundEvents.TRIDENT_RIPTIDE_3, SoundSource.PLAYERS, 1.3F, 1.4F);
+                                }
+                                org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
                             }
-                        } else if (msg.button == 5 && msg.press) {
-                            // Mecha Drill Punch (Left click)
+                        } else if (msg.button == 5 && msg.press) { // Mecha Punch / Crush (Left Click)
+                            int currentMom = pData.getInt("xebMechaMomentumNum");
+                            int availableBars = currentMom / 60;
+
                             Vec3 lookDir = player.getLookAngle();
                             Vec3 forwardVec = new Vec3(lookDir.x, 0.0D, lookDir.z).normalize();
                             AABB area = player.getBoundingBox().move(forwardVec.scale(1.5D)).inflate(1.5D, 1.0D, 1.5D);
-                            List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive());
-                            
-                            double momentum = player.getPersistentData().getDouble("xebMechaMomentum");
-                            double multiplier = 1.0D + momentum * 2.0D;
-                            boolean overcharged = player.getPersistentData().getBoolean("xebMechaOvercharged");
-                            
-                            if (overcharged) {
-                                multiplier *= 1.5D;
-                            }
-                            
-                            double finalDmg = MechaOverdriveItem.DRILL_BASE_DAMAGE * multiplier;
+                            List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive() && !e.isAlliedTo(player));
 
-                            for (LivingEntity target : targets) {
-                                target.hurt(player.damageSources().playerAttack(player), (float) finalDmg);
-                                
-                                double kbMult = 1.0D + momentum * 2.0D;
-                                if (overcharged || momentum > 0.7D) {
-                                    // Extreme knockback + screen shake on targets
-                                    Vec3 knock = lookDir.normalize().add(0, 0.6D, 0).scale(kbMult * 2.2D);
-                                    target.setDeltaMovement(knock.x, knock.y, knock.z);
+                            double baseDamage = player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+
+                            if (player.isCrouching() && availableBars >= 1) {
+                                // --- Full Overdrive Crush Finisher (Crouch + Left Click) ---
+                                pData.putInt("xebMechaMomentumNum", 0);
+                                pData.putInt("xebMechaOClockBars", 0);
+                                pData.putDouble("xebMechaMomentum", 0.0D);
+
+                                double finalDmg = baseDamage + (availableBars * 12.0D);
+                                for (LivingEntity target : targets) {
+                                    target.hurt(player.damageSources().playerAttack(player), (float) finalDmg);
+                                    Vec3 knock = lookDir.normalize().scale(1.5D + (availableBars * 0.5D));
+                                    target.setDeltaMovement(knock.x, 0.4D, knock.z);
                                     target.hurtMarked = true;
-                                } else {
-                                    Vec3 knock = lookDir.normalize().add(0, 0.4D, 0).scale(kbMult * 1.5D);
-                                    target.setDeltaMovement(knock.x, knock.y, knock.z);
-                                    target.hurtMarked = true;
+                                    target.getPersistentData().putInt("xebHitByMechaCrushTimer", 20);
+                                    target.getPersistentData().putUUID("xebMechaCrushAttacker", player.getUUID());
                                 }
-                            }
-                            
-                            if (overcharged) {
-                                // Knockback applies to all enemies in 3 blocks radius
-                                AABB radialArea = player.getBoundingBox().inflate(3.0D);
-                                for (LivingEntity radialTarget : player.level().getEntitiesOfClass(LivingEntity.class, radialArea, e -> e != player && e.isAlive() && !targets.contains(e))) {
-                                    Vec3 knockVec = radialTarget.position().subtract(player.position()).normalize().add(0, 0.5D, 0).scale(1.8D);
-                                    radialTarget.setDeltaMovement(knockVec);
-                                    radialTarget.hurtMarked = true;
-                                }
-                            }
-
-                            Vec3 recoil = lookDir.normalize().scale(-0.3D * momentum);
-                            player.setDeltaMovement(player.getDeltaMovement().add(recoil.x, 0.0D, recoil.z));
-                            player.hurtMarked = true;
-
-                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                    SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8F, 0.8F);
-                                    
-                            // Consume momentum and overcharge
-                            player.getPersistentData().putDouble("xebMechaMomentum", 0.0D);
-                            player.getPersistentData().putBoolean("xebMechaOvercharged", false);
-                            
-                            org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
-                        } else if (msg.button == 6 && msg.press) {
-                            // Air Jump Burst (Double Jump)
-                            CompoundTag pData = player.getPersistentData();
-                            int charges = pData.getInt("xebSpindashCharges");
-                            if (charges > 0 && !player.onGround()) {
-                                pData.putInt("xebSpindashCharges", charges - 1);
-                                pData.putInt("xebMechaAirBurstTicks", 20); // 1 second speed boost
-                                
-                                // Push player up and preserve/boost horizontal momentum slightly
-                                Vec3 mot = player.getDeltaMovement();
-                                player.setDeltaMovement(mot.x * 1.25D, 0.58D, mot.z * 1.25D);
-                                player.hurtMarked = true;
-                                
-                                // Sound effects
                                 player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                        SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.2F, 1.2F);
+                                        SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.2F, 0.7F);
                                 player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                                        SoundEvents.FIREWORK_ROCKET_SHOOT, SoundSource.PLAYERS, 1.0F, 1.1F);
-                                
-                                // Spawn burst of flames behind the player
+                                        SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 1.0F, 0.6F);
                                 if (player.level() instanceof ServerLevel serverLevel) {
-                                    Vec3 look = player.getLookAngle().normalize();
-                                    Vec3 spawnPos = player.position().add(0, player.getBbHeight() * 0.5D, 0).subtract(look.scale(0.5D));
-                                    Vec3 blastDir = look.scale(-0.4D);
-                                    
-                                    for (int i = 0; i < 20; i++) {
-                                        double rx = (serverLevel.random.nextDouble() - 0.5D) * 0.25D;
-                                        double ry = (serverLevel.random.nextDouble() - 0.5D) * 0.25D;
-                                        double rz = (serverLevel.random.nextDouble() - 0.5D) * 0.25D;
-                                        serverLevel.sendParticles(ParticleTypes.FLAME, 
-                                                spawnPos.x + rx, spawnPos.y + ry, spawnPos.z + rz,
-                                                1, blastDir.x, blastDir.y, blastDir.z, 0.25D);
-                                        if (serverLevel.random.nextBoolean()) {
-                                            serverLevel.sendParticles(ParticleTypes.LAVA,
-                                                    spawnPos.x, spawnPos.y, spawnPos.z,
-                                                    1, blastDir.x, blastDir.y, blastDir.z, 0.08D);
-                                        }
+                                    serverLevel.sendParticles(ParticleTypes.EXPLOSION_EMITTER, player.getX(), player.getY() + 0.5D, player.getZ(), 1, 0, 0, 0, 0);
+                                }
+                            } else {
+                                // --- Mecha Drill Punch (Normal Left Click) ---
+                                int consumedBars = availableBars >= 1 ? 1 : 0;
+                                if (consumedBars > 0) {
+                                    int newMom = currentMom - 60;
+                                    pData.putInt("xebMechaMomentumNum", newMom);
+                                    pData.putInt("xebMechaOClockBars", newMom / 60);
+                                    pData.putDouble("xebMechaMomentum", newMom / 300.0D);
+                                }
+
+                                double finalDmg = consumedBars == 1 ? (baseDamage + 10.0D) : baseDamage;
+                                for (LivingEntity target : targets) {
+                                    target.hurt(player.damageSources().playerAttack(player), (float) finalDmg);
+                                    if (consumedBars == 1) {
+                                        Vec3 knock = lookDir.normalize().scale(1.4D);
+                                        target.setDeltaMovement(knock.x, 0.35D, knock.z);
+                                        target.hurtMarked = true;
+                                        target.getPersistentData().putInt("xebHitByMechaCrushTimer", 15);
+                                        target.getPersistentData().putUUID("xebMechaCrushAttacker", player.getUUID());
                                     }
                                 }
-                                
+                                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                        consumedBars == 1 ? SoundEvents.TRIDENT_HIT : SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.0F, 1.2F);
+                            }
+
+                            org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
+                        } else if (msg.button == 6 && msg.press) { // Air Jump (Button 6)
+                            if (bars >= 1 && !player.onGround()) {
+                                pData.putInt("xebMechaOClockBars", bars - 1);
+                                pData.putDouble("xebMechaMomentum", (bars - 1) / 5.0D);
+
+                                Vec3 mot = player.getDeltaMovement();
+                                player.setDeltaMovement(mot.x * 1.25D, 0.6D, mot.z * 1.25D);
+                                player.hurtMarked = true;
+
+                                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                                        SoundEvents.FIREWORK_ROCKET_SHOOT, SoundSource.PLAYERS, 1.0F, 1.2F);
                                 org.xeb.xeb.item.MechaOverdriveItem.syncToClient((ServerPlayer) player);
                             }
                         }
@@ -919,12 +891,18 @@ public class ActuarKeyPacket {
                             }
                         } else if (msg.button == 5 && msg.press) {
                             // Holy Left Click combo
+                            if (player.getAttackStrengthScale(0.5F) < 0.80F) {
+                                ctx.setPacketHandled(true);
+                                return;
+                            }
+
                             net.minecraft.nbt.CompoundTag pData = player.getPersistentData();
                             if (pData.getInt("xebHolyAttackTicks") > 0) {
                                 // Locked out during animation
                                 ctx.setPacketHandled(true);
                                 return;
                             }
+                            player.resetAttackStrengthTicker();
 
                             net.minecraft.world.item.ItemStack stack = player.getMainHandItem().is(ModItems.HOLY_DUALITY_BLADE.get())
                                      ? player.getMainHandItem() : player.getOffhandItem();

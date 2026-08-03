@@ -12,17 +12,17 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import org.xeb.xeb.entity.HomingMissileEntity;
-import org.xeb.xeb.entity.MechaVulcanProjectileEntity;
+import org.xeb.xeb.entity.MechaEggmanMissileEntity;
+import org.xeb.xeb.entity.MechaLaserPelletEntity;
 import org.xeb.xeb.network.MechaSyncPacket;
 import org.xeb.xeb.network.XEBNetwork;
 import net.minecraftforge.network.PacketDistributor;
@@ -36,18 +36,17 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class MechaOverdriveItem extends Item implements GeoItem {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
-    // Placeholder constants
     public static final double BASE_DAMAGE = 6.0D;
-    public static final double DRILL_BASE_DAMAGE = 8.0D;
-    public static final double SPIN_BASE_DAMAGE = 5.0D;
-    public static final double JET_BASE_DAMAGE = 7.0D;
-    public static final double MAX_SPEED = 1.6D;
     public static final java.util.UUID STEP_HEIGHT_UUID = java.util.UUID.fromString("6a5bc382-7d2d-4f1b-8c8f-fbfa62e840d5");
+
+    @Override
+    public boolean onBlockStartBreak(ItemStack itemstack, net.minecraft.core.BlockPos pos, Player player) {
+        return true;
+    }
 
     public MechaOverdriveItem(Properties properties) {
         super(properties);
@@ -103,7 +102,15 @@ public class MechaOverdriveItem extends Item implements GeoItem {
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        player.getPersistentData().putBoolean("xebMechaVulcanFiring", true);
+        CompoundTag pData = player.getPersistentData();
+        if (pData.getInt("xebMechaOverheatedTicks") > 0) {
+            level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                    SoundEvents.DISPENSER_FAIL, SoundSource.PLAYERS, 0.8F, 1.5F);
+            return InteractionResultHolder.fail(player.getItemInHand(hand));
+        }
+
+        pData.putBoolean("xebMechaShotgunFiring", true);
+        pData.putInt("xebMechaShotgunHoldTicks", 0);
         player.startUsingItem(hand);
         return InteractionResultHolder.consume(player.getItemInHand(hand));
     }
@@ -111,33 +118,75 @@ public class MechaOverdriveItem extends Item implements GeoItem {
     @Override
     public void onUseTick(Level level, LivingEntity entity, ItemStack stack, int count) {
         if (!level.isClientSide() && entity instanceof Player player) {
-            int ticksUsed = this.getUseDuration(stack) - count;
-            if (ticksUsed % 3 == 0) {
-                Vec3 lookDir = player.getLookAngle();
-                Vec3 mouthPos = player.getEyePosition(1.0F).subtract(0, 0.3D, 0);
+            CompoundTag pData = player.getPersistentData();
 
-                // Add minimal random spread
-                double spread = 0.05D;
-                Vec3 velocity = lookDir.add(
-                        (player.getRandom().nextDouble() - 0.5D) * spread,
-                        (player.getRandom().nextDouble() - 0.5D) * spread,
-                        (player.getRandom().nextDouble() - 0.5D) * spread
-                ).normalize().scale(2.5D);
+            int overheated = pData.getInt("xebMechaOverheatedTicks");
+            if (overheated > 0) {
+                player.stopUsingItem();
+                return;
+            }
 
-                MechaVulcanProjectileEntity projectile = new MechaVulcanProjectileEntity(level, player);
-                projectile.moveTo(mouthPos.x, mouthPos.y, mouthPos.z);
-                projectile.setDeltaMovement(velocity);
-                level.addFreshEntity(projectile);
+            int holdTicks = pData.getInt("xebMechaShotgunHoldTicks") + 1;
+            pData.putInt("xebMechaShotgunHoldTicks", holdTicks);
+
+            // Overheat after 15 seconds (300 ticks) of continuous hold
+            if (holdTicks >= 300) {
+                pData.putInt("xebMechaOverheatedTicks", 80); // 4 seconds cooling lockout
+                pData.putBoolean("xebMechaShotgunFiring", false);
+                pData.putInt("xebMechaShotgunHoldTicks", 0);
+                player.stopUsingItem();
 
                 level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                        SoundEvents.DISPENSER_LAUNCH, SoundSource.PLAYERS, 0.5F, 1.8F);
+                        SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.2F, 0.8F);
+                level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                        SoundEvents.LAVA_EXTINGUISH, SoundSource.PLAYERS, 1.0F, 0.5F);
+
+                if (level instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, player.getX(), player.getY() + 1.0D, player.getZ(),
+                            20, 0.4D, 0.4D, 0.4D, 0.05D);
+                    serverLevel.sendParticles(ParticleTypes.FLAME, player.getX(), player.getY() + 1.0D, player.getZ(),
+                            10, 0.3D, 0.3D, 0.3D, 0.05D);
+                }
+
+                if (player instanceof ServerPlayer sp) syncToClient(sp);
+                return;
+            }
+
+            // Firing cadence ramps up to +300% faster (from 10 ticks down to 3 ticks) over 6s (120 ticks)
+            int interval = Math.max(3, 10 - (int) (7.0D * Math.min(1.0D, holdTicks / 120.0D)));
+
+            if (holdTicks % interval == 0) {
+                Vec3 lookDir = player.getLookAngle();
+                Vec3 muzzlePos = player.getEyePosition(1.0F).add(lookDir.scale(0.5D));
+
+                // Laser Scatter Shotgun: Fire 4 pellets per burst with small spread
+                for (int i = 0; i < 4; i++) {
+                    double spread = 0.12D;
+                    Vec3 velocity = lookDir.add(
+                            (player.getRandom().nextDouble() - 0.5D) * spread,
+                            (player.getRandom().nextDouble() - 0.5D) * spread,
+                            (player.getRandom().nextDouble() - 0.5D) * spread
+                    ).normalize().scale(2.2D);
+
+                    MechaLaserPelletEntity pellet = new MechaLaserPelletEntity(level, player);
+                    pellet.moveTo(muzzlePos.x, muzzlePos.y, muzzlePos.z);
+                    pellet.setDeltaMovement(velocity);
+                    level.addFreshEntity(pellet);
+                }
+
+                level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                        SoundEvents.CROSSBOW_SHOOT, SoundSource.PLAYERS, 0.8F, 1.8F);
+                level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                        SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 0.5F, 2.0F);
             }
         }
     }
 
     @Override
     public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
-        entity.getPersistentData().putBoolean("xebMechaVulcanFiring", false);
+        CompoundTag pData = entity.getPersistentData();
+        pData.putBoolean("xebMechaShotgunFiring", false);
+        pData.putInt("xebMechaShotgunHoldTicks", 0);
         if (entity instanceof ServerPlayer player) {
             syncToClient(player);
         }
@@ -157,544 +206,348 @@ public class MechaOverdriveItem extends Item implements GeoItem {
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
         if (!(entity instanceof Player player)) return;
 
-        boolean holdsMecha = player.getMainHandItem().getItem() == this || player.getOffhandItem().getItem() == this;
-        if (!holdsMecha) {
-            // Clean up state if not held
-            CompoundTag pData = player.getPersistentData();
-            if (pData.getBoolean("xebMechaVulcanFiring") || pData.getDouble("xebMechaMomentum") > 0.0D || pData.getBoolean("xebMechaLevitating")) {
-                pData.putBoolean("xebMechaVulcanFiring", false);
-                pData.putDouble("xebMechaMomentum", 0.0D);
-                pData.putBoolean("xebMechaLevitating", false);
-                pData.putBoolean("xebMechaOvercharged", false);
-                pData.putInt("xebMechaOverchargeTicks", 0);
-                
-                var attr = player.getAttribute(net.minecraftforge.common.ForgeMod.STEP_HEIGHT_ADDITION.get());
-                if (attr != null && attr.getModifier(STEP_HEIGHT_UUID) != null) {
-                    attr.removeModifier(STEP_HEIGHT_UUID);
-                }
-                
-                if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
-                    syncToClient(serverPlayer);
-                }
-            } else {
-                var attr = player.getAttribute(net.minecraftforge.common.ForgeMod.STEP_HEIGHT_ADDITION.get());
-                if (attr != null && attr.getModifier(STEP_HEIGHT_UUID) != null) {
-                    attr.removeModifier(STEP_HEIGHT_UUID);
-                }
-            }
-            return;
-        }
-
-        // Apply auto-step height modifier (1.25F step height total)
-        var attr = player.getAttribute(net.minecraftforge.common.ForgeMod.STEP_HEIGHT_ADDITION.get());
-        if (attr != null && attr.getModifier(STEP_HEIGHT_UUID) == null) {
-            attr.addTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(
-                    STEP_HEIGHT_UUID, "Mecha Overdrive Step Height", 0.65D, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADDITION));
-        }
-
         CompoundTag pData = player.getPersistentData();
+        boolean holdsMecha = player.getMainHandItem().getItem() == this || player.getOffhandItem().getItem() == this;
+        boolean isDashing = pData.getBoolean("xebMechaOverdriveDashing") || pData.getBoolean("xebMechaTargetedDashing");
+        int sdState = pData.getInt("xebMechaSpindashState");
+        boolean isSliding = player.isCrouching() && (player.onGround() || level.getFluidState(player.blockPosition()).is(net.minecraft.tags.FluidTags.WATER));
 
+        // ── Step Height Modifier Management (Only active during high-speed actions) ──
+        boolean needsStepHeight = holdsMecha && (isDashing || sdState > 0 || isSliding);
+        var attr = player.getAttribute(net.minecraftforge.common.ForgeMod.STEP_HEIGHT_ADDITION.get());
+        if (attr != null && !needsStepHeight && attr.getModifier(STEP_HEIGHT_UUID) != null) {
+            attr.removeModifier(STEP_HEIGHT_UUID);
+        }
+
+        if (!holdsMecha) return;
+
+        // ── Client-side Visuals & FX ──────────────────────────────────────────
+        int overheated = pData.getInt("xebMechaOverheatedTicks");
         if (level.isClientSide()) {
-            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            if (player == mc.player) {
-                // Client-side Camera Turn Resistance (steering sluggishness scales with momentum)
-                double momentumVal = pData.getDouble("xebMechaMomentum");
-                float maxTurn = (float) (16.0F / (1.0F + momentumVal * 4.0F)); // clamp delta rotation per tick
-                
-                float deltaYaw = net.minecraft.util.Mth.wrapDegrees(player.getYRot() - player.yRotO);
-                if (Math.abs(deltaYaw) > maxTurn) {
-                    player.setYRot(player.yRotO + Math.signum(deltaYaw) * maxTurn);
-                }
-                
-                float deltaPitch = player.getXRot() - player.xRotO;
-                float maxTurnPitch = (float) (12.0F / (1.0F + momentumVal * 4.0F));
-                if (Math.abs(deltaPitch) > maxTurnPitch) {
-                    player.setXRot(player.xRotO + Math.signum(deltaPitch) * maxTurnPitch);
-                }
-
-                // Spindash Charge Air Jump / Burst
-                boolean isJumping = mc.options.keyJump.isDown();
-                boolean wasJumping = pData.getBoolean("xebClientWasJumping");
-                
-                if (isJumping && !wasJumping && !player.onGround() && !player.isInWater() && !player.isPassenger()) {
-                    int charges = pData.getInt("xebSpindashCharges");
-                    if (charges > 0) {
-                        // Apply client velocity burst instantly to avoid roundtrip network lag feeling
-                        Vec3 mot = player.getDeltaMovement();
-                        player.setDeltaMovement(mot.x * 1.25D, 0.58D, mot.z * 1.25D);
-                        
-                        // Send packet to server to consume charge and trigger visual particle burst
-                        org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(6, true));
-                    }
-                }
-                pData.putBoolean("xebClientWasJumping", isJumping);
-                
-                // Client-side local target lock-on highlight (spinning red particle ring around targeted entity)
-                int targetId = pData.getInt("xebSpindashTargetId");
-                if (targetId != -1) {
-                    Entity targetEntity = level.getEntity(targetId);
-                    if (targetEntity instanceof LivingEntity && targetEntity.isAlive()) {
-                        double radius = targetEntity.getBbWidth() * 0.7D;
-                        double time = (double) mc.level.getGameTime() * 0.15D;
-                        for (int i = 0; i < 4; i++) {
-                            double angle = time + (i * Math.PI / 2.0D);
-                            double px = targetEntity.getX() + Math.cos(angle) * radius;
-                            double py = targetEntity.getY() + (targetEntity.getBbHeight() * 0.2D) + (i * 0.25D);
-                            double pz = targetEntity.getZ() + Math.sin(angle) * radius;
-                            mc.level.addParticle(
-                                    new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0F, 0.0F, 0.0F), 1.2F),
-                                    px, py, pz, 0.0D, 0.0D, 0.0D
-                            );
-                        }
-                    }
+            if (overheated > 0 && level.random.nextFloat() < 0.6F) {
+                level.addParticle(ParticleTypes.LARGE_SMOKE,
+                        player.getX() + (level.random.nextDouble() - 0.5D) * 0.5D,
+                        player.getY() + 1.0D + level.random.nextDouble() * 0.4D,
+                        player.getZ() + (level.random.nextDouble() - 0.5D) * 0.5D,
+                        0.0D, 0.04D, 0.0D);
+                if (level.random.nextFloat() < 0.2F) {
+                    level.addParticle(ParticleTypes.FLAME,
+                            player.getX() + (level.random.nextDouble() - 0.5D) * 0.4D,
+                            player.getY() + 1.2D,
+                            player.getZ() + (level.random.nextDouble() - 0.5D) * 0.4D,
+                            0.0D, 0.02D, 0.0D);
                 }
             }
+            return; // All authoritative gameplay logic below runs ONLY on the Server!
         }
 
-        if (!level.isClientSide()) {
-            int mechaA1CD = pData.getInt("xebMechaA1Cooldown");
-            int mechaA2CD = pData.getInt("xebMechaA2Cooldown");
-            if (mechaA1CD > 0) pData.putInt("xebMechaA1Cooldown", mechaA1CD - 1);
-            if (mechaA2CD > 0) pData.putInt("xebMechaA2Cooldown", mechaA2CD - 1);
-            
-            int airBurst = pData.getInt("xebMechaAirBurstTicks");
-            if (airBurst > 0) pData.putInt("xebMechaAirBurstTicks", airBurst - 1);
+        // ── Server-side Game Logic ───────────────────────────────────────────
+
+        // Cooldown timer decrements
+        int cd1 = pData.getInt("xebMechaA1Cooldown");
+        if (cd1 > 0) pData.putInt("xebMechaA1Cooldown", cd1 - 1);
+
+        int cd2 = pData.getInt("xebMechaA2Cooldown");
+        if (cd2 > 0) pData.putInt("xebMechaA2Cooldown", cd2 - 1);
+
+        if (overheated > 0) pData.putInt("xebMechaOverheatedTicks", overheated - 1);
+
+        // ── 1. Drowning Penalty & Water Surface Levitation ───────────────────
+        if (player.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) && player.getAirSupply() > 0) {
+            player.setAirSupply(Math.max(0, player.getAirSupply() - 4));
         }
 
-        Vec3 currentMotion = player.getDeltaMovement();
-        double horizontalSpeed = Math.sqrt(currentMotion.x * currentMotion.x + currentMotion.z * currentMotion.z);
-        
-        // Detección de agua y hovering sobre la superficie
-        net.minecraft.core.BlockPos pos = player.blockPosition();
-        net.minecraft.world.level.material.FluidState fluid = level.getFluidState(pos);
-        net.minecraft.world.level.material.FluidState fluidBelow = level.getFluidState(pos.below());
-        boolean inOrAboveWater = fluid.is(net.minecraft.tags.FluidTags.WATER) || fluidBelow.is(net.minecraft.tags.FluidTags.WATER);
-        
-        boolean onGround = player.onGround() || inOrAboveWater;
-        boolean jetActive = false;
+        BlockPos pos = player.blockPosition();
+        boolean inWater = level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER)
+                || level.getFluidState(pos.below()).is(net.minecraft.tags.FluidTags.WATER);
 
-        // Determinar isMovingForward y isMovingBackward de forma compatible en cliente y servidor
-        boolean isMovingForward;
-        boolean isMovingBackward;
-        if (level.isClientSide()) {
-            isMovingForward = player.zza > 0;
-            isMovingBackward = player.zza < 0;
-        } else {
-            Vec3 look = player.getLookAngle();
-            double dot = currentMotion.x * look.x + currentMotion.z * look.z;
-            isMovingForward = player.zza > 0 || dot > 0.01D;
-            isMovingBackward = player.zza < 0 || dot < -0.05D;
-        }
+        int momentumNum = pData.getInt("xebMechaMomentumNum");
 
-        double momentum = pData.getDouble("xebMechaMomentum");
-        boolean hasAirBurst = pData.getInt("xebMechaAirBurstTicks") > 0;
-
-        // FÍSICAS DE MOMENTUM Y MOVIMIENTO (Ejecutar en ambos lados, cliente y servidor)
-        if (isMovingBackward) {
-            // Freno con S: decaer momentum al instante y frenar drásticamente
-            momentum = Math.max(0.0D, momentum - 0.08D);
-            player.setDeltaMovement(
-                    currentMotion.x * 0.75D,
-                    currentMotion.y,
-                    currentMotion.z * 0.75D
-            );
+        if (player.isCrouching() && inWater) {
+            // Crouching allows passing through water / sinking smoothly
+            Vec3 m = player.getDeltaMovement();
+            player.setDeltaMovement(m.x, Math.min(m.y, -0.25D), m.z);
             player.hurtMarked = true;
-        } else if (onGround) {
-            if (isMovingForward) {
-                // Caminar acumula momentum rápido (ahora hasta 2.0D)
-                momentum = Math.min(2.0D, momentum + 0.025D);
-                jetActive = true;
-
-                // Aplicar aceleración gradual con resistencia al giro por momentum (drifting)
-                Vec3 look = player.getLookAngle();
-                Vec3 moveDir = new Vec3(look.x, 0.0D, look.z).normalize();
-                double maxSkatingSpeed = 0.35D + (momentum * (MAX_SPEED - 0.35D));
-                if (hasAirBurst) {
-                    maxSkatingSpeed += 0.4D;
-                }
-                
-                double steerFactor = 0.25D / (1.0D + momentum * 2.5D);
-                if (hasAirBurst) steerFactor *= 2.0D;
-                
-                Vec3 targetVel = moveDir.scale(maxSkatingSpeed);
-                double newX = net.minecraft.util.Mth.lerp(steerFactor, currentMotion.x, targetVel.x);
-                double newZ = net.minecraft.util.Mth.lerp(steerFactor, currentMotion.z, targetVel.z);
-                
-                double speed = Math.sqrt(newX * newX + newZ * newZ);
-                if (speed > maxSkatingSpeed) {
-                    newX = (newX / speed) * maxSkatingSpeed;
-                    newZ = (newZ / speed) * maxSkatingSpeed;
-                }
-
-                // Levitación leve sobre el suelo o agua (hovering leve)
-                double newY = currentMotion.y;
-                if (inOrAboveWater) {
-                    double waterY = pos.getY() + (fluid.is(net.minecraft.tags.FluidTags.WATER) ? fluid.getHeight(level, pos) : 0.0D);
-                    if (player.getY() < waterY + 0.15D) {
-                        newY = Math.max(0.12D, currentMotion.y + 0.08D);
-                    }
-                } else if (currentMotion.y < 0.0D) {
-                    newY = currentMotion.y + 0.05D;
-                }
-
-                player.setDeltaMovement(newX, newY, newZ);
-                player.hurtMarked = true;
-            } else {
-                // No presionando W — decaer momentum más lento y deslizarse como en hielo (fricción suave)
-                momentum = Math.max(0.0D, momentum - 0.005D);
-
-                // Fricción de hielo: mantener el 95.5% de la velocidad
-                player.setDeltaMovement(
-                        currentMotion.x * 0.955D,
-                        currentMotion.y,
-                        currentMotion.z * 0.955D
-                );
-                player.hurtMarked = true;
-            }
-        } else {
-            // EN EL AIRE: hover pasivo genera momentum SIN presionar W (ahora hasta 2.0D)
-            momentum = Math.min(2.0D, momentum + 0.015D);
-            jetActive = true;
-
-            // Hover: reducir gravedad drásticamente
-            if (currentMotion.y < 0.0D) {
-                player.setDeltaMovement(
-                        currentMotion.x,
-                        currentMotion.y + 0.07D, // casi cancela gravedad
-                        currentMotion.z
-                );
-            }
-
-            // Mantener velocidad horizontal — NO aplicar fricción en el aire, aplicar resistencia al giro por momentum
-            if (isMovingForward) {
-                Vec3 look = player.getLookAngle();
-                Vec3 moveDir = new Vec3(look.x, 0.0D, look.z).normalize();
-                double maxAirSpeed = 0.4D + (momentum * 0.3D);
-                if (hasAirBurst) {
-                    maxAirSpeed += 0.4D;
-                }
-                
-                double airSteerFactor = 0.15D / (1.0D + momentum * 2.5D);
-                if (hasAirBurst) airSteerFactor *= 2.0D;
-                
-                Vec3 targetAirVel = moveDir.scale(maxAirSpeed);
-                double newAirX = net.minecraft.util.Mth.lerp(airSteerFactor, currentMotion.x, targetAirVel.x);
-                double newAirZ = net.minecraft.util.Mth.lerp(airSteerFactor, currentMotion.z, targetAirVel.z);
-                
-                player.setDeltaMovement(
-                        newAirX,
-                        player.getDeltaMovement().y,
-                        newAirZ
-                );
-            }
-
-            // Cap de velocidad horizontal en el aire (escalando con el cap a 2.0)
-            double maxAirSpeed = 0.4D + (momentum * 0.3D);
-            if (hasAirBurst) {
-                maxAirSpeed += 0.4D;
-            }
-            double currentAirSpeed = Math.sqrt(
-                    player.getDeltaMovement().x * player.getDeltaMovement().x +
-                    player.getDeltaMovement().z * player.getDeltaMovement().z
-            );
-            if (currentAirSpeed > maxAirSpeed) {
-                double scale = maxAirSpeed / currentAirSpeed;
-                player.setDeltaMovement(
-                        player.getDeltaMovement().x * scale,
-                        player.getDeltaMovement().y,
-                        player.getDeltaMovement().z * scale
-                );
-            }
-
+        } else if (inWater && momentumNum > 0 && !player.isCrouching()) {
+            // Levitating / Running ON TOP of water surface with momentum
+            Vec3 m = player.getDeltaMovement();
+            double lift = level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) ? 0.22D : Math.max(0.0D, m.y);
+            player.setDeltaMovement(m.x * 1.05D, lift, m.z * 1.05D);
             player.hurtMarked = true;
         }
 
-        // Guardar variables actualizadas localmente en NBT de ambos lados
-        pData.putDouble("xebMechaMomentum", momentum);
-        pData.putBoolean("xebMechaJetActive", jetActive);
-        pData.putDouble("xebMechaKineticSpeed", Math.sqrt(
-                player.getDeltaMovement().x * player.getDeltaMovement().x +
-                player.getDeltaMovement().z * player.getDeltaMovement().z
-        ));
-
-        boolean levitating = momentum > 0.7D;
-        pData.putBoolean("xebMechaLevitating", levitating);
-
-        if (!level.isClientSide()) {
-            // Replenish Spindash charges when on the ground
-            int sdState = pData.getInt("xebMechaSpindashState");
-            if (player.onGround() && sdState == 0 && pData.getInt("xebSpindashSuspensionTicks") <= 0) {
-                pData.putInt("xebSpindashCharges", 3);
-                pData.putInt("xebSpindashRechargeTimer", 0);
-            } else {
-                int spindashCharges = pData.getInt("xebSpindashCharges");
-                int spindashTimer = pData.getInt("xebSpindashRechargeTimer");
-                if (spindashCharges < 3 && sdState == 0) {
-                    spindashTimer++;
-                    if (spindashTimer >= 120) {
-                        spindashCharges++;
-                        spindashTimer = 0;
-                    }
-                    pData.putInt("xebSpindashCharges", spindashCharges);
-                    pData.putInt("xebSpindashRechargeTimer", spindashTimer);
-                }
+        // ── 2. Crosshair Lock-on Target Scanning with Sticky Lock Hysteresis ──
+        Vec3 look = player.getLookAngle().normalize();
+        List<LivingEntity> potentialTargets = level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(24.0D),
+                e -> e != player && e.isAlive() && !(e instanceof Player p && p.isAlliedTo(player)) && player.hasLineOfSight(e));
+        LivingEntity bestTarget = null;
+        double bestDot = 0.4D; // Cone angle (~66 degrees)
+        for (LivingEntity t : potentialTargets) {
+            Vec3 toTarget = t.getBoundingBox().getCenter().subtract(player.getEyePosition(1.0F)).normalize();
+            double dot = look.dot(toTarget);
+            if (dot > bestDot) {
+                bestDot = dot;
+                bestTarget = t;
             }
-
-            // Handle air suspension gravity lift
-            int suspension = pData.getInt("xebSpindashSuspensionTicks");
-            if (suspension > 0) {
-                pData.putInt("xebSpindashSuspensionTicks", suspension - 1);
-                player.setDeltaMovement(player.getDeltaMovement().x * 0.85D, Math.max(0.0D, player.getDeltaMovement().y * 0.5D), player.getDeltaMovement().z * 0.85D);
-                player.hurtMarked = true;
-            }
-
-            // Pasiva: Auto-feed at max momentum
-            if (momentum >= 1.0D && level.getGameTime() % 20 == 0) {
-                player.getFoodData().eat(1, 0.5F);
-            }
-
-            // Pasiva 3 - Overcharge Core
-            int overchargeTicks = pData.getInt("xebMechaOverchargeTicks");
-            boolean isSkating = isMovingForward || !onGround;
-            
-            if (isSkating && momentum >= 0.9D) {
-                overchargeTicks = Math.min(100, overchargeTicks + 1);
-                if (overchargeTicks >= 60) {
-                    pData.putBoolean("xebMechaOvercharged", true);
-                }
-            } else {
-                // Decay overcharge ticks slowly
-                overchargeTicks = Math.max(0, overchargeTicks - 1);
-                if (overchargeTicks < 60) {
-                    pData.putBoolean("xebMechaOvercharged", false);
-                }
-            }
-            pData.putInt("xebMechaOverchargeTicks", overchargeTicks);
-            
-            // Momentum protection: if overcharged, momentum is held at least at 1.0D + scaled portion
-            if (pData.getBoolean("xebMechaOvercharged")) {
-                double protection = 1.0D + (overchargeTicks - 60) * 0.025D;
-                momentum = Math.max(protection, momentum);
-            }
-
-            // Overcharge Aura Damage (Damages entities passed through)
-            if (pData.getBoolean("xebMechaOvercharged") && horizontalSpeed > 0.1D) {
-                double baseDamage = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
-                double auraDmg = baseDamage + 5.0D;
-                
-                AABB sweep = player.getBoundingBox().inflate(1.2D);
-                for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, sweep, e -> e != player && e.isAlive())) {
-                    CompoundTag targetData = target.getPersistentData();
-                    int cd = targetData.getInt("xebOverchargeHitCooldown");
-                    if (cd <= 0) {
-                        target.hurt(player.damageSources().playerAttack(player), (float) auraDmg);
-                        targetData.putInt("xebOverchargeHitCooldown", 15); // 0.75s immunity
-                        
-                        if (level instanceof ServerLevel serverLevel) {
-                            serverLevel.sendParticles(ParticleTypes.FLAME, target.getX(), target.getY() + 0.8D, target.getZ(),
-                                    8, 0.2D, 0.4D, 0.2D, 0.1D);
-                        }
-                    }
-                }
-            }
-
-            // Cooldown ticks decrement for nearby entities
-            for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0D), e -> e != player && e.isAlive())) {
-                int cd = target.getPersistentData().getInt("xebOverchargeHitCooldown");
-                if (cd > 0) {
-                    target.getPersistentData().putInt("xebOverchargeHitCooldown", cd - 1);
-                }
-            }
-
-            // Handle Jet Dash tick updates
-            if (pData.getBoolean("xebMechaOverdriveDashing")) {
-                int dashTicks = pData.getInt("xebMechaDashTicks");
-                if (dashTicks > 0) {
-                    pData.putInt("xebMechaDashTicks", dashTicks - 1);
-                    player.invulnerableTime = 999;
-
-                    Vec3 lookDir = player.getLookAngle();
-                    Vec3 forwardDir = new Vec3(lookDir.x, 0.0D, lookDir.z).normalize();
-                    
-                    // Move forward step-by-step
-                    double stepSize = 0.5D;
-                    Vec3 nextPos = player.position().add(forwardDir.scale(stepSize));
-                    player.setPos(nextPos.x, player.getY(), nextPos.z);
-                    player.setDeltaMovement(forwardDir.x * 2.0D, player.getDeltaMovement().y, forwardDir.z * 2.0D);
-                    player.hurtMarked = true;
-
-                    // Entity Sweep (Damage = base attack damage + momentum scale + 5 flat damage)
-                    double baseDamage = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
-                    double momentumScale = momentum * 4.0D;
-                    double dmg = baseDamage + momentumScale + 5.0D;
-                    
-                    AABB sweep = player.getBoundingBox().inflate(1.5D);
-                    for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, sweep, e -> e != player && e.isAlive())) {
-                        String nbtKey = "xebHitByJetDash_" + target.getUUID().toString();
-                        if (!pData.getBoolean(nbtKey)) {
-                            pData.putBoolean(nbtKey, true);
-                            target.hurt(player.damageSources().playerAttack(player), (float) dmg);
-                            target.setDeltaMovement(target.getDeltaMovement().add(lookDir.x * 2.5D, 0.8D, lookDir.z * 2.5D));
-                            target.hurtMarked = true;
-                        }
-                    }
-                } else {
-                    pData.putBoolean("xebMechaOverdriveDashing", false);
-                    player.invulnerableTime = 0;
-                    
-                    // Clean hit keys
-                    List<String> keysToRemove = new ArrayList<>();
-                    for (String key : pData.getAllKeys()) {
-                        if (key.startsWith("xebHitByJetDash_")) {
-                            keysToRemove.add(key);
-                        }
-                    }
-                    for (String key : keysToRemove) {
-                        pData.remove(key);
-                    }
-                }
-            }
-
-            // Handle Spindash charging or attacking
-            sdState = pData.getInt("xebMechaSpindashState");
-            if (sdState == 1) {
-                // CHARGING
-                player.setDeltaMovement(0, player.getDeltaMovement().y, 0);
-                player.hurtMarked = true;
-                int charge = pData.getInt("xebMechaSpindashCharge");
-                if (charge < 40) {
-                    pData.putInt("xebMechaSpindashCharge", charge + 1);
-                }
-                
-                // Track and select lock-on target dynamically while charging
-                List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(16.0D),
-                        e -> e != player && e.isAlive() && !(e instanceof Player p && p.isAlliedTo(player)));
-                LivingEntity nearest = null;
-                double minDistance = Double.MAX_VALUE;
-                Vec3 playerLook = player.getLookAngle().normalize();
-                for (LivingEntity t : targets) {
-                    double dist = player.distanceToSqr(t);
-                    if (dist < minDistance) {
-                        Vec3 toTarget = t.position().subtract(player.position()).normalize();
-                        if (playerLook.dot(toTarget) > 0.3D) { // within front cone
-                            minDistance = dist;
-                            nearest = t;
-                        }
-                    }
-                }
-                
-                if (nearest != null) {
-                    pData.putInt("xebSpindashTargetId", nearest.getId());
-                    if (level instanceof ServerLevel serverLevel) {
-                        serverLevel.sendParticles(ParticleTypes.SMALL_FLAME, nearest.getX(), nearest.getY() + nearest.getBbHeight() / 2.0D, nearest.getZ(),
-                                3, 0.4D, 0.4D, 0.4D, 0.05D);
-                        serverLevel.sendParticles(ParticleTypes.FLAME, nearest.getX(), nearest.getY() + nearest.getBbHeight() / 2.0D, nearest.getZ(),
-                                2, 0.4D, 0.4D, 0.4D, 0.0D);
-                    }
-                } else {
+        }
+        if (bestTarget != null) {
+            pData.putInt("xebSpindashTargetId", bestTarget.getId());
+        } else {
+            int currentTargetId = pData.getInt("xebSpindashTargetId");
+            if (currentTargetId != -1) {
+                Entity curr = level.getEntity(currentTargetId);
+                if (curr == null || !curr.isAlive() || player.distanceToSqr(curr) > 30 * 30 || !player.hasLineOfSight(curr)) {
                     pData.putInt("xebSpindashTargetId", -1);
-                }
-
-                if (level instanceof ServerLevel serverLevel) {
-                    serverLevel.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 0.5D, player.getZ(),
-                            2, 0.3D, 0.3D, 0.3D, 0.1D);
-                    serverLevel.sendParticles(ParticleTypes.FLAME, player.getX(), player.getY() + 0.5D, player.getZ(),
-                            3, 0.3D, 0.3D, 0.3D, 0.05D);
-                }
-            } else if (sdState == 3) {
-                // ATTACKING
-                int sdTicks = pData.getInt("xebMechaSpindashTicks");
-                int hitCooldown = pData.getInt("xebMechaSpindashHitCooldown");
-                if (hitCooldown > 0) {
-                    pData.putInt("xebMechaSpindashHitCooldown", hitCooldown - 1);
-                }
-
-                if (sdTicks > 0) {
-                    pData.putInt("xebMechaSpindashTicks", sdTicks - 1);
-
-                    double vx = pData.getDouble("xebSpindashVectorX");
-                    double vy = pData.getDouble("xebSpindashVectorY");
-                    double vz = pData.getDouble("xebSpindashVectorZ");
-                    double charge = pData.getInt("xebMechaSpindashCharge");
-                    double mult = 1.0D + charge * 0.08D;
-                    player.setDeltaMovement(vx * mult * 1.5D, vy * mult * 1.5D, vz * mult * 1.5D);
-                    player.hurtMarked = true;
-
-                    if (hitCooldown <= 0) {
-                        AABB sweep = player.getBoundingBox().inflate(1.5D);
-                        List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, sweep, e -> e != player && e.isAlive());
-                        
-                        for (LivingEntity target : targets) {
-                            String nbtKey = "xebHitBySpindash_" + target.getUUID().toString();
-                            if (!pData.getBoolean(nbtKey)) {
-                                pData.putBoolean(nbtKey, true);
-                                double baseDmg = SPIN_BASE_DAMAGE;
-                                double dmg = baseDmg * mult;
-                                target.hurt(player.damageSources().playerAttack(player), (float) dmg);
-
-                                int totalHits = pData.getInt("xebSpindashHitCount") + 1;
-                                pData.putInt("xebSpindashHitCount", totalHits);
-
-                                boolean isThird = pData.getInt("xebSpindashCharges") == 0;
-                                if (isThird) {
-                                    // 3rd use Spindash: pierces/traspasar through target, do not rebound!
-                                    if (level instanceof ServerLevel serverLevel) {
-                                        serverLevel.sendParticles(ParticleTypes.SWEEP_ATTACK, target.getX(), target.getY() + 0.5D, target.getZ(),
-                                                1, 0.0D, 0.0D, 0.0D, 0.0D);
-                                    }
-                                    Vec3 look = player.getLookAngle().normalize();
-                                    target.setDeltaMovement(target.getDeltaMovement().add(look.x * 1.5D, 0.4D, look.z * 1.5D));
-                                    target.hurtMarked = true;
-                                } else {
-                                    // 1st or 2nd use Spindash: rebound off target and float/suspend in the air
-                                    target.setDeltaMovement(player.getLookAngle().normalize().scale(1.2D).add(0, 0.3D, 0));
-                                    target.hurtMarked = true;
-                                    
-                                    // Bounce player up and backward slightly
-                                    Vec3 lookVec = player.getLookAngle().normalize();
-                                    player.setDeltaMovement(-lookVec.x * 0.5D, 0.4D, -lookVec.z * 0.5D);
-                                    player.hurtMarked = true;
-                                    
-                                    // Set air suspension ticks so player stays suspended
-                                    pData.putInt("xebSpindashSuspensionTicks", 15);
-                                    
-                                    // Stop current spindash ticks
-                                    pData.putInt("xebMechaSpindashTicks", 0);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // Check wall hit to stop early
-                    Vec3 nextPos = player.position().add(player.getDeltaMovement());
-                    net.minecraft.world.phys.BlockHitResult wallClip = level.clip(new net.minecraft.world.level.ClipContext(
-                            player.position(), nextPos, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, player
-                    ));
-                    if (wallClip.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
-                        pData.putInt("xebMechaSpindashTicks", 0);
-                    }
                 } else {
-                    // Reset spindash state
-                    pData.putInt("xebMechaSpindashState", 0);
-                    pData.putInt("xebSpindashHitCount", 0);
-                    // Clear NBT hit keys
-                    List<String> keysToRemove = new ArrayList<>();
-                    for (String key : pData.getAllKeys()) {
-                        if (key.startsWith("xebHitBySpindash_")) {
-                            keysToRemove.add(key);
-                        }
+                    // Check if existing locked target is still within reasonable cone (dot > 0.1D) for sticky lock
+                    Vec3 toCurr = curr.getBoundingBox().getCenter().subtract(player.getEyePosition(1.0F)).normalize();
+                    if (look.dot(toCurr) <= 0.1D) {
+                        pData.putInt("xebSpindashTargetId", -1);
                     }
-                    for (String key : keysToRemove) {
-                        pData.remove(key);
+                }
+            }
+        }
+
+        // ── 3. O.Clock Momentum System (0..300 Max, 5 Charges of 60) ───────────
+        isDashing = pData.getBoolean("xebMechaOverdriveDashing") || pData.getBoolean("xebMechaTargetedDashing");
+
+        if (player.isCrouching()) {
+            // Charging momentum while crouching (reaches 300 max in ~7.5s)
+            int oldBars = momentumNum / 60;
+            momentumNum = Math.min(300, momentumNum + 2);
+            int newBars = momentumNum / 60;
+            if (newBars > oldBars && newBars <= 5) {
+                level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                        SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.5F, 1.2F + (newBars * 0.15F));
+            }
+
+            // Smooth Ground Sliding Impulse while crouching (bypasses sneak edge limit)
+            if (player.onGround() || inWater) {
+                Vec3 forward = new Vec3(look.x, 0.0D, look.z).normalize();
+                double slideSpeed = 0.42D + (momentumNum / 300.0D * 0.25D);
+                player.setDeltaMovement(forward.x * slideSpeed, player.getDeltaMovement().y, forward.z * slideSpeed);
+                player.hurtMarked = true;
+
+                if (level.isClientSide() && level.random.nextFloat() < 0.4F) {
+                    level.addParticle(ParticleTypes.POOF, player.getX(), player.getY() + 0.1D, player.getZ(),
+                            0.0D, 0.02D, 0.0D);
+                }
+            }
+        } else if (pData.getInt("xebMechaSpindashState") != 1 && pData.getInt("xebSpindashSuspensionTicks") <= 0) {
+            // Standing / Walking / Running: Momentum decays over time!
+            // Forcefully impulsed standing decays 50% faster (-3 per tick vs -2 every 2 ticks)
+            if (isDashing) {
+                momentumNum = Math.max(0, momentumNum - 3);
+            } else if (level.getGameTime() % 2 == 0) {
+                momentumNum = Math.max(0, momentumNum - 2);
+            }
+
+            // Movement speed bonus when standing with momentum
+            if (momentumNum > 0 && player.onGround() && player.getDeltaMovement().horizontalDistanceSqr() > 0.001D) {
+                double speedBoost = 1.0D + (momentumNum / 300.0D) * 0.25D;
+                Vec3 m = player.getDeltaMovement();
+                player.setDeltaMovement(m.x * speedBoost, m.y, m.z * speedBoost);
+            }
+        }
+
+        int bars = momentumNum / 60;
+        pData.putInt("xebMechaMomentumNum", momentumNum);
+        pData.putInt("xebMechaOClockBars", bars);
+        pData.putDouble("xebMechaMomentum", momentumNum / 300.0D); // 0.0 to 1.0 for client rendering
+
+        // Reset air combo when touching ground
+        if (player.onGround()) {
+            pData.putInt("xebMechaAirCombo", 0);
+        }
+
+        // ── 3. Passives & Air Levitating at Max O.Clock (300 Momentum) ───────────
+        if (momentumNum >= 300) {
+            // Air Hover Levitation: floating in mid-air when not on ground and not crouching
+            if (!player.onGround() && !player.isCrouching()) {
+                Vec3 m = player.getDeltaMovement();
+                player.setDeltaMovement(m.x, Math.max(-0.02D, m.y * 0.15D), m.z);
+                player.hurtMarked = true;
+                pData.putBoolean("xebMechaLevitating", true);
+
+                if (level instanceof ServerLevel serverLevel && level.getGameTime() % 2 == 0) {
+                    serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() - 0.2D, player.getZ(),
+                            4, 0.2D, 0.1D, 0.2D, 0.02D);
+                    serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() - 0.2D, player.getZ(),
+                            2, 0.2D, 0.1D, 0.2D, 0.05D);
+                }
+            } else {
+                pData.putBoolean("xebMechaLevitating", false);
+            }
+
+            // Crush Passive: Stepping on enemies deals base attack damage
+            int crushCd = pData.getInt("xebMechaCrushCooldown");
+            if (crushCd > 0) {
+                pData.putInt("xebMechaCrushCooldown", crushCd - 1);
+            } else {
+                AABB feetBox = player.getBoundingBox().inflate(0.5D, 0.2D, 0.5D);
+                double baseDmg = player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+                for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, feetBox, e -> e != player && e.isAlive())) {
+                    target.hurt(player.damageSources().playerAttack(player), (float) baseDmg);
+                    pData.putInt("xebMechaCrushCooldown", 10);
+                    if (level instanceof ServerLevel serverLevel) {
+                        serverLevel.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 0.2D, target.getZ(),
+                                6, 0.2D, 0.2D, 0.2D, 0.1D);
                     }
                 }
             }
 
-            // Sync packet to client when state changes
-            if (player instanceof ServerPlayer serverPlayer && level.getGameTime() % 2 == 0) {
-                syncToClient(serverPlayer);
+            // Burn I Aura in 1.5 blocks radius
+            AABB burnArea = player.getBoundingBox().inflate(1.5D);
+            for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, burnArea, e -> e != player && e.isAlive())) {
+                target.setSecondsOnFire(3);
             }
+        } else {
+            pData.putBoolean("xebMechaLevitating", false);
+        }
+
+        // ── 4. Activa 1 (Mecha Drill Punch) Aura Ticks ─────────────────────────
+        int drillAuraTicks = pData.getInt("xebMechaDrillAuraTicks");
+        if (drillAuraTicks > 0) {
+            pData.putInt("xebMechaDrillAuraTicks", drillAuraTicks - 1);
+            // Every 30 ticks (1.5s), deal 13 constant damage in 1.5 blocks radius
+            if (drillAuraTicks % 30 == 0) {
+                AABB auraBox = player.getBoundingBox().inflate(1.5D);
+                for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, auraBox, e -> e != player && e.isAlive())) {
+                    target.hurt(player.damageSources().playerAttack(player), 13.0F);
+                }
+                level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                        SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.8F, 1.5F);
+                if (level instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(ParticleTypes.EXPLOSION, player.getX(), player.getY() + 0.5D, player.getZ(),
+                            3, 0.5D, 0.5D, 0.5D, 0.1D);
+                }
+            }
+        }
+
+        // ── 5. Stationary Spindash Charge & Targeted Homing Spindash Air Combo ──
+        sdState = pData.getInt("xebMechaSpindashState");
+        if (sdState == 1) { // Stationary Spindash Ball Charge (0 bars mode)
+            player.setDeltaMovement(0, player.getDeltaMovement().y, 0);
+            player.hurtMarked = true;
+            int chargeTicks = pData.getInt("xebMechaSpindashCharge") + 1;
+            pData.putInt("xebMechaSpindashCharge", chargeTicks);
+            // Every 20 ticks (1s) = +60 momentum (+1 bar) up to 300 momentum
+            if (chargeTicks % 20 == 0 && momentumNum < 300) {
+                momentumNum = Math.min(300, momentumNum + 60);
+                pData.putInt("xebMechaMomentumNum", momentumNum);
+                pData.putInt("xebMechaOClockBars", momentumNum / 60);
+                level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                        SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.5F);
+            }
+        }
+
+        // Targeted Spindash Homing & Air Combo Collision Check
+        boolean targetedDashing = pData.getBoolean("xebMechaTargetedDashing");
+        int targetId = pData.getInt("xebSpindashTargetId");
+        if (targetedDashing) {
+            int dashTicks = pData.getInt("xebMechaTargetedDashTicks") + 1;
+            pData.putInt("xebMechaTargetedDashTicks", dashTicks);
+
+            Entity targetEntity = targetId != -1 ? level.getEntity(targetId) : null;
+            if (targetEntity instanceof LivingEntity target && target.isAlive() && dashTicks < 16) {
+                Vec3 toTarget = target.getBoundingBox().getCenter().subtract(player.getEyePosition(1.0F));
+                double dist = toTarget.length();
+                Vec3 dir = toTarget.normalize();
+
+                // Smooth controllable homing speed towards target
+                player.setDeltaMovement(dir.scale(1.8D));
+                player.hurtMarked = true;
+
+                if (level instanceof ServerLevel serverLevel && level.getGameTime() % 2 == 0) {
+                    serverLevel.sendParticles(ParticleTypes.FLAME, player.getX(), player.getY() + 0.5D, player.getZ(),
+                            5, 0.3D, 0.3D, 0.3D, 0.05D);
+                    serverLevel.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 0.5D, player.getZ(),
+                            3, 0.2D, 0.2D, 0.2D, 0.1D);
+                }
+
+                // Check collision hit box
+                AABB playerBox = player.getBoundingBox().inflate(1.2D);
+                if (playerBox.intersects(target.getBoundingBox()) || dist < 2.0D) {
+                    // Deal damage
+                    float baseDmg = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+                    float finalDmg = baseDmg + 10.0F + (momentumNum / 300.0F) * 15.0F;
+                    target.hurt(player.damageSources().playerAttack(player), finalDmg);
+
+                    // End dash phase
+                    pData.putBoolean("xebMechaTargetedDashing", false);
+                    pData.putInt("xebMechaTargetedDashTicks", 0);
+
+                    // Air Recoil / Bounce back up into air
+                    Vec3 bounce = new Vec3(-dir.x * 0.4D, 0.75D, -dir.z * 0.4D);
+                    player.setDeltaMovement(bounce);
+                    player.hurtMarked = true;
+                    pData.putInt("xebSpindashSuspensionTicks", 35); // hover suspension for next combo
+
+                    level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                            SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8F, 1.6F);
+                    level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                            SoundEvents.TRIDENT_HIT, SoundSource.PLAYERS, 1.2F, 1.2F);
+
+                    if (level instanceof ServerLevel serverLevel) {
+                        serverLevel.sendParticles(ParticleTypes.EXPLOSION, target.getX(), target.getY() + 1.0D, target.getZ(),
+                                4, 0.4D, 0.4D, 0.4D, 0.1D);
+                    }
+
+                    // Air Combo counter
+                    int airCombo = pData.getInt("xebMechaAirCombo") + 1;
+                    if (airCombo >= 3) {
+                        // 3rd hit finisher: restore 2 full O.Clock charges (+120 momentum) & apply Charred Burn 1 for 15s
+                        int restoredMomentum = Math.min(300, momentumNum + 120);
+                        pData.putInt("xebMechaMomentumNum", restoredMomentum);
+                        pData.putInt("xebMechaOClockBars", restoredMomentum / 60);
+
+                        target.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                                org.xeb.xeb.effect.ModEffects.CHARRED_BURN.get(), 300, 0));
+
+                        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                                SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0F, 1.5F);
+                        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                                SoundEvents.DRAGON_FIREBALL_EXPLODE, SoundSource.PLAYERS, 1.0F, 1.2F);
+
+                        if (level instanceof ServerLevel serverLevel) {
+                            serverLevel.sendParticles(ParticleTypes.LAVA, target.getX(), target.getY() + 1.0D, target.getZ(),
+                                    15, 0.5D, 0.5D, 0.5D, 0.2D);
+                            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + 1.0D, target.getZ(),
+                                    20, 0.6D, 0.6D, 0.6D, 0.1D);
+                        }
+
+                        pData.putInt("xebMechaAirCombo", 0);
+                    } else {
+                        pData.putInt("xebMechaAirCombo", airCombo);
+                        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                                SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0F, 1.4F + (airCombo * 0.2F));
+                    }
+                }
+            } else {
+                // Abandon search safety: target unreachable or timeout -> launch Eggman missile and stop spindash homing
+                pData.putBoolean("xebMechaTargetedDashing", false);
+                pData.putInt("xebMechaTargetedDashTicks", 0);
+
+                org.xeb.xeb.entity.MechaEggmanMissileEntity missile = new org.xeb.xeb.entity.MechaEggmanMissileEntity(level, player, false);
+                missile.moveTo(player.getX(), player.getY() + 1.0D, player.getZ());
+                missile.setDeltaMovement(look.scale(1.5D));
+                level.addFreshEntity(missile);
+
+                level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                        SoundEvents.FIREWORK_ROCKET_SHOOT, SoundSource.PLAYERS, 1.2F, 1.0F);
+            }
+        }
+
+        int suspension = pData.getInt("xebSpindashSuspensionTicks");
+        if (suspension > 0) {
+            pData.putInt("xebSpindashSuspensionTicks", suspension - 1);
+            player.setDeltaMovement(player.getDeltaMovement().x * 0.85D, Math.max(0.0D, player.getDeltaMovement().y * 0.5D), player.getDeltaMovement().z * 0.85D);
+            player.hurtMarked = true;
+        }
+
+        // Sync to client
+        if (player instanceof ServerPlayer serverPlayer && level.getGameTime() % 2 == 0) {
+            syncToClient(serverPlayer);
         }
     }
 
@@ -704,16 +557,21 @@ public class MechaOverdriveItem extends Item implements GeoItem {
                 new MechaSyncPacket(
                         player.getId(),
                         pData.getBoolean("xebMechaJetActive"),
-                        pData.getBoolean("xebMechaVulcanFiring"),
+                        pData.getBoolean("xebMechaShotgunFiring"),
                         pData.getInt("xebMechaSpindashState"),
                         pData.getBoolean("xebMechaOverdriveDashing"),
                         pData.getInt("xebMechaA1Cooldown"),
                         pData.getInt("xebMechaA2Cooldown"),
                         pData.getDouble("xebMechaKineticSpeed"),
                         pData.getDouble("xebMechaMomentum"),
-                        pData.getBoolean("xebMechaOvercharged"),
+                        pData.getInt("xebMechaMomentumNum") >= 300,
                         pData.getBoolean("xebMechaLevitating"),
-                        pData.getInt("xebMechaSpindashCharge")
+                        pData.getInt("xebMechaSpindashCharge"),
+                        pData.getInt("xebMechaMomentumNum"),
+                        pData.getInt("xebSpindashTargetId"),
+                        pData.getInt("xebMechaAirCombo"),
+                        pData.getBoolean("xebMechaTargetedDashing"),
+                        pData.getInt("xebMechaOverheatedTicks")
                 )
         );
     }

@@ -136,7 +136,7 @@ public class PlayerBotStateMachine {
      * Ticks the bot state machine, executing actions and performing transitions.
      */
     public static void tick(Minecraft mc, LocalPlayer player) {
-        if (player == null || !player.isAlive() || !player.hasEffect(ModEffects.MADNESS.get())) {
+        if (player == null || !player.isAlive() || (!player.hasEffect(ModEffects.MADNESS.get()) && !player.hasEffect(ModEffects.CHARMED.get()))) {
             if (currentState != BotState.IDLE) {
                 reset();
             }
@@ -172,6 +172,14 @@ public class PlayerBotStateMachine {
                     }
                 }
             }
+        }
+
+        // Aim and update crosshair raycast before state transitions
+        if (currentTarget != null) {
+            lookAtTarget(player, currentTarget);
+            try {
+                mc.gameRenderer.pick(1.0F);
+            } catch (Throwable ignored) {}
         }
 
         // State Machine transitions
@@ -285,6 +293,33 @@ public class PlayerBotStateMachine {
     }
 
     private static void findTarget(LocalPlayer player) {
+        if (player.hasEffect(ModEffects.CHARMED.get())) {
+            java.util.UUID ownerUUID = player.getPersistentData().contains("xebCharmedOwner") ? 
+                    player.getPersistentData().getUUID("xebCharmedOwner") : null;
+            if (ownerUUID != null) {
+                java.util.List<LivingEntity> nearby = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(32.0));
+                LivingEntity owner = null;
+                for (LivingEntity e : nearby) {
+                    if (e.getUUID().equals(ownerUUID)) {
+                        owner = e;
+                        break;
+                    }
+                }
+                if (owner != null && owner.isAlive()) {
+                    LivingEntity enemy = owner.getLastHurtByMob();
+                    if (enemy == null || !enemy.isAlive() || enemy == player || enemy == owner) {
+                        enemy = owner.getLastHurtMob();
+                    }
+                    if (enemy != null && enemy.isAlive() && enemy != player && enemy != owner) {
+                        currentTarget = enemy;
+                        return;
+                    }
+                }
+            }
+            currentTarget = null;
+            return;
+        }
+
         long now = System.currentTimeMillis();
         BLACKLISTED_TARGETS.entrySet().removeIf(entry -> entry.getValue() < now);
 
@@ -325,6 +360,16 @@ public class PlayerBotStateMachine {
     }
 
     private static void validateTarget(LocalPlayer player) {
+        if (player.hasEffect(ModEffects.CHARMED.get())) {
+            java.util.UUID ownerUUID = player.getPersistentData().contains("xebCharmedOwner") ? 
+                    player.getPersistentData().getUUID("xebCharmedOwner") : null;
+            if (ownerUUID != null && currentTarget != null && currentTarget.getUUID().equals(ownerUUID)) {
+                currentTarget = null;
+                targetUnreachableTicks = 0;
+                return;
+            }
+        }
+
         ItemStack mainHand = player.getMainHandItem();
         double maxDistSq = 576.0D;
         if (isCustomWeapon(mainHand) || canUseAtRange(mainHand)) {
@@ -471,15 +516,18 @@ public class PlayerBotStateMachine {
     }
 
     private static void lookAtTarget(LocalPlayer player, LivingEntity target) {
-        double dx = target.getX() - player.getX();
-        double dy = (target.getY() + target.getEyeHeight() * 0.75D) - (player.getY() + player.getEyeHeight());
-        double dz = target.getZ() - player.getZ();
+        if (target == null || player == null) return;
+        net.minecraft.world.phys.Vec3 center = target.getBoundingBox().getCenter();
+        double dx = center.x - player.getX();
+        double dy = center.y - (player.getY() + player.getEyeHeight());
+        double dz = center.z - player.getZ();
         double dh = Math.sqrt(dx * dx + dz * dz);
         float baseYaw = (float) (Math.atan2(dz, dx) * 180.0D / Math.PI) - 90.0F;
         float basePitch = (float) -(Math.atan2(dy, dh) * 180.0D / Math.PI);
 
-        float yawNoise = (float) (Math.sin(stateTicks * 0.38) * 8.0);
-        float pitchNoise = (float) (Math.sin(stateTicks * 0.27) * 4.0);
+        // Subtle organic noise (keeps crosshair locked on target's bounding box)
+        float yawNoise = (float) (Math.sin(stateTicks * 0.38) * 1.2);
+        float pitchNoise = (float) (Math.sin(stateTicks * 0.27) * 0.6);
 
         float finalYaw = baseYaw + yawNoise;
         float finalPitch = Math.max(-80.0F, Math.min(80.0F, basePitch + pitchNoise));
@@ -550,6 +598,11 @@ public class PlayerBotStateMachine {
                     bcBusy = false; // Safety fallback timeout to prevent getting permanently stuck
                 }
                 if (!bcBusy && comboTicksRemaining <= 0) {
+                    // Lock camera and refresh pick raycast right before triggering attack
+                    if (currentTarget != null) {
+                        lookAtTarget(player, currentTarget);
+                        try { mc.gameRenderer.pick(1.0F); } catch (Throwable ignored) {}
+                    }
                     // Trigger an attack the way BetterCombat expects (real key press → BC combo).
                     BetterCombatAttackController.triggerAttack(mc, player, currentTarget);
                     registerAttackAttempt(currentTarget);
@@ -590,6 +643,10 @@ public class PlayerBotStateMachine {
         // 3) Fallback to vanilla melee
         mc.options.keyAttack.setDown(false);
         if (player.getAttackStrengthScale(0.0F) >= 0.9F) {
+            if (currentTarget != null) {
+                lookAtTarget(player, currentTarget);
+                try { mc.gameRenderer.pick(1.0F); } catch (Throwable ignored) {}
+            }
             BetterCombatAttackController.triggerAttack(mc, player, currentTarget);
             registerAttackAttempt(currentTarget);
         }

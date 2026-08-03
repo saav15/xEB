@@ -1,0 +1,19 @@
+﻿{
+    "type":  "tconstruct:modifier",
+    "inputs":  [
+                   {
+                       "item":  "xeb:lucky_essence"
+                   },
+                   {
+                       "item":  "xeb:gold_elite_bit"
+                   }
+               ],
+    "tools":  {
+                  "tag":  "tconstruct:modifiable"
+              },
+    "result":  "xeb:lucky",
+    "max_level":  3,
+    "slots":  {
+                  "upgrades":  1
+              }
+}

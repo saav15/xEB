@@ -32,6 +32,7 @@ public class XebAnimationApplier {
 
         // Map animation name to bone rotations
         switch (animName) {
+            case "animation.xeb_player.mecha_crouch_stance" -> applyMechaCrouchStance(model, time);
             case "animation.xeb_player.mecha_levitate" -> applyMechaLevitate(model, time, player);
             case "animation.xeb_player.mecha_vulcan" -> applyMechaVulcan(model, time);
             case "animation.xeb_player.mecha_dash" -> applyMechaDash(model, time);
@@ -45,6 +46,43 @@ public class XebAnimationApplier {
             case "animation.xeb_player.holy_blast_cast" -> applyHolyBlastCast(model, time, player);
             case "animation.xeb_player.holy_idle" -> applyHolyIdle(model, time);
         }
+    }
+
+    private static void applyMechaCrouchStance(HumanoidModel<?> model, float time) {
+        float pulse = Mth.sin(time * 25.0F) * 0.03F;
+
+        model.rightArm.yRot = 0;
+        model.rightArm.zRot = 0;
+        model.leftArm.yRot = 0;
+        model.leftArm.zRot = 0;
+        model.rightLeg.yRot = 0;
+        model.rightLeg.zRot = 0;
+        model.leftLeg.yRot = 0;
+        model.leftLeg.zRot = 0;
+
+        // Body leaning forward aggressively (Mecha Sonic stance)
+        model.body.xRot = (float) Math.toRadians(55 + pulse * 10);
+        model.body.yRot = 0;
+        model.body.zRot = 0;
+
+        model.head.xRot = (float) Math.toRadians(-35 - pulse * 5);
+        model.head.yRot = 0;
+        model.head.zRot = 0;
+
+        // Arms swept back like jet thrusters
+        model.rightArm.xRot = (float) Math.toRadians(85);
+        model.rightArm.yRot = (float) Math.toRadians(-15);
+        model.rightArm.zRot = (float) Math.toRadians(12);
+
+        model.leftArm.xRot = (float) Math.toRadians(85);
+        model.leftArm.yRot = (float) Math.toRadians(15);
+        model.leftArm.zRot = (float) Math.toRadians(-12);
+
+        // Legs bent backward in low jet stance
+        model.rightLeg.xRot = (float) Math.toRadians(-50);
+        model.rightLeg.zRot = (float) Math.toRadians(2);
+        model.leftLeg.xRot = (float) Math.toRadians(-40);
+        model.leftLeg.zRot = (float) Math.toRadians(-2);
     }
 
     private static void applyMechaLevitate(HumanoidModel<?> model, float time, Player player) {

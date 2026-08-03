@@ -121,17 +121,34 @@ public class OpticBlastBeamRenderer {
                 continue;
             }
 
+            boolean isLocalPlayer = (localPlayer != null && entry.getKey().intValue() == localPlayer.getId());
+            boolean isLocalPlayerFirstPerson = (isLocalPlayer && mc.options.getCameraType().isFirstPerson());
+
             Vec3 renderStart = beam.start;
             Vec3 renderEnd = beam.end;
 
-            boolean isLocalPlayerFirstPerson = (localPlayer != null && entry.getKey().intValue() == localPlayer.getId() && mc.options.getCameraType().isFirstPerson());
+            if (isLocalPlayer) {
+                float partialTick = event.getPartialTick();
+                renderStart = localPlayer.getEyePosition(partialTick);
+                Vec3 look = localPlayer.getViewVector(partialTick).normalize();
+                Vec3 maxReach = renderStart.add(look.scale(48.0D));
+
+                net.minecraft.world.phys.BlockHitResult clip = mc.level.clip(new net.minecraft.world.level.ClipContext(
+                        renderStart, maxReach, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, localPlayer
+                ));
+                renderEnd = clip.getType() != net.minecraft.world.phys.HitResult.Type.MISS ? clip.getLocation() : maxReach;
+            }
+
+            float[] col = getBeamColors(entry.getKey(), mc, beam.beamType);
+
             if (isLocalPlayerFirstPerson) {
                 renderCollisionSprite(poseStack, consumer, renderEnd, now);
             } else {
-                float[] col = getBeamColors(entry.getKey(), mc, beam.beamType);
                 XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, renderStart, renderEnd, col[0], col[1], col[2], 0.95F, 0.28F, 0.75F, now);
                 BEAM_STYLE.renderImpact(consumer, poseStack.last().pose(), renderEnd, now);
             }
+
+            LaserScorchManager.addScorchMarkOnBlock(mc.level, renderStart, renderEnd, 0.75F, col[0], col[1], col[2]);
         }
 
         // ── Render chain beams (GENE SPLICE) ────────────────────────────────

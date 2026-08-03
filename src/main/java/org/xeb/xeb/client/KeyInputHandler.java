@@ -36,6 +36,7 @@ public class KeyInputHandler {
             if (mc.player != null && mc.level != null && mc.screen == null) {
                 Player player = mc.player;
                 if (player.getMainHandItem().is(ModItems.BROKEN_DIAMOND.get())) {
+                    if (player.getAttackStrengthScale(0.5F) < 0.80F) return;
                     event.setCanceled(true);
                     event.setSwingHand(true);
                     
@@ -59,15 +60,21 @@ public class KeyInputHandler {
                         XEBNetwork.CHANNEL.send(net.minecraftforge.network.PacketDistributor.SERVER.noArg(),
                                 new org.xeb.xeb.network.CrazyDiamondAttackPacket(-1));
                     }
+                    player.resetAttackStrengthTicker();
                 } else if (player.getMainHandItem().is(ModItems.THE_TEARS.get())) {
+                    if (player.getAttackStrengthScale(0.5F) < 0.80F) return;
                     event.setCanceled(true);
                     event.setSwingHand(false);
                     XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.TearsLeftClickPacket());
+                    player.resetAttackStrengthTicker();
                 } else if (player.getMainHandItem().is(ModItems.MECHA_OVERDRIVE.get())) {
+                    if (player.getAttackStrengthScale(0.5F) < 0.80F) return;
                     event.setCanceled(true);
                     event.setSwingHand(true);
                     XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(5, true));
+                    player.resetAttackStrengthTicker();
                 } else if (player.getMainHandItem().is(ModItems.HOLY_DUALITY_BLADE.get())) {
+                    if (player.getAttackStrengthScale(0.5F) < 0.80F) return;
                     event.setCanceled(true);
                     event.setSwingHand(true);
                     XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(5, true));
@@ -78,6 +85,7 @@ public class KeyInputHandler {
                             player.getYRot(),
                             combo
                     );
+                    player.resetAttackStrengthTicker();
                 }
             }
         }

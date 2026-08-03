@@ -1,0 +1,19 @@
+﻿{
+    "type":  "tconstruct:modifier",
+    "inputs":  [
+                   {
+                       "item":  "xeb:mirror_essence"
+                   },
+                   {
+                       "item":  "xeb:bronze_elite_bit"
+                   }
+               ],
+    "tools":  {
+                  "tag":  "tconstruct:modifiable"
+              },
+    "result":  "xeb:mirror",
+    "max_level":  3,
+    "slots":  {
+                  "upgrades":  1
+              }
+}

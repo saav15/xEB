@@ -12,6 +12,9 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.xeb.xeb.Xeb;
 
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
+
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class DoomfistHUDOverlay {
 
@@ -645,6 +648,20 @@ public class DoomfistHUDOverlay {
         }
     }
 
+    public static void renderActiva2BoxCustomColor(GuiGraphics g, Minecraft mc, int screenH, String key, String label, int color) {
+        int xStart = org.xeb.xeb.Config.activa2HudX;
+        int yStart = screenH - org.xeb.xeb.Config.activa2HudY;
+        float scale = org.xeb.xeb.Config.activa2HudScale;
+
+        g.pose().pushPose();
+        g.pose().translate(xStart, yStart, 0);
+        g.pose().scale(scale, scale, 1.0f);
+
+        renderAbilityIconBoxWithCustomColor(g, mc, 0, 0, key, label, color);
+
+        g.pose().popPose();
+    }
+
     private static void renderMechaAbilityCooldowns(RenderGuiOverlayEvent.Post event, Minecraft mc, Player player,
                                                 org.xeb.xeb.extremeburst.ExtremeBurstRegistry.ExtremeBurstEntry burstEntry,
                                                 ItemStack mainHand, ItemStack offHand) {
@@ -655,14 +672,9 @@ public class DoomfistHUDOverlay {
         net.minecraft.nbt.CompoundTag tag = player.getPersistentData();
         
         int a1CD = tag.getInt("xebMechaA1Cooldown");
-        boolean jetActive = tag.getBoolean("xebMechaOverdriveDashing");
-        
-        int spindashCharges = tag.getInt("xebSpindashCharges");
-        if (!tag.contains("xebSpindashCharges")) {
-            spindashCharges = 3;
-        }
-        int spindashTimer = tag.getInt("xebSpindashRechargeTimer");
-        boolean spindashActive = tag.getInt("xebMechaSpindashState") > 0;
+        int a2CD = tag.getInt("xebMechaA2Cooldown");
+        boolean drillActive = tag.getInt("xebMechaDrillAuraTicks") > 0;
+        boolean spindashActive = tag.getInt("xebMechaSpindashState") > 0 || tag.getBoolean("xebMechaTargetedSpindash");
         
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -670,15 +682,17 @@ public class DoomfistHUDOverlay {
         String key1 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_1_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         String key2 = org.xeb.xeb.client.ModKeyMappings.ACTIVA_2_KEY.getTranslatedKeyMessage().getString().toUpperCase();
         
-        // Activa 1: Jet Dash (JETS)
-        renderActiva1Box(g, mc, height, key1, "JETS", a1CD, 160, jetActive);
+        // Activa 1: Mecha Drill Punch (DRILL) - Cooldown max 300 ticks (15s)
+        renderActiva1Box(g, mc, height, key1, "DRILL", a1CD, 300, drillActive);
         
-        // Activa 2: Spindash Missile (SPMS)
-        g.pose().pushPose();
-        g.pose().translate(org.xeb.xeb.Config.activa2HudX, height - org.xeb.xeb.Config.activa2HudY, 0);
-        g.pose().scale(org.xeb.xeb.Config.activa2HudScale, org.xeb.xeb.Config.activa2HudScale, 1.0f);
-        renderSpindashBox(g, mc, 0, 0, key2, "SPMS", spindashCharges, spindashTimer, spindashActive);
-        g.pose().popPose();
+        // Activa 2: Spindash (SPIN) - No cooldown, uses O.Clock momentum
+        int targetId = tag.getInt("xebSpindashTargetId");
+        boolean hasTarget = targetId != -1;
+        if (hasTarget) {
+            renderActiva2BoxCustomColor(g, mc, height, key2, "LOCK", 0xFFFF0000);
+        } else {
+            renderActiva2Box(g, mc, height, key2, "SPIN", a2CD, 100, spindashActive);
+        }
         
         if (shouldShowBurstHUD(player, burstEntry, mainHand, offHand)) {
             renderUltimateBox(g, mc, player, height, burstEntry);
@@ -686,37 +700,49 @@ public class DoomfistHUDOverlay {
         
         RenderSystem.disableBlend();
 
-        // Render Momentum Bar next to crosshair
+        // Render O.Clock Momentum Bar (5 Segmented Gauge) next to crosshair
         int centerX = width / 2 + org.xeb.xeb.Config.mechaHudX;
         int centerY = height / 2 + org.xeb.xeb.Config.mechaHudY;
         
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        double momentum = tag.getDouble("xebMechaMomentum");
-        boolean overcharged = tag.getBoolean("xebMechaOvercharged");
-        boolean levitating = tag.getBoolean("xebMechaLevitating");
+        int momentumNum = tag.getInt("xebMechaMomentumNum");
+        boolean maxOClock = momentumNum >= 300;
+        int overheated = tag.getInt("xebMechaOverheatedTicks");
         
-        // Futuristic Slanted Segmented Gauge next to crosshairs
-        int segmentsCount = 5;
-        double segmentMax = 2.0D;
-        double step = segmentMax / segmentsCount; // 0.4 per segment
-        
-        for (int i = 0; i < segmentsCount; i++) {
-            // Slanted offset based on segment index
+        // Overheated HUD Effect: Flashing Red border & OVERHEATED text
+        if (overheated > 0) {
+            float flashAlpha = 0.5F + 0.5F * (float) Math.sin((mc.level.getGameTime() + event.getPartialTick()) * 0.8D);
+            int flashRed = ((int) (255 * flashAlpha) << 24) | 0xFF0000;
+            for (int i = 0; i < 5; i++) {
+                int segX = centerX + 18 + i;
+                int segY = centerY + 14 - i * 8;
+                int segW = 8;
+                int segH = 6;
+                g.fill(segX - 2, segY - 2, segX + segW + 2, segY - 1, flashRed);
+                g.fill(segX - 2, segY + segH + 1, segX + segW + 2, segY + segH + 2, flashRed);
+                g.fill(segX - 2, segY - 2, segX - 1, segY + segH + 2, flashRed);
+                g.fill(segX + segW + 1, segY - 2, segX + segW + 2, segY + segH + 2, flashRed);
+            }
+            g.drawString(mc.font, "OVERHEATED", centerX + 10, centerY - 38, flashRed, true);
+        }
+
+        // Futuristic Slanted Segmented Gauge next to crosshairs (5 Bars = 300 Momentum)
+        for (int i = 0; i < 5; i++) {
             int segX = centerX + 18 + i;
             int segY = centerY + 14 - i * 8;
-            int segW = 6;
-            int segH = 5;
+            int segW = 8;
+            int segH = 6;
             
-            // Draw segment background
-            g.fill(segX - 1, segY - 1, segX + segW + 1, segY + segH + 1, 0x66000000);
+            // Draw segment background frame
+            g.fill(segX - 1, segY - 1, segX + segW + 1, segY + segH + 1, 0xFF000000);
+            g.fill(segX, segY, segX + segW, segY + segH, 0x55222222);
             
-            // Check if active
-            double required = (i + 1) * step;
-            boolean active = momentum >= (required - 0.05D);
-            
-            if (active) {
+            int thresholdLow = i * 60;
+            int thresholdHigh = (i + 1) * 60;
+
+            if (momentumNum > thresholdLow) {
                 int fillColor = 0xFFFF8800; // default orange
                 if (i == 0) fillColor = 0xFFFF3300;
                 else if (i == 1) fillColor = 0xFFFF6600;
@@ -724,35 +750,27 @@ public class DoomfistHUDOverlay {
                 else if (i == 3) fillColor = 0xFFFFCC00;
                 else if (i == 4) fillColor = 0xFFFFFF00;
                 
-                if (overcharged) {
+                if (maxOClock) {
                     float pulse = 0.7F + 0.3F * (float) Math.sin((mc.level.getGameTime() + event.getPartialTick()) * 0.5D);
-                    int red = (int) (255 * pulse);
-                    int grn = (int) (200 * pulse * (i / 4.0F)); // gold to orange gradient pulse
-                    fillColor = (0xFF << 24) | (red << 16) | (grn << 8) | 0;
+                    int grn = (int) (220 * pulse);
+                    fillColor = 0xFF00FFFF | (grn << 8); // Cyan/Gold pulsing aura
                 }
-                g.fill(segX, segY, segX + segW, segY + segH, fillColor);
+
+                if (momentumNum >= thresholdHigh) {
+                    g.fill(segX, segY, segX + segW, segY + segH, fillColor);
+                } else {
+                    float segProgress = (float) (momentumNum - thresholdLow) / 60.0F;
+                    int partialH = (int) (segH * segProgress);
+                    g.fill(segX, segY + segH - partialH, segX + segW, segY + segH, fillColor);
+                }
             }
         }
         
-        // Text indicator: O.CLOCK
-        int momColor = overcharged ? 0xFFFFD700 : 0xFFFF5500;
-        g.drawString(mc.font, "O.CLOCK", centerX + 18, centerY - 28, momColor, true);
-        
-        // Status labels
-        if (overcharged) {
-            g.drawString(mc.font, "OVERCHARGE", centerX + 28, centerY - 5, 0xFFFFD700, true);
-            int barTicks = tag.getInt("xebMechaOverchargeTicks");
-            int barW = 24;
-            int barH = 2;
-            int barX = centerX + 28;
-            int barY = centerY + 4;
-            float pct = Math.max(0.0F, Math.min(1.0F, (barTicks - 60) / 40.0F)); // scale 60-100 to 0.0-1.0
-            g.fill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 0x66000000);
-            g.fill(barX, barY, barX + (int)(barW * pct), barY + barH, 0xFFFFD700);
-        } else if (levitating) {
-            g.drawString(mc.font, "LEVITATING", centerX + 28, centerY - 5, 0xFFFFDD00, true);
-        }
-        
+        // Numeric Momentum Indicator: e.g. "300" or "180" (Replacing [0/5] and "MAX O.CLOCK")
+        int momColor = maxOClock ? 0xFF00FFFF : 0xFFFF5500;
+        String momText = "[ " + momentumNum + " ]";
+        g.drawString(mc.font, momText, centerX + 18, centerY - 28, momColor, true);
+
         RenderSystem.disableBlend();
     }
 

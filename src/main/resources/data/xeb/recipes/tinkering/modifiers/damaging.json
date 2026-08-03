@@ -1,0 +1,19 @@
+﻿{
+    "type":  "tconstruct:modifier",
+    "inputs":  [
+                   {
+                       "item":  "xeb:damaging_essence"
+                   },
+                   {
+                       "item":  "xeb:bronze_elite_bit"
+                   }
+               ],
+    "tools":  {
+                  "tag":  "tconstruct:modifiable"
+              },
+    "result":  "xeb:damaging",
+    "max_level":  3,
+    "slots":  {
+                  "upgrades":  1
+              }
+}

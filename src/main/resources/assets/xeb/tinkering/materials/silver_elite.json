@@ -1,0 +1,12 @@
+﻿{
+    "color":  "AEEEEE",
+    "fallbacks":  [
+                      "metal"
+                  ],
+    "generator":  {
+                      "transformer":  {
+                                          "type":  "tconstruct:recolor_sprite",
+                                          "color":  "AEEEEE"
+                                      }
+                  }
+}

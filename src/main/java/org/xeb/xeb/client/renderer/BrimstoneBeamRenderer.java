@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import net.minecraft.client.player.LocalPlayer;
+
 @Mod.EventBusSubscriber(modid = Xeb.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class BrimstoneBeamRenderer {
 
@@ -60,7 +62,11 @@ public class BrimstoneBeamRenderer {
                 continue;
             }
 
-            List<Vec3> points = beam.points;
+            int wielderId = entry.getKey();
+            LocalPlayer localPlayer = mc.player;
+            boolean isLocalPlayer = (localPlayer != null && wielderId == localPlayer.getId());
+            boolean isLocalPlayerFirstPerson = (isLocalPlayer && mc.options.getCameraType().isFirstPerson());
+
             int imbue = beam.imbueType;
 
             // Configure colors based on imbue
@@ -98,54 +104,51 @@ public class BrimstoneBeamRenderer {
             }
             BEAM_STYLE.heatHaze = true;
 
-            // Render wavy organic segments
-            Vec3 lastPos = points.get(0);
-            for (int i = 0; i < points.size() - 1; i++) {
-                Vec3 pStart = lastPos;
-                Vec3 pEnd = points.get(i + 1);
+            Vec3 liveStart;
+            Vec3 impactPos;
 
-                // Add organic sine wave displacement to pEnd (unless it is the final collision endpoint)
-                if (i < points.size() - 2) {
-                    Vec3 dirN = pEnd.subtract(pStart).normalize();
-                    Vec3 perp = dirN.cross(new Vec3(0, 1, 0));
-                    if (perp.lengthSqr() < 0.001D) perp = dirN.cross(new Vec3(1, 0, 0));
-                    perp = perp.normalize();
+            if (isLocalPlayer) {
+                // Live 1:1 crosshair raycast on client frame for zero network delay
+                float partialTick = event.getPartialTick();
+                liveStart = localPlayer.getEyePosition(partialTick);
+                Vec3 look = localPlayer.getViewVector(partialTick).normalize();
+                Vec3 maxReach = liveStart.add(look.scale(48.0D));
 
-                    double amp = (imbue == TearsProjectileEntity.IMBUE_PURPLE) ? 0.35D : 0.12D;
-                    double freq = (imbue == TearsProjectileEntity.IMBUE_PURPLE) ? 0.02D : 0.015D;
-                    double wavePhase = now * freq + i * 0.7D;
-                    Vec3 waveOffset = perp.scale(Math.sin(wavePhase) * amp);
+                net.minecraft.world.phys.BlockHitResult clip = mc.level.clip(new net.minecraft.world.level.ClipContext(
+                        liveStart, maxReach, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, localPlayer
+                ));
+                impactPos = clip.getType() != net.minecraft.world.phys.HitResult.Type.MISS ? clip.getLocation() : maxReach;
+            } else {
+                List<Vec3> points = beam.points;
+                liveStart = points.get(0);
+                impactPos = points.get(points.size() - 1);
+            }
 
-                    pEnd = pEnd.add(waveOffset);
-                }
-
+            // Render 3D beam tube only when NOT in local 1st person mode (matches Optic Blast behavior)
+            if (!isLocalPlayerFirstPerson) {
                 XebVolumetricBeamRenderer.render3DBeam(
-                        poseStack, bufferSource, pStart, pEnd,
+                        poseStack, bufferSource, liveStart, impactPos,
                         r, g, b, 0.95F,
                         BEAM_STYLE.coreWidth, BEAM_STYLE.auraWidth, now
                 );
-                lastPos = pEnd;
             }
 
-            // Draw impact sphere
+            // Draw impact sphere & scorch mark on solid block
             Matrix4f matrix = poseStack.last().pose();
-            BEAM_STYLE.renderImpact(consumer, matrix, points.get(points.size() - 1), now);
+            BEAM_STYLE.renderImpact(consumer, matrix, impactPos, now);
+            LaserScorchManager.addScorchMarkOnBlock(mc.level, liveStart, impactPos, 0.85F, r, g, b);
 
-            // Spawn custom client-side particles along the segments (BUG 7)
+            // Spawn custom client-side particles along the segment
             if (now % 30 < 10) {
                 net.minecraft.client.multiplayer.ClientLevel level = mc.level;
                 if (level != null) {
-                    for (int i = 0; i < points.size() - 1; i++) {
-                        Vec3 start = points.get(i);
-                        Vec3 end = points.get(i + 1);
-                        Vec3 dir = end.subtract(start);
-                        double len = dir.length();
-                        if (len > 1.0D) {
-                            Vec3 dirN = dir.normalize();
-                            for (double d = 1.0D; d < len; d += 4.0D) {
-                                Vec3 spawnPos = start.add(dirN.scale(d));
-                                spawnImbueParticle(level, spawnPos, imbue);
-                            }
+                    Vec3 dir = impactPos.subtract(liveStart);
+                    double len = dir.length();
+                    if (len > 1.0D) {
+                        Vec3 dirN = dir.normalize();
+                        for (double d = 1.0D; d < len; d += 4.0D) {
+                            Vec3 spawnPos = liveStart.add(dirN.scale(d));
+                            spawnImbueParticle(level, spawnPos, imbue);
                         }
                     }
                 }
@@ -176,11 +179,11 @@ public class BrimstoneBeamRenderer {
         }
     }
 
-    private static class ClientBrimstoneData {
-        final List<Vec3> points;
-        final int imbueType;
-        final float beamWidth;
-        long lastUpdate;
+    public static class ClientBrimstoneData {
+        public final List<Vec3> points;
+        public final int imbueType;
+        public final float beamWidth;
+        public long lastUpdate;
 
         ClientBrimstoneData(List<Vec3> points, int imbueType, float beamWidth, long lastUpdate) {
             this.points = points;

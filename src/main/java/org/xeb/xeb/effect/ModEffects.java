@@ -39,6 +39,7 @@ public class ModEffects {
     public static final RegistryObject<MobEffect> REFLECT         = EFFECTS.register("reflect",         ReflectEffect::new);
     public static final RegistryObject<MobEffect> DELAYED_PAIN    = EFFECTS.register("delayed_pain",    DelayedPainEffect::new);
     public static final RegistryObject<MobEffect> CHARRED_BURN    = EFFECTS.register("charred_burn",    CharredBurnEffect::new);
+    public static final RegistryObject<MobEffect> CHARMED         = EFFECTS.register("charmed",         CharmedEffect::new);
 
     public static void register(IEventBus eventBus) {
         EFFECTS.register(eventBus);

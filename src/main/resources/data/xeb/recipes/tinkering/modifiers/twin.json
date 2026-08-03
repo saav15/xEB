@@ -1,0 +1,19 @@
+﻿{
+    "type":  "tconstruct:modifier",
+    "inputs":  [
+                   {
+                       "item":  "xeb:twin_essence"
+                   },
+                   {
+                       "item":  "xeb:gold_elite_bit"
+                   }
+               ],
+    "tools":  {
+                  "tag":  "tconstruct:modifiable"
+              },
+    "result":  "xeb:twin",
+    "max_level":  3,
+    "slots":  {
+                  "upgrades":  1
+              }
+}

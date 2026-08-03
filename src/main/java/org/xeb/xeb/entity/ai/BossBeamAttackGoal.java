@@ -108,7 +108,7 @@ public class BossBeamAttackGoal extends Goal {
                     Vec3 idealDir = target.getEyePosition().subtract(origin).normalize();
                     if (trackingDegreesPerTick > 0.0F) {
                         double angleBetween = Math.acos(Math.max(-1.0, Math.min(1.0, currentBeamDir.dot(idealDir))));
-                        double maxRad = Math.toRadians(trackingDegreesPerTick);
+                        double maxRad = Math.toRadians(trackingDegreesPerTick * 0.50F); // 50% heavier turn weight (50% speed)
                         if (angleBetween > maxRad) {
                             double step = maxRad / angleBetween;
                             currentBeamDir = currentBeamDir.scale(1.0 - step).add(idealDir.scale(step)).normalize();

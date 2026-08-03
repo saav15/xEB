@@ -38,6 +38,11 @@ public class BrokenDiamondItem extends Item implements GeoItem {
     }
 
     @Override
+    public boolean onBlockStartBreak(ItemStack itemstack, net.minecraft.core.BlockPos pos, Player player) {
+        return true;
+    }
+
+    @Override
     public boolean isEnchantable(ItemStack stack) {
         return true;
     }

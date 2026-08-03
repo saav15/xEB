@@ -70,6 +70,7 @@ public class StevenLaserBeamRenderer {
                     poseStack, bufferSource, laser.start, laser.end,
                     0.15F, 0.05F, 0.35F, 0.95F, 0.30F, 0.85F, now
             );
+            LaserScorchManager.addScorchMarkOnBlock(mc.level, laser.start, laser.end, 1.1F, 0.15F, 0.05F, 0.35F);
         }
 
         bufferSource.endBatch(RenderType.lightning());

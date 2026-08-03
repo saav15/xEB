@@ -1,0 +1,19 @@
+﻿{
+    "type":  "tconstruct:modifier",
+    "inputs":  [
+                   {
+                       "item":  "xeb:spiky_essence"
+                   },
+                   {
+                       "item":  "xeb:bronze_elite_bit"
+                   }
+               ],
+    "tools":  {
+                  "tag":  "tconstruct:modifiable"
+              },
+    "result":  "xeb:spiky",
+    "max_level":  3,
+    "slots":  {
+                  "upgrades":  1
+              }
+}

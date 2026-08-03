@@ -978,4 +978,20 @@
   "gui.xeb.enigma_bios.scanner.legend_text2": "Naranja: 50-100  |  Rojo: > 100",
   "gui.xeb.enigma_bios.scanner.off": "[DESACTIVADO]",
   "gui.xeb.enigma_bios.scanner.dummy_target": "Objetivo de Pruebas"
+,
+  "item.xeb.essence.spiked_conditioning.desc": "Devuelve daño de espinas e imbuye Lentitud I y Debilidad I a los atacantes."
+,
+  "item.xeb.essence.elite_reflexes.desc": "Otorga Velocidad II por 3 segundos al recibir daño para esquivar ataques."
+,
+  "item.xeb.essence.elite_slayer.desc": "Inflige +50% de daño extra a Mobs Élite, Megas y Jefes, imbuyendo Wither II y Debilidad II."
+,
+  "item.xeb.pheromone_flask": "Frasco de Feromonas"
+,
+  "item.xeb.pheromone_flask.desc1": "§eAl chocar, libera un área de 3x3 de feromonas."
+,
+  "effect.xeb.charmed": "Encantado"
+,
+  "item.xeb.pheromone_flask.flavor": "§b§o\"Resistir es inútil ante la atracción de la naturaleza.\""
+,
+  "item.xeb.pheromone_flask.desc2": "§eLos mobs y jugadores encantados lucharán por ti durante 15 segundos."
 }

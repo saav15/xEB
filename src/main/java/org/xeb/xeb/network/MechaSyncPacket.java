@@ -20,10 +20,16 @@ public class MechaSyncPacket {
     private final boolean overcharged;
     private final boolean levitating;
     private final int spindashCharge;
+    private final int momentumNum;
+    private final int targetId;
+    private final int airCombo;
+    private final boolean targetedDashing;
+    private final int overheatedTicks;
 
     public MechaSyncPacket(int entityId, boolean jetActive, boolean vulcanFiring, int spindashState, boolean dashing,
                             int a1Cooldown, int a2Cooldown, double kineticSpeed,
-                            double momentum, boolean overcharged, boolean levitating, int spindashCharge) {
+                            double momentum, boolean overcharged, boolean levitating, int spindashCharge,
+                            int momentumNum, int targetId, int airCombo, boolean targetedDashing, int overheatedTicks) {
         this.entityId = entityId;
         this.jetActive = jetActive;
         this.vulcanFiring = vulcanFiring;
@@ -36,6 +42,11 @@ public class MechaSyncPacket {
         this.overcharged = overcharged;
         this.levitating = levitating;
         this.spindashCharge = spindashCharge;
+        this.momentumNum = momentumNum;
+        this.targetId = targetId;
+        this.airCombo = airCombo;
+        this.targetedDashing = targetedDashing;
+        this.overheatedTicks = overheatedTicks;
     }
 
     public int getEntityId() { return entityId; }
@@ -50,6 +61,11 @@ public class MechaSyncPacket {
     public boolean isOvercharged() { return overcharged; }
     public boolean isLevitating() { return levitating; }
     public int getSpindashCharge() { return spindashCharge; }
+    public int getMomentumNum() { return momentumNum; }
+    public int getTargetId() { return targetId; }
+    public int getAirCombo() { return airCombo; }
+    public boolean isTargetedDashing() { return targetedDashing; }
+    public int getOverheatedTicks() { return overheatedTicks; }
 
     public static void encode(MechaSyncPacket msg, FriendlyByteBuf buf) {
         buf.writeInt(msg.entityId);
@@ -64,6 +80,11 @@ public class MechaSyncPacket {
         buf.writeBoolean(msg.overcharged);
         buf.writeBoolean(msg.levitating);
         buf.writeInt(msg.spindashCharge);
+        buf.writeInt(msg.momentumNum);
+        buf.writeInt(msg.targetId);
+        buf.writeInt(msg.airCombo);
+        buf.writeBoolean(msg.targetedDashing);
+        buf.writeInt(msg.overheatedTicks);
     }
 
     public static MechaSyncPacket decode(FriendlyByteBuf buf) {
@@ -78,6 +99,11 @@ public class MechaSyncPacket {
                 buf.readDouble(),
                 buf.readDouble(),
                 buf.readBoolean(),
+                buf.readBoolean(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readInt(),
                 buf.readBoolean(),
                 buf.readInt()
         );

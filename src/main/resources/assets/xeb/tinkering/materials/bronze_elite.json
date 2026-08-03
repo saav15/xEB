@@ -1,0 +1,12 @@
+﻿{
+    "color":  "CD7F32",
+    "fallbacks":  [
+                      "metal"
+                  ],
+    "generator":  {
+                      "transformer":  {
+                                          "type":  "tconstruct:recolor_sprite",
+                                          "color":  "CD7F32"
+                                      }
+                  }
+}

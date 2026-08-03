@@ -251,6 +251,8 @@ public class Xeb {
                     org.xeb.xeb.render.SparkleRenderer::new);
             event.registerEntityRenderer(ModEntities.HOT_POTATO_PROJECTILE.get(),
                     net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
+            event.registerEntityRenderer(ModEntities.PHEROMONE_FLASK_PROJECTILE.get(),
+                    net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
             event.registerEntityRenderer(ModEntities.DEMON_CORE.get(),
                     org.xeb.xeb.render.DemonCoreRenderer::new);
             event.registerEntityRenderer(ModEntities.WITHERFIST.get(),
@@ -274,6 +276,10 @@ public class Xeb {
                     org.xeb.xeb.client.renderer.HotPokerGeoRenderer::new);
             event.registerEntityRenderer(ModEntities.MECHA_VULCAN_PROJECTILE.get(),
                     org.xeb.xeb.client.renderer.MechaVulcanProjectileRenderer::new);
+            event.registerEntityRenderer(ModEntities.MECHA_LASER_PELLET.get(),
+                    org.xeb.xeb.client.renderer.MechaLaserPelletRenderer::new);
+            event.registerEntityRenderer(ModEntities.MECHA_EGGMAN_MISSILE.get(),
+                    org.xeb.xeb.client.renderer.MechaEggmanMissileRenderer::new);
             event.registerEntityRenderer(ModEntities.HOMING_MISSILE.get(),
                     net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
             event.registerEntityRenderer(ModEntities.SPIKE_PROJECTILE.get(),

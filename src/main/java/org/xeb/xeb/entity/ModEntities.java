@@ -33,6 +33,14 @@ public class ModEntities {
                     .build("hot_potato_projectile")
     );
 
+    public static final RegistryObject<EntityType<PheromoneFlaskProjectileEntity>> PHEROMONE_FLASK_PROJECTILE = ENTITY_TYPES.register("pheromone_flask_projectile",
+            () -> EntityType.Builder.<PheromoneFlaskProjectileEntity>of(PheromoneFlaskProjectileEntity::new, MobCategory.MISC)
+                    .sized(0.25F, 0.25F)
+                    .clientTrackingRange(4)
+                    .updateInterval(10)
+                    .build("pheromone_flask_projectile")
+    );
+
     public static final RegistryObject<EntityType<DemonCoreEntity>> DEMON_CORE = ENTITY_TYPES.register("demon_core",
             () -> EntityType.Builder.<DemonCoreEntity>of(DemonCoreEntity::new, MobCategory.MISC)
                     .sized(0.25F, 0.25F)
@@ -123,6 +131,22 @@ public class ModEntities {
                     .clientTrackingRange(8)
                     .updateInterval(1)
                     .build("homing_missile")
+    );
+
+    public static final RegistryObject<EntityType<MechaLaserPelletEntity>> MECHA_LASER_PELLET = ENTITY_TYPES.register("mecha_laser_pellet",
+            () -> EntityType.Builder.<MechaLaserPelletEntity>of(MechaLaserPelletEntity::new, MobCategory.MISC)
+                    .sized(0.2F, 0.2F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("mecha_laser_pellet")
+    );
+
+    public static final RegistryObject<EntityType<MechaEggmanMissileEntity>> MECHA_EGGMAN_MISSILE = ENTITY_TYPES.register("mecha_eggman_missile",
+            () -> EntityType.Builder.<MechaEggmanMissileEntity>of(MechaEggmanMissileEntity::new, MobCategory.MISC)
+                    .sized(0.3F, 0.3F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("mecha_eggman_missile")
     );
 
     public static final RegistryObject<EntityType<SpikeProjectileEntity>> SPIKE_PROJECTILE = ENTITY_TYPES.register("spike_projectile",

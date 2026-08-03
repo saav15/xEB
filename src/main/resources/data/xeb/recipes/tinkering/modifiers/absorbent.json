@@ -1,0 +1,19 @@
+﻿{
+    "type":  "tconstruct:modifier",
+    "inputs":  [
+                   {
+                       "item":  "xeb:absorbent_essence"
+                   },
+                   {
+                       "item":  "xeb:silver_elite_bit"
+                   }
+               ],
+    "tools":  {
+                  "tag":  "tconstruct:modifiable"
+              },
+    "result":  "xeb:absorbent",
+    "max_level":  3,
+    "slots":  {
+                  "upgrades":  1
+              }
+}

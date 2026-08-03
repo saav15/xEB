@@ -1,0 +1,19 @@
+﻿{
+    "type":  "tconstruct:modifier",
+    "inputs":  [
+                   {
+                       "item":  "xeb:reactive_essence"
+                   },
+                   {
+                       "item":  "xeb:bronze_elite_bit"
+                   }
+               ],
+    "tools":  {
+                  "tag":  "tconstruct:modifiable"
+              },
+    "result":  "xeb:reactive",
+    "max_level":  3,
+    "slots":  {
+                  "upgrades":  1
+              }
+}

@@ -272,6 +272,11 @@ public class ClientPacketHandler {
                 tag.putBoolean("xebMechaOvercharged", msg.isOvercharged());
                 tag.putBoolean("xebMechaLevitating", msg.isLevitating());
                 tag.putInt("xebMechaSpindashCharge", msg.getSpindashCharge());
+                tag.putInt("xebMechaMomentumNum", msg.getMomentumNum());
+                tag.putInt("xebSpindashTargetId", msg.getTargetId());
+                tag.putInt("xebMechaAirCombo", msg.getAirCombo());
+                tag.putBoolean("xebMechaTargetedDashing", msg.isTargetedDashing());
+                tag.putInt("xebMechaOverheatedTicks", msg.getOverheatedTicks());
             }
         }
     }

@@ -1,0 +1,19 @@
+﻿{
+    "type":  "tconstruct:modifier",
+    "inputs":  [
+                   {
+                       "item":  "xeb:evolving_essence"
+                   },
+                   {
+                       "item":  "xeb:gold_elite_bit"
+                   }
+               ],
+    "tools":  {
+                  "tag":  "tconstruct:modifiable"
+              },
+    "result":  "xeb:evolving",
+    "max_level":  3,
+    "slots":  {
+                  "upgrades":  1
+              }
+}

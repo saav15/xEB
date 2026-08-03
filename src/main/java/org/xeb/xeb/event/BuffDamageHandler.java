@@ -51,6 +51,17 @@ public class BuffDamageHandler {
         LivingEntity target = event.getEntity();
         if (target == null) return;
 
+        // Max O.Clock (5/5) Fire Immunity for Mecha Overdrive
+        if (target instanceof net.minecraft.world.entity.player.Player player) {
+            boolean holdsMecha = player.getMainHandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem || player.getOffhandItem().getItem() instanceof org.xeb.xeb.item.MechaOverdriveItem;
+            if (holdsMecha && player.getPersistentData().getInt("xebMechaOClockBars") == 5) {
+                if (event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) {
+                    event.setCanceled(true);
+                    return;
+                }
+            }
+        }
+
         // Quantum Phase damage immunity check
         if (target instanceof net.minecraft.world.entity.player.Player player && player.isUsingItem()) {
             net.minecraft.world.item.ItemStack using = player.getUseItem();
