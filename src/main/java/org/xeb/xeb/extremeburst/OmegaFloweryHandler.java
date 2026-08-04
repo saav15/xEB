@@ -44,7 +44,7 @@ public class OmegaFloweryHandler {
      * Called every server tick from {@link org.xeb.xeb.event.BuffTickHandler}
      * when {@code xebOmegaFloweryTicks > 0}.
      */
-    public static void tick(ServerPlayer player) {
+    public static void tick(LivingEntity player) {
         int omegaTicks = player.getPersistentData().getInt("xebOmegaFloweryTicks");
         if (omegaTicks <= 0) {
             if (player.getPersistentData().contains("xebOmegaFloweryTicks")) {
@@ -54,7 +54,7 @@ public class OmegaFloweryHandler {
         }
 
         player.getPersistentData().putInt("xebOmegaFloweryTicks", omegaTicks - 1);
-        ServerLevel level = player.serverLevel();
+        if (!(player.level() instanceof ServerLevel level)) return;
 
         // ── Zero gravity ─────────────────────────────────────────────────────
         player.fallDistance = 0.0F;
@@ -68,9 +68,9 @@ public class OmegaFloweryHandler {
         // ── Rainbow particles (pure-int HSB → RGB, no java.awt dependency) ─
         if (level.getGameTime() % 3 == 0) {
             int rgb = hsbToRgb((float) ((level.getGameTime() % 360) / 360.0), 1.0F, 1.0F);
-            double r = ((rgb >> 16) & 0xFF) / 255.0;
-            double g = ((rgb >>  8) & 0xFF) / 255.0;
-            double b = ( rgb        & 0xFF) / 255.0;
+            float r = ((rgb >> 16) & 0xFF) / 255.0F;
+            float g = ((rgb >>  8) & 0xFF) / 255.0F;
+            float b = ( rgb        & 0xFF) / 255.0F;
 
             for (int i = 0; i < 3; i++) {
                 double ox = (level.random.nextDouble() - 0.5) * 1.0;
@@ -83,9 +83,9 @@ public class OmegaFloweryHandler {
         }
 
         // ── Sync to clients every 2 ticks ────────────────────────────────────
-        if (level.getGameTime() % 2 == 0) {
+        if (level.getGameTime() % 2 == 0 && player instanceof ServerPlayer sp) {
             XEBNetwork.CHANNEL.send(
-                    PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                    PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> sp),
                     new OmegaFlowerySyncPacket(player.getId(), true, omegaTicks));
         }
     }
@@ -94,7 +94,7 @@ public class OmegaFloweryHandler {
     // Cleanup
     // ─────────────────────────────────────────────────────────────────────────
 
-    private static void cleanupOmegaFlowery(ServerPlayer player) {
+    private static void cleanupOmegaFlowery(LivingEntity player) {
         // ── Clear all Omega Flowery state ─────────────────────────────────────
         player.getPersistentData().remove("xebOmegaFloweryTicks");
         player.getPersistentData().remove("xebOmegaFloweryMaxTicks");

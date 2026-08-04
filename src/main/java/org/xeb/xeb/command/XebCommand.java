@@ -385,7 +385,7 @@ public class XebCommand {
                     Commands.literal("summon")
                         .requires(source -> source.hasPermission(2))
                         .then(
-                            Commands.argument("entity", StringArgumentType.string())
+                            Commands.argument("entity", ResourceLocationArgument.id())
                                 .suggests(XebCommand::suggestEntityTypes)
                                 .executes(ctx -> executeSpawn(ctx, ""))
                                 .then(
@@ -711,8 +711,12 @@ public class XebCommand {
 
     private static int executeSpawn(CommandContext<CommandSourceStack> ctx, String medallionsStr) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
-        String entityArg = StringArgumentType.getString(ctx, "entity");
+        ResourceLocation entityLoc = ResourceLocationArgument.getId(ctx, "entity");
+        String entityArg = entityLoc.toString();
         EntityType<?> entityType = resolveEntityType(entityArg);
+        if (entityType == null) {
+            entityType = resolveEntityType(entityLoc.getPath());
+        }
 
         if (entityType == null) {
             source.sendFailure(Component.literal("Unknown entity type: " + entityArg));

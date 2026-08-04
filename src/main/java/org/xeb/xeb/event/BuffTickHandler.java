@@ -9,6 +9,7 @@ import org.xeb.xeb.medallion.MedallionManager;
 import org.xeb.xeb.network.BuffParticlePacket;
 import org.xeb.xeb.network.XEBNetwork;
 import org.xeb.xeb.network.CrazyDiamondSyncPacket;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -57,6 +58,64 @@ public class BuffTickHandler {
                         SoundEvents.ZOMBIE_ATTACK_WOODEN_DOOR, SoundSource.PLAYERS, 1.2F, 0.5F);
             }
         }
+        // ── Meteor Strike Push Damage (10/sec por 3s) + Wall Slam (+20 Daño) ─────
+        if (entityData.contains("xebMeteorStrikePushTimer")) {
+            int pushTimer = entityData.getInt("xebMeteorStrikePushTimer");
+            if (pushTimer > 0) {
+                pushTimer--;
+                entityData.putInt("xebMeteorStrikePushTimer", pushTimer);
+
+                // 10 de daño por segundo = 2.0 de daño cada 4 ticks (0.2s)
+                if (entity.tickCount % 4 == 0) {
+                    entity.hurt(entity.damageSources().generic(), 2.0F);
+                }
+
+                // Impacto contra pared (Wall Slam): +20 de daño adicional
+                if (entityData.getBoolean("xebMeteorStrikeCanWallSlam") && entity.horizontalCollision) {
+                    entityData.remove("xebMeteorStrikeCanWallSlam");
+                    entity.hurt(entity.damageSources().generic(), 20.0F);
+
+                    if (entity.level() instanceof ServerLevel sl) {
+                        sl.playSound(null, entity.getX(), entity.getY(), entity.getZ(),
+                                SoundEvents.ZOMBIE_ATTACK_WOODEN_DOOR, SoundSource.PLAYERS, 1.5F, 0.5F);
+                        sl.sendParticles(ParticleTypes.EXPLOSION, entity.getX(), entity.getY(0.5D), entity.getZ(),
+                                2, 0.2D, 0.2D, 0.2D, 0.05D);
+                    }
+                }
+
+                if (pushTimer <= 0) {
+                    entityData.remove("xebMeteorStrikePushTimer");
+                    entityData.remove("xebMeteorStrikeCanWallSlam");
+                }
+            }
+        }
+
+        // ── Optic Burst Wall Slam (+30 Daño Extra) ─────────────────────────────────
+        if (entityData.contains("xebOpticBurstPushTimer")) {
+            int opticPushTimer = entityData.getInt("xebOpticBurstPushTimer");
+            if (opticPushTimer > 0) {
+                opticPushTimer--;
+                entityData.putInt("xebOpticBurstPushTimer", opticPushTimer);
+
+                if (entityData.getBoolean("xebOpticBurstCanWallSlam") && entity.horizontalCollision) {
+                    entityData.remove("xebOpticBurstCanWallSlam");
+                    entity.hurt(entity.damageSources().generic(), 30.0F);
+
+                    if (entity.level() instanceof ServerLevel sl) {
+                        sl.playSound(null, entity.getX(), entity.getY(), entity.getZ(),
+                                SoundEvents.ZOMBIE_ATTACK_WOODEN_DOOR, SoundSource.PLAYERS, 1.8F, 0.4F);
+                        sl.sendParticles(ParticleTypes.EXPLOSION_EMITTER, entity.getX(), entity.getY(0.5D), entity.getZ(),
+                                1, 0.0D, 0.0D, 0.0D, 0.0D);
+                    }
+                }
+
+                if (opticPushTimer <= 0) {
+                    entityData.remove("xebOpticBurstPushTimer");
+                    entityData.remove("xebOpticBurstCanWallSlam");
+                }
+            }
+        }
+
         int decoactive = entityData.getInt("xebDecoherenceActiveTicks");
         if (decoactive > 0) {
             entityData.putInt("xebDecoherenceActiveTicks", decoactive - 1);
@@ -479,6 +538,27 @@ public class BuffTickHandler {
             if (serverPlayer.getPersistentData().contains("xebOmegaFloweryTicks")) {
                 org.xeb.xeb.extremeburst.OmegaFloweryHandler.tick(serverPlayer);
             }
+
+            // Meteor Strike sequence
+            if (serverPlayer.getPersistentData().getInt("xebMeteorStrikeState") > 0) {
+                org.xeb.xeb.extremeburst.MeteorStrikeHandler.tickServer(serverPlayer);
+            }
+
+            // Full-Aperture Supernova sequence
+            if (serverPlayer.getPersistentData().getInt("xebOpticBurstState") > 0) {
+                org.xeb.xeb.extremeburst.OpticBlastBurstHandler.tickServer(serverPlayer);
+            }
+
+            // Judgement Cut End sequence
+            if (serverPlayer.getPersistentData().getBoolean("xebJudgementCutActive")) {
+                org.xeb.xeb.extremeburst.JudgementCutHandler.onServerTick(serverPlayer);
+            }
+
+            // Sovereign Arsenal sequence
+            if (serverPlayer.getPersistentData().getBoolean("xebSovereignActive")) {
+                org.xeb.xeb.extremeburst.SovereignArsenalHandler.onServerTick(serverPlayer);
+            }
+
 
             // General Instance duration countdown
             int instanceTicks = serverPlayer.getPersistentData().getInt("xebExtremeBurstInstanceTicks");

@@ -28,8 +28,13 @@ public class ModTooltipHandler {
         Item item = stack.getItem();
         return item == ModItems.DOGMA.get()
                 || item == ModItems.OMEGA_FLOWERY.get()
-                || item == ModItems.QUANTUM_CAT_BARRAGE.get();
+                || item == ModItems.QUANTUM_CAT_BARRAGE.get()
+                || item == ModItems.METEOR_STRIKE.get()
+                || item == ModItems.FULL_APERTURE_SUPERNOVA.get()
+                || item == ModItems.JUDGEMENT_CUT.get()
+                || item == ModItems.SOVEREIGN_ARSENAL.get();
     }
+
 
     public static boolean isModWeapon(ItemStack stack) {
         if (stack.isEmpty()) return false;
@@ -196,9 +201,11 @@ public class ModTooltipHandler {
         return switch (id) {
             case "the_tears"     -> Component.translatable("item.xeb.the_tears").getString();
             case "golden_flower" -> Component.translatable("item.xeb.golden_flower").getString();
+            case "doomfist"      -> Component.translatable("item.xeb.doomfist").getString() + " / " + Component.translatable("item.xeb.doomfist_v2").getString();
             default              -> id;
         };
     }
+
 
     @SubscribeEvent
     public static void onItemTooltip(ItemTooltipEvent event) {
@@ -321,7 +328,23 @@ public class ModTooltipHandler {
                 desc1Key = "item.xeb.quantum_cat_barrage.desc1";
                 desc2Key = "item.xeb.quantum_cat_barrage.desc2";
                 loreKey = "item.xeb.quantum_cat_barrage.enigma_lore";
+            } else if (curioItem == ModItems.METEOR_STRIKE.get()) {
+                desc1Key = "item.xeb.meteor_strike.desc1";
+                desc2Key = "item.xeb.meteor_strike.desc2";
+                loreKey = "item.xeb.meteor_strike.enigma_lore";
+            } else if (curioItem == ModItems.FULL_APERTURE_SUPERNOVA.get()) {
+                desc1Key = "item.xeb.full_aperture_supernova.desc1";
+                desc2Key = "item.xeb.full_aperture_supernova.desc2";
+                requiresKey = "item.xeb.full_aperture_supernova.requires";
+                loreKey = "item.xeb.full_aperture_supernova.enigma_lore";
+            } else if (curioItem == ModItems.JUDGEMENT_CUT.get()) {
+                desc1Key = "item.xeb.judgement_cut.desc1";
+                loreKey = "item.xeb.judgement_cut.enigma_lore";
+            } else if (curioItem == ModItems.SOVEREIGN_ARSENAL.get()) {
+                desc1Key = "item.xeb.sovereign_arsenal.desc1";
+                loreKey = "item.xeb.sovereign_arsenal.enigma_lore";
             }
+
 
             if (!Screen.hasShiftDown()) {
                 if (!loreKey.isEmpty()) {
@@ -383,7 +406,28 @@ public class ModTooltipHandler {
                             .append(Component.translatable("gui.xeb.tooltip.extreme_burst.burst_ability_title").withStyle(ChatFormatting.YELLOW))
                             .append(Component.literal(": "))
                             .append(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.flowery").withStyle(ChatFormatting.GRAY)));
+                } else if (curioItem == ModItems.METEOR_STRIKE.get()) {
+                    tooltip.add(Component.literal("  §b• ")
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.burst_ability_title").withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal(": "))
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.meteor_strike").withStyle(ChatFormatting.GRAY)));
+                } else if (curioItem == ModItems.FULL_APERTURE_SUPERNOVA.get()) {
+                    tooltip.add(Component.literal("  §b• ")
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.burst_ability_title").withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal(": "))
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.supernova").withStyle(ChatFormatting.GRAY)));
+                } else if (curioItem == ModItems.JUDGEMENT_CUT.get()) {
+                    tooltip.add(Component.literal("  §b• ")
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.burst_ability_title").withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal(": "))
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.judgement_cut").withStyle(ChatFormatting.GRAY)));
+                } else if (curioItem == ModItems.SOVEREIGN_ARSENAL.get()) {
+                    tooltip.add(Component.literal("  §b• ")
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.burst_ability_title").withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal(": "))
+                            .append(Component.translatable("gui.xeb.tooltip.extreme_burst.effects.sovereign_arsenal").withStyle(ChatFormatting.GRAY)));
                 }
+
 
                 if (!loreKey.isEmpty()) {
                     tooltip.add(Component.literal(""));

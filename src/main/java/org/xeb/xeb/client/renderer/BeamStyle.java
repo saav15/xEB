@@ -49,15 +49,14 @@ public class BeamStyle {
         float pulse = 1.0F + pulseAmount * (float) Math.sin(timeMs * pulseSpeed);
 
         if (tvStatic) {
-            Random staticRand = new Random(timeMs / 45 + (long)(start.x * 37));
-            // Layer 1: Aura Static
-            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, auraWidth * pulse, staticRand, 0.35F);
-            // Layer 2: Glow Static
-            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, glowWidth * pulse, staticRand, 0.65F);
-            // Layer 3: Core Static
-            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, coreWidth * pulse, staticRand, 0.85F);
-            // Layer 4: Inner Static
-            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, innerWidth * pulse, staticRand, 0.98F);
+            // Layer 1: Outer Dispersed TV Static Aura
+            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, auraWidth * pulse, timeMs, 0.25F);
+            // Layer 2: Mid TV Static Glow
+            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, glowWidth * pulse, timeMs, 0.50F);
+            // Layer 3: High Density Static Core
+            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, coreWidth * pulse, timeMs, 0.80F);
+            // Layer 4: Intense Noise Center
+            drawStaticBeamQuad(consumer, matrix, start, end, perp1, perp2, innerWidth * pulse, timeMs, 0.95F);
             return;
         }
 
@@ -201,29 +200,73 @@ public class BeamStyle {
 
     private static void drawStaticBeamQuad(VertexConsumer consumer, Matrix4f matrix, Vec3 start, Vec3 end,
                                            Vec3 perp1, Vec3 perp2, float halfWidth,
-                                           Random rand, float alpha) {
-        float g1 = rand.nextFloat();
-        float g2 = rand.nextFloat();
-        float g3 = rand.nextFloat();
-        float g4 = rand.nextFloat();
+                                           long timeMs, float alpha) {
+        Vec3 dir = end.subtract(start);
+        double len = dir.length();
+        if (len < 0.01D) return;
+        Vec3 dirN = dir.normalize();
 
-        Vec3 p1 = start.add(perp1.scale(halfWidth));
-        Vec3 p2 = start.add(perp1.scale(-halfWidth));
-        Vec3 p3 = end.add(perp1.scale(-halfWidth));
-        Vec3 p4 = end.add(perp1.scale(halfWidth));
-        consumer.vertex(matrix, (float) p1.x, (float) p1.y, (float) p1.z).color(g1, g1, g1, alpha).endVertex();
-        consumer.vertex(matrix, (float) p2.x, (float) p2.y, (float) p2.z).color(g2, g2, g2, alpha).endVertex();
-        consumer.vertex(matrix, (float) p3.x, (float) p3.y, (float) p3.z).color(g3, g3, g3, alpha).endVertex();
-        consumer.vertex(matrix, (float) p4.x, (float) p4.y, (float) p4.z).color(g4, g4, g4, alpha).endVertex();
+        // Dividir el rayo en segmentos finos para grano de nieve de alta frecuencia
+        int segments = Math.max(8, (int) (len * 2.0D));
+        double segLength = len / segments;
 
-        float g5 = rand.nextFloat(); float g6 = rand.nextFloat(); float g7 = rand.nextFloat(); float g8 = rand.nextFloat();
-        Vec3 p5 = start.add(perp2.scale(halfWidth));
-        Vec3 p6 = start.add(perp2.scale(-halfWidth));
-        Vec3 p7 = end.add(perp2.scale(-halfWidth));
-        Vec3 p8 = end.add(perp2.scale(halfWidth));
-        consumer.vertex(matrix, (float) p5.x, (float) p5.y, (float) p5.z).color(g5, g5, g5, alpha).endVertex();
-        consumer.vertex(matrix, (float) p6.x, (float) p6.y, (float) p6.z).color(g6, g6, g6, alpha).endVertex();
-        consumer.vertex(matrix, (float) p7.x, (float) p7.y, (float) p7.z).color(g7, g7, g7, alpha).endVertex();
-        consumer.vertex(matrix, (float) p8.x, (float) p8.y, (float) p8.z).color(g8, g8, g8, alpha).endVertex();
+        // Semilla de marco estocástico cada 30ms (~33 FPS de parpadeo de estática de TV)
+        long frameSeed = timeMs / 30;
+
+        for (int i = 0; i < segments; i++) {
+            double d1 = i * segLength;
+            double d2 = (i + 1) * segLength;
+
+            Vec3 s1 = start.add(dirN.scale(d1));
+            Vec3 s2 = start.add(dirN.scale(d2));
+
+            // Simulación de franja oscura de líneas de barrido CRT (Scanlines)
+            float scanlineFactor = 1.0F;
+            double scanlinePos = (i * 0.35D) - (timeMs * 0.012D);
+            if (Math.sin(scanlinePos) > 0.55D) {
+                scanlineFactor = 0.35F; // Franja oscura de desincronización vertical
+            }
+
+            Random rand = new Random(frameSeed + (i * 31L) + (long)(start.x * 100));
+
+            // Generar valores monocromáticos de ruido blanco/negro de alta fidelidad
+            float g1 = getRandomSnowColor(rand) * scanlineFactor;
+            float g2 = getRandomSnowColor(rand) * scanlineFactor;
+            float g3 = getRandomSnowColor(rand) * scanlineFactor;
+            float g4 = getRandomSnowColor(rand) * scanlineFactor;
+
+            // Plano 1 (Perp1)
+            Vec3 p1 = s1.add(perp1.scale(halfWidth));
+            Vec3 p2 = s1.add(perp1.scale(-halfWidth));
+            Vec3 p3 = s2.add(perp1.scale(-halfWidth));
+            Vec3 p4 = s2.add(perp1.scale(halfWidth));
+
+            consumer.vertex(matrix, (float) p1.x, (float) p1.y, (float) p1.z).color(g1, g1, g1, alpha).endVertex();
+            consumer.vertex(matrix, (float) p2.x, (float) p2.y, (float) p2.z).color(g2, g2, g2, alpha).endVertex();
+            consumer.vertex(matrix, (float) p3.x, (float) p3.y, (float) p3.z).color(g3, g3, g3, alpha).endVertex();
+            consumer.vertex(matrix, (float) p4.x, (float) p4.y, (float) p4.z).color(g4, g4, g4, alpha).endVertex();
+
+            // Plano 2 (Perp2)
+            Vec3 p5 = s1.add(perp2.scale(halfWidth));
+            Vec3 p6 = s1.add(perp2.scale(-halfWidth));
+            Vec3 p7 = s2.add(perp2.scale(-halfWidth));
+            Vec3 p8 = s2.add(perp2.scale(halfWidth));
+
+            consumer.vertex(matrix, (float) p5.x, (float) p5.y, (float) p5.z).color(g2, g2, g2, alpha).endVertex();
+            consumer.vertex(matrix, (float) p6.x, (float) p6.y, (float) p6.z).color(g3, g3, g3, alpha).endVertex();
+            consumer.vertex(matrix, (float) p7.x, (float) p7.y, (float) p7.z).color(g4, g4, g4, alpha).endVertex();
+            consumer.vertex(matrix, (float) p8.x, (float) p8.y, (float) p8.z).color(g1, g1, g1, alpha).endVertex();
+        }
+    }
+
+    private static float getRandomSnowColor(Random rand) {
+        int choice = rand.nextInt(5);
+        switch (choice) {
+            case 0: return 0.98F; // Blanco brillante CRT
+            case 1: return 0.02F; // Negro CRT
+            case 2: return 0.70F; // Gris Platino
+            case 3: return 0.28F; // Gris Oscuro Carbón
+            default: return 0.48F; // Gris Medio
+        }
     }
 }

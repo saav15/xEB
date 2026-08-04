@@ -40,6 +40,12 @@ public class ModItems {
     public static final RegistryObject<Item> MOON_TEAR = ITEMS.register("moon_tear",
             () -> new MoonTearItem(new Item.Properties().stacksTo(16)));
 
+    public static final RegistryObject<Item> JUDGEMENT_CUT = ITEMS.register("judgement_cut",
+            () -> new JudgementCutItem(new Item.Properties().stacksTo(1)));
+
+    public static final RegistryObject<Item> SOVEREIGN_ARSENAL = ITEMS.register("sovereign_arsenal",
+            () -> new SovereignArsenalItem(new Item.Properties().stacksTo(1)));
+
     public static final RegistryObject<Item> WITHERFIST_SPAWN_EGG = ITEMS.register("witherfist_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(
                     org.xeb.xeb.entity.ModEntities.WITHERFIST,
@@ -72,6 +78,12 @@ public class ModItems {
 
     public static final RegistryObject<Item> OMEGA_FLOWERY = ITEMS.register("omega_flowery",
             () -> new OmegaFloweryItem(new Item.Properties().stacksTo(1).rarity(net.minecraft.world.item.Rarity.EPIC)));
+
+    public static final RegistryObject<Item> METEOR_STRIKE = ITEMS.register("meteor_strike",
+            () -> new MeteorStrikeItem(new Item.Properties().stacksTo(1).rarity(net.minecraft.world.item.Rarity.EPIC)));
+
+    public static final RegistryObject<Item> FULL_APERTURE_SUPERNOVA = ITEMS.register("full_aperture_supernova",
+            () -> new FullApertureSupernovaItem(new Item.Properties().stacksTo(1).rarity(net.minecraft.world.item.Rarity.EPIC)));
 
     public static final RegistryObject<Item> BROKEN_DIAMOND = ITEMS.register("broken_diamond",
             () -> new org.xeb.xeb.item.BrokenDiamondItem(new Item.Properties().stacksTo(1)));

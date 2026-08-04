@@ -79,13 +79,22 @@ public class DoomfistHUDOverlay {
                 }
             }
 
+            boolean isMeteorStrike = player.getPersistentData().getInt("xebMeteorStrikeState") == 2;
             boolean isUsingV1 = player.isUsingItem() && player.getUseItem().is(org.xeb.xeb.item.ModItems.DOOMFIST.get());
             boolean isUsingV2 = player.isUsingItem() && player.getUseItem().is(org.xeb.xeb.item.ModItems.DOOMFIST_V2.get());
 
-            if (isUsingV1 || isUsingV2) {
-                int ticksUsing = player.getTicksUsingItem();
-                float chargeSpeed = (isUsingV1 && player.getPersistentData().getBoolean("xebUppercutEmpoweredPunch")) ? 1.3F : 1.0F;
-                float progress = Math.min(50.0F, ticksUsing * chargeSpeed) / 50.0F; // 2.5s = 50 ticks
+            if (isUsingV1 || isUsingV2 || isMeteorStrike) {
+                float progress;
+                if (isMeteorStrike) {
+                    int targetingTicks = player.getPersistentData().getInt("xebMeteorStrikeTargetingTicks");
+                    progress = Math.max(0.0F, Math.min(1.0F, targetingTicks / 200.0F));
+                } else {
+                    int ticksUsing = player.getTicksUsingItem();
+                    float chargeSpeed = (isUsingV1 && player.getPersistentData().getBoolean("xebUppercutEmpoweredPunch")) ? 1.3F : 1.0F;
+                    progress = Math.min(50.0F, ticksUsing * chargeSpeed) / 50.0F; // 2.5s = 50 ticks
+                }
+
+                boolean isV2Theme = isUsingV2 || player.getPersistentData().getBoolean("xebMeteorStrikeIsV2");
 
                 int width = event.getWindow().getGuiScaledWidth();
                 int height = event.getWindow().getGuiScaledHeight();
@@ -104,27 +113,14 @@ public class DoomfistHUDOverlay {
                 int segmentSpacing = 3;
 
                 int fillColor;
-                if (isUsingV2) {
-                    // Volcanic red charging color
-                    if (progress >= 1.0F) {
-                        float pulse = 0.6F + 0.4F * (float) Math.sin((mc.level.getGameTime() + event.getPartialTick()) * 0.4D);
-                        int r = (int) (255 * pulse + 55);
-                        fillColor = (0xFF << 24) | (r << 16) | (0 << 8) | 0;
-                    } else {
-                        fillColor = 0xFFFF4444;
-                    }
+                if (isV2Theme) {
+                    // Volcanic red color
+                    fillColor = 0xFFFF4444;
                 } else {
-                    // Ice blue charging color for V1
-                    if (progress >= 1.0F) {
-                        float pulse = 0.6F + 0.4F * (float) Math.sin((mc.level.getGameTime() + event.getPartialTick()) * 0.4D);
-                        int r = (int) (100 * pulse);
-                        int gVal = (int) (200 * pulse + 55);
-                        int b = 255;
-                        fillColor = (0xFF << 24) | (r << 16) | (gVal << 8) | b;
-                    } else {
-                        fillColor = 0xFFE5F5FF;
-                    }
+                    // Ice blue color for V1
+                    fillColor = 0xFFE5F5FF;
                 }
+
 
                 for (int i = 0; i < segmentCount; i++) {
                     float segmentThreshold = (i + 1) / (float) segmentCount;

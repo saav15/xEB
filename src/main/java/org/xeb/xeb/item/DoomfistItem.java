@@ -112,7 +112,11 @@ public class DoomfistItem extends Item implements software.bernie.geckolib.anima
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        if (player.getPersistentData().getInt("xebMeteorStrikeState") > 0) {
+            return InteractionResultHolder.pass(stack);
+        }
         player.startUsingItem(hand);
+
         
         // Activate fall protect tag immediately upon starting the charge
         player.getPersistentData().putBoolean("xebDoomfistFallProtect", true);

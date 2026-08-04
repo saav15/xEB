@@ -124,13 +124,21 @@ public class BrimstoneBeamRenderer {
                 impactPos = points.get(points.size() - 1);
             }
 
-            // Render 3D beam tube only when NOT in local 1st person mode (matches Optic Blast behavior)
+            // Render 3D beam tube only when NOT in local 1st person mode (3D Volumetric Conical Tapering Geometry)
             if (!isLocalPlayerFirstPerson) {
-                XebVolumetricBeamRenderer.render3DBeam(
-                        poseStack, bufferSource, liveStart, impactPos,
-                        r, g, b, 0.95F,
-                        BEAM_STYLE.coreWidth, BEAM_STYLE.auraWidth, now
-                );
+                if (imbue == TearsProjectileEntity.IMBUE_DOGMA) {
+                    XebVolumetricBeamRenderer.render3DTvStaticBeam(
+                            poseStack, bufferSource, liveStart, impactPos,
+                            r, g, b, 0.95F,
+                            BEAM_STYLE.coreWidth, BEAM_STYLE.auraWidth, now
+                    );
+                } else {
+                    XebVolumetricBeamRenderer.render3DBeam(
+                            poseStack, bufferSource, liveStart, impactPos,
+                            r, g, b, 0.95F,
+                            BEAM_STYLE.coreWidth, BEAM_STYLE.auraWidth, now
+                    );
+                }
             }
 
             // Draw impact sphere & scorch mark on solid block
@@ -160,6 +168,11 @@ public class BrimstoneBeamRenderer {
     }
 
     private static void spawnImbueParticle(net.minecraft.client.multiplayer.ClientLevel level, Vec3 pos, int imbue) {
+        if (imbue == TearsProjectileEntity.IMBUE_DOGMA) {
+            // Dogma es 100% estática monocromática de TV - Sin partículas rojas de azufre
+            return;
+        }
+
         double rx = (level.random.nextFloat() - 0.5D) * 0.15D;
         double ry = (level.random.nextFloat() - 0.5D) * 0.15D;
         double rz = (level.random.nextFloat() - 0.5D) * 0.15D;

@@ -11,6 +11,7 @@ import org.xeb.xeb.buff.EliteBuffRegistry;
 import org.xeb.xeb.medallion.MedallionData;
 import org.xeb.xeb.medallion.MedallionManager;
 import org.xeb.xeb.medallion.MedallionType;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -236,7 +237,42 @@ public class ClientPacketHandler {
         }
     }
 
+    public static void handleMeteorStrikeSync(MeteorStrikeSyncPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            net.minecraft.world.entity.Entity entity = mc.level.getEntity(msg.getEntityId());
+            if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+                net.minecraft.nbt.CompoundTag tag = living.getPersistentData();
+                tag.putInt("xebMeteorStrikeState", msg.getState());
+                tag.putBoolean("xebMeteorStrikeIsV2", msg.isV2());
+                tag.putDouble("xebMeteorStrikeTargetX", msg.getTargetX());
+                tag.putDouble("xebMeteorStrikeTargetY", msg.getTargetY());
+                tag.putDouble("xebMeteorStrikeTargetZ", msg.getTargetZ());
+                tag.putInt("xebMeteorStrikeTargetCount", msg.getTargetCount());
+
+                // Register in active client map
+                org.xeb.xeb.client.MeteorStrikeClientHandler.updateClientStrike(
+                        msg.getEntityId(), msg.getState(), msg.isV2(),
+                        msg.getTargetX(), msg.getTargetY(), msg.getTargetZ(), msg.getTargetCount());
+            }
+        }
+    }
+
+    public static void handleOpticBlastBurstSync(OpticBlastBurstSyncPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            net.minecraft.world.entity.Entity entity = mc.level.getEntity(msg.getEntityId());
+            if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+                net.minecraft.nbt.CompoundTag tag = living.getPersistentData();
+                tag.putInt("xebOpticBurstState", msg.getState());
+                tag.putInt("xebOpticBurstTimer", msg.getTimer());
+                tag.putFloat("xebOpticBurstStartPitch", msg.getStartPitch());
+            }
+        }
+    }
+
     public static void handleDoomfistPowerBlock(DoomfistPowerBlockSyncPacket msg) {
+
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) {
             net.minecraft.world.entity.Entity entity = mc.level.getEntity(msg.getEntityId());
@@ -311,5 +347,13 @@ public class ClientPacketHandler {
                 player.getPersistentData().putInt("xebOmegaFloweryTicks", msg.getTicksRemaining());
             }
         }
+    }
+
+    public static void handleJudgementCutSync(int playerId, boolean active, Vec3 anchor, int totalTicks) {
+        org.xeb.xeb.client.renderer.JudgementDomeRenderer.handleJudgementSync(playerId, active, anchor, totalTicks);
+    }
+
+    public static void handleSovereignSync(int playerId, boolean active, Vec3 anchor, int totalTicks) {
+        org.xeb.xeb.client.renderer.SovereignArsenalRenderer.handleSovereignSync(playerId, active, anchor, totalTicks);
     }
 }

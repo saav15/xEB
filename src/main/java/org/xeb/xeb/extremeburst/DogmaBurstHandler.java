@@ -49,7 +49,7 @@ public class DogmaBurstHandler {
      * Called every server tick from {@link org.xeb.xeb.event.BuffTickHandler}
      * when {@code xebDogmaBrimstoneTicks > 0}.
      */
-    public static void tick(ServerPlayer player) {
+    public static void tick(LivingEntity player) {
         int dogmaTicks = player.getPersistentData().getInt("xebDogmaBrimstoneTicks");
         if (dogmaTicks <= 0) {
             // ── Cleanup ───────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ public class DogmaBurstHandler {
         }
 
         player.getPersistentData().putInt("xebDogmaBrimstoneTicks", dogmaTicks - 1);
-        ServerLevel level = player.serverLevel();
+        if (!(player.level() instanceof ServerLevel level)) return;
 
         // ── Dogma recoil push back (from halfway point) ──────────────────────
         Vec3 lookDir  = player.getLookAngle();
@@ -108,7 +108,7 @@ public class DogmaBurstHandler {
         for (LivingEntity target : targets) {
             AABB targetBox = target.getBoundingBox().inflate(halfWidth);
             if (targetBox.clip(mouthPos, beamEnd).isPresent()) {
-                target.hurt(player.damageSources().playerAttack(player), (float) DOGMA_DAMAGE_PER_TICK);
+                target.hurt(player instanceof ServerPlayer sp ? level.damageSources().playerAttack(sp) : level.damageSources().mobAttack((net.minecraft.world.entity.Mob) player), (float) DOGMA_DAMAGE_PER_TICK);
             }
         }
 

@@ -52,7 +52,13 @@ public class XEBNetwork {
         CHANNEL.registerMessage(id++, DamageNumberPacket.class, DamageNumberPacket::encode, DamageNumberPacket::decode, DamageNumberPacket::handle);
         CHANNEL.registerMessage(id++, StaticPortalSyncPacket.class, StaticPortalSyncPacket::encode, StaticPortalSyncPacket::decode, StaticPortalSyncPacket::handle);
         CHANNEL.registerMessage(id++, EliteMasteryLevelUpPacket.class, EliteMasteryLevelUpPacket::encode, EliteMasteryLevelUpPacket::decode, EliteMasteryLevelUpPacket::handle);
+        CHANNEL.registerMessage(id++, MeteorStrikeSyncPacket.class, MeteorStrikeSyncPacket::encode, MeteorStrikeSyncPacket::decode, MeteorStrikeSyncPacket::handle);
+        CHANNEL.registerMessage(id++, OpticBlastBurstSyncPacket.class, OpticBlastBurstSyncPacket::encode, OpticBlastBurstSyncPacket::decode, OpticBlastBurstSyncPacket::handle);
+        CHANNEL.registerMessage(id++, MeteorStrikeMovePacket.class, MeteorStrikeMovePacket::encode, MeteorStrikeMovePacket::decode, MeteorStrikeMovePacket::handle);
+        CHANNEL.registerMessage(id++, JudgementCutSyncPacket.class, JudgementCutSyncPacket::encode, JudgementCutSyncPacket::decode, JudgementCutSyncPacket::handle);
+        CHANNEL.registerMessage(id++, SovereignSyncPacket.class, SovereignSyncPacket::encode, SovereignSyncPacket::decode, SovereignSyncPacket::handle);
     }
+
 
     public static class EliteMasterySyncPacket {
         private final int baseLevel;

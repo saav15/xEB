@@ -1,5 +1,8 @@
-﻿{
+{
     "_comment":  "xEB (xd Elite Buffs) Language File",
+    "gui.xeb.meteor_strike.mode_wasd": "MODE: AERIAL STEERING (WASD)",
+    "gui.xeb.meteor_strike.mode_mouse": "MODE: MOUSE AIM (ORIGIN)",
+    "gui.xeb.meteor_strike.mode_toggle": "[Right-Click: Toggle Camera Mode]",
     "effect.xeb.holy_shield":  "Holy Shield",
     "effect.xeb.petrify":  "Petrify",
     "effect.xeb.tarred":  "Tarred",
@@ -493,13 +496,26 @@
     "item.xeb.omega_flowery.desc3":  "Enters a 20 s zero-gravity instance. Doubles Jarona damage. Flower Dance heals 20% HP.",
     "item.xeb.omega_flowery.requires":  "Requires: %s",
     "item.xeb.omega_flowery.enigma_lore":  "\"I hope you are ready for this bright and dark world with a touch of JARONA!\"",
-    "item.xeb.omega_flowery.enigma_effect":  "Enters Omega Flowery instance for 20 s: zero gravity, Final Jarona (Ã—2), 50% faster cooldowns.",
+    "item.xeb.omega_flowery.enigma_effect":  "Enters Omega Flowery instance for 20 s: zero gravity, Final Jarona (×2), 50% faster cooldowns.",
+    "item.xeb.meteor_strike":  "Meteor Strike",
+    "item.xeb.full_aperture_supernova":  "Full-Aperture Supernova",
+    "item.xeb.full_aperture_supernova.desc1":  "Removes all limiters from the Ruby-Quartz visor to release an ascending optical blast from your crosshair towards the sky, culminating in a 12m disintegrating Mega-Laser and supernova final explosion.",
+    "item.xeb.full_aperture_supernova.desc2":  "While holding Optic Blast, press %s to activate.",
+    "item.xeb.full_aperture_supernova.requires":  "Requires: %s",
+    "item.xeb.full_aperture_supernova.enigma_lore":  "\"The unbridled power of the Ruby-Quartz dimension released to the maximum.\"",
+    "item.xeb.full_aperture_supernova.enigma_effect":  "Fires an ascending 12x12 Optic Laser (56.0 DPS, 300s cooldown) with 10m Supernova explosion and Wall Slam collision.",
+    "item.xeb.judgement_cut":  "Judgement Cut End",
+    "item.xeb.judgement_cut.desc1":  "Projects a 0.75s telegraph warning zone before freezing space in a 24m impenetrable forcefield dome, unleashing 12 dimensional slashes (2x mainhand weapon damage each).",
+    "item.xeb.judgement_cut.enigma_lore":  "\"Space itself fragments before absolute motivation. Without supreme power, nothing can be protected... not even oneself.\"",
+    "gui.xeb.tooltip.extreme_burst.effects.judgement_cut":  "24m impenetrable dome, time freeze, and 12 dimensional slashes (2x mainhand weapon damage each, 300s cooldown).",
+    "item.xeb.meteor_strike.desc1":  "Extreme accumulation and release of kinetic energy that turns a plunge into a devastating shockwave.",
+    "item.xeb.meteor_strike.desc2":  "While holding Doomfist v1 or v2, press %s to launch skyward and target the impact spot.",
+    "item.xeb.meteor_strike.enigma_lore":  "\"I will never stop getting what was promised to me, even if I have to leave this orbit temporarily\"",
+    "item.xeb.meteor_strike.enigma_effect":  "Launches skyward into overhead view for up to 10s. Plunges dealing 4x Doomfist damage in 4x4 epicenter and 12m shockwave.",
     "chat.xeb.extreme_burst.requires_weapon":  "You need to hold the required weapon to activate this Extreme Burst.",
     "chat.xeb.extreme_burst.already_active":  "An Extreme Burst is already active.",
     "chat.xeb.extreme_burst.on_cooldown":  "Extreme Burst is on cooldown.",
-    "gui.xeb.enigma_bios.extreme_burst.none":  "No Extreme Burst equipped",
-    "gui.xeb.enigma_bios.extreme_burst.type":  "Type",
-    "gui.xeb.enigma_bios.extreme_burst.version":  "Version",
+
     "gui.xeb.enigma_bios.extreme_burst.requires":  "Requires",
     "gui.xeb.enigma_bios.extreme_burst.cooldown":  "Cooldown",
     "gui.xeb.enigma_bios.extreme_burst.duration":  "Duration",
@@ -560,7 +576,13 @@
     "gui.xeb.tooltip.extreme_burst.effects":  "§6Effects:",
     "gui.xeb.tooltip.extreme_burst.effects.cat":  "Summons a dimensional rift of quantum cats that shred all surrounding enemies.",
     "gui.xeb.tooltip.extreme_burst.effects.dogma":  "Fires a concentrated brimstone beam of holy energy towards targets.",
+    "gui.xeb.tooltip.extreme_burst.effects.supernova":  "Fires an ascending 12x12 Optic Laser (56.0 DPS) with kinetic camera recoil, 10m Supernova explosion, and Wall Slam collision.",
     "gui.xeb.tooltip.extreme_burst.effects.flowery":  "Absorbs Flower Dance clones, suspends in air, and grants Resistance II \u0026 All Stats Up for 20s.",
+    "gui.xeb.tooltip.extreme_burst.effects.meteor_strike":  "Catapults skyward into overhead drone view for 10s. Plunges dealing 88 - 100 damage (116 with Ultra Charge) in 4x4 epicenter and 12m shockwave.",
+    "gui.xeb.tooltip.extreme_burst.effects.judgement_cut":  "24m impenetrable dome, subspace time freeze, and 12 dimensional slashes (2x Mainhand Damage each, 300s cooldown).",
+    "gui.xeb.tooltip.extreme_burst.effects.sovereign_arsenal":  "Opens 24 celestial golden portals projecting downward weapons (2/3 travel damage + 1/3 golden spatial explosion damage).",
+
+
     "gui.xeb.tooltip.extreme_burst.effects.flowery.act1":  "    §b- Zero-Gravity Flight",
     "gui.xeb.tooltip.extreme_burst.effects.flowery.act2":  "    §b- Enhanced Jarona Barrage",
     "gui.xeb.tooltip.extreme_burst.effects.flowery.act3":  "    §b- Floral Dance Healing Shield",
@@ -901,7 +923,9 @@
 ,
   "effect.xeb.charmed": "Charmed"
 ,
-  "item.xeb.pheromone_flask.flavor": "§b§o\"Resistance is futile against nature's attraction.\""
-,
-  "item.xeb.pheromone_flask.desc2": "§eCharmed mobs and players will fight for you for 15 seconds."
+  "item.xeb.pheromone_flask.flavor": "§b§o\"Resistance is futile against nature's attraction.\"",
+  "item.xeb.pheromone_flask.desc2": "§eCharmed mobs and players will fight for you for 15 seconds.",
+  "item.xeb.sovereign_arsenal": "Sovereign Arsenal",
+  "item.xeb.sovereign_arsenal.desc1": "Opens 24 golden spatial portals projecting spectral copies of your mainhand weapon (2/3 damage each) that stick into the ground and explode.",
+  "item.xeb.sovereign_arsenal.enigma_lore": "An inexhaustible arsenal responding solely to the supreme will of its sovereign."
 }

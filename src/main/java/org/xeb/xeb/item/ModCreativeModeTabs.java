@@ -103,6 +103,10 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.QUANTUM_CAT_BARRAGE.get());
                         output.accept(ModItems.DOGMA.get());
                         output.accept(ModItems.OMEGA_FLOWERY.get());
+                        output.accept(ModItems.METEOR_STRIKE.get());
+                        output.accept(ModItems.FULL_APERTURE_SUPERNOVA.get());
+                        output.accept(ModItems.JUDGEMENT_CUT.get());
+                        output.accept(ModItems.SOVEREIGN_ARSENAL.get());
                         output.accept(ModItems.MECHA_OVERDRIVE.get());
                         output.accept(ModItems.HOLY_DUALITY_BLADE.get());
                         output.accept(ModItems.SMART_HALBERD.get());

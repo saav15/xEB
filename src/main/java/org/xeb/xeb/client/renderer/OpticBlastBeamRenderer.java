@@ -131,7 +131,7 @@ public class OpticBlastBeamRenderer {
                 float partialTick = event.getPartialTick();
                 renderStart = localPlayer.getEyePosition(partialTick);
                 Vec3 look = localPlayer.getViewVector(partialTick).normalize();
-                Vec3 maxReach = renderStart.add(look.scale(48.0D));
+                Vec3 maxReach = renderStart.add(look.scale(256.0D));
 
                 net.minecraft.world.phys.BlockHitResult clip = mc.level.clip(new net.minecraft.world.level.ClipContext(
                         renderStart, maxReach, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, localPlayer
@@ -141,7 +141,30 @@ public class OpticBlastBeamRenderer {
 
             float[] col = getBeamColors(entry.getKey(), mc, beam.beamType);
 
-            if (isLocalPlayerFirstPerson) {
+            if (beam.beamType == 2) {
+                // ── FULL-APERTURE SUPERNOVA: CRECIMIENTO 3D EXPONENCIAL (3x3 → 4x4 → 6x6 → 12x12) ──
+                int timer = 40;
+                if (localPlayer != null && localPlayer.getPersistentData().contains("xebOpticBurstTimer")) {
+                    timer = localPlayer.getPersistentData().getInt("xebOpticBurstTimer");
+                }
+                float progress = 1.0F - Math.max(0.0F, Math.min(1.0F, timer / 80.0F)); // 0.0F -> 1.0F
+                float expScale = (float) Math.pow(progress, 1.5D); // Curva exponencial
+
+                float coreRadius = 0.50F + expScale * 3.30F; // Crece de 0.50F (3x3) a 3.80F (12x12 MEGA-LÁSER)
+                float auraRadius = 1.20F + expScale * 6.80F; // Crece de 1.20F a 8.00F
+
+                // 1. Haz Principal de Rubí-Cuarzo: Rojo Carmesí Optic Blast en inicio, Naranja Incandescente en segunda mitad
+                // Sub-tramo 1: Inicio a mitad (Rojo Carmesí)
+                Vec3 midPos = renderStart.add(renderEnd.subtract(renderStart).scale(0.5D));
+                XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, renderStart, midPos, 1.0F, 0.05F, 0.10F, 0.98F, coreRadius, auraRadius, now);
+                // Sub-tramo 2: Mitad a final (Naranja Fuego Incandescente)
+                XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, midPos, renderEnd, 1.0F, 0.45F, 0.00F, 0.98F, coreRadius, auraRadius, now);
+
+                // 2. Doble Hélice Espiral de Plasma rodeando EXTRÍNSECAMENTE al rayo principal
+                renderSupernovaHelicalSpirals(poseStack, consumer, bufferSource, renderStart, renderEnd, coreRadius, now);
+
+                BEAM_STYLE.renderImpact(consumer, poseStack.last().pose(), renderEnd, now);
+            } else if (isLocalPlayerFirstPerson) {
                 renderCollisionSprite(poseStack, consumer, renderEnd, now);
             } else {
                 XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, renderStart, renderEnd, col[0], col[1], col[2], 0.95F, 0.28F, 0.75F, now);
@@ -178,6 +201,53 @@ public class OpticBlastBeamRenderer {
 
         bufferSource.endBatch(RenderType.lightning());
         poseStack.popPose();
+    }
+
+    /**
+     * Renderiza una Doble Hélice de Plasma Espiral orbitando EXTRÍNSECAMENTE alrededor del rayo 12x12.
+     */
+    private static void renderSupernovaHelicalSpirals(PoseStack poseStack, VertexConsumer consumer,
+                                                       MultiBufferSource bufferSource,
+                                                       Vec3 start, Vec3 end, float mainCoreRadius, long timeMs) {
+        Vec3 dir = end.subtract(start);
+        double dist = dir.length();
+        if (dist < 0.05D) return;
+
+        Vec3 dirNorm = dir.normalize();
+
+        Vec3 ortho = dirNorm.cross(new Vec3(0, 1, 0));
+        if (ortho.lengthSqr() < 0.001D) {
+            ortho = dirNorm.cross(new Vec3(1, 0, 0));
+        }
+        ortho = ortho.normalize();
+        Vec3 ortho2 = dirNorm.cross(ortho).normalize();
+
+        // Radio de órbita espiral estrictamente POR FUERA del núcleo principal
+        double orbitRadius = mainCoreRadius + 0.8D;
+
+        int steps = 20;
+        for (int helix = 0; helix < 2; helix++) { // Doble Hélice (desfasadas 180°)
+            double phaseShift = helix * Math.PI;
+            Vec3 lastPos = start;
+
+            for (int step = 1; step <= steps; step++) {
+                float pct = step / (float) steps;
+                Vec3 basePos = start.add(dir.scale(pct));
+
+                double waveFreq = 3.5D;
+                double wavePhase = pct * Math.PI * waveFreq - (timeMs * 0.008D) + phaseShift;
+
+                Vec3 offset = ortho.scale(Math.sin(wavePhase) * orbitRadius)
+                        .add(ortho2.scale(Math.cos(wavePhase) * orbitRadius));
+
+                Vec3 currentPos = basePos.add(offset);
+
+                // Dibujar tramo 3D brillante de la espiral externa (Naranja Vivo)
+                XebVolumetricBeamRenderer.render3DBeam(poseStack, bufferSource, lastPos, currentPos,
+                        1.0F, 0.40F, 0.00F, 0.96F, 0.35F, 0.85F, timeMs);
+                lastPos = currentPos;
+            }
+        }
     }
 
     /**

@@ -131,19 +131,27 @@ public class ExtremeBurstRegistry {
      * Returns {@code true} if the player satisfies the weapon requirement for this burst.
      * For {@link BurstType#UNIVERSAL} always returns {@code true}.
      */
-    public static boolean canActivate(Player player, ExtremeBurstEntry entry) {
+    public static boolean canActivate(LivingEntity entity, ExtremeBurstEntry entry) {
         if (entry.type == BurstType.UNIVERSAL) return true;
         if (entry.requiredWeaponName == null) return false;
+
+        if ("doomfist".equals(entry.requiredWeaponName)) {
+            return entity.getMainHandItem().is(ModItems.DOOMFIST.get())
+                    || entity.getMainHandItem().is(ModItems.DOOMFIST_V2.get())
+                    || entity.getOffhandItem().is(ModItems.DOOMFIST.get())
+                    || entity.getOffhandItem().is(ModItems.DOOMFIST_V2.get());
+        }
 
         Item requiredItem = switch (entry.requiredWeaponName) {
             case "the_tears"     -> ModItems.THE_TEARS.get();
             case "golden_flower" -> ModItems.GOLDEN_FLOWER.get();
+            case "optic_blast"   -> ModItems.OPTIC_BLAST.get();
             default              -> null;
         };
         if (requiredItem == null) return false;
 
-        return player.getMainHandItem().is(requiredItem)
-                || player.getOffhandItem().is(requiredItem);
+        return entity.getMainHandItem().is(requiredItem)
+                || entity.getOffhandItem().is(requiredItem);
     }
 
     /**
@@ -179,5 +187,46 @@ public class ExtremeBurstRegistry {
                 6000, // 300 s cooldown (5 min)
                 400   // 20 s duration
         ));
+
+        // ── Meteor Strike — Limited (Doomfist v1 & v2), Instant (with 10s targeting phase) ──
+        register(new ExtremeBurstEntry(
+                ModItems.METEOR_STRIKE.get(),
+                BurstType.LIMITED,
+                BurstVersion.INSTANT,
+                "doomfist",
+                8000, // 400 s cooldown
+                200   // 10 s max targeting overhead window before auto plunge
+        ));
+
+        // ── Full-Aperture Supernova — Limited (Optic Blast), Instant ────────
+        register(new ExtremeBurstEntry(
+                ModItems.FULL_APERTURE_SUPERNOVA.get(),
+                BurstType.LIMITED,
+                BurstVersion.INSTANT,
+                "optic_blast",
+                6000, // 300 s cooldown (5 min)
+                80    // 4.0 s channel duration
+        ));
+
+        // ── Judgement Cut End — Universal, Instant (3.0s sequence) ────────────
+        register(new ExtremeBurstEntry(
+                ModItems.JUDGEMENT_CUT.get(),
+                BurstType.UNIVERSAL,
+                BurstVersion.INSTANT,
+                null,
+                6000, // 300 s cooldown (5 min)
+                60    // 3.0 s sequence duration
+        ));
+
+        // ── Sovereign Arsenal — Universal, Instant (3.0s sequence) ───────────
+        register(new ExtremeBurstEntry(
+                ModItems.SOVEREIGN_ARSENAL.get(),
+                BurstType.UNIVERSAL,
+                BurstVersion.INSTANT,
+                null,
+                6000, // 300 s cooldown (5 min)
+                60    // 3.0 s sequence duration
+        ));
     }
 }
+

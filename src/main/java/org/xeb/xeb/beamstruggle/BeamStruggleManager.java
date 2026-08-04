@@ -27,6 +27,17 @@ public class BeamStruggleManager {
         return entityUUID != null && OWNER_TO_STRUGGLE.containsKey(entityUUID);
     }
 
+    public static float calculateMobPerfectChance(net.minecraft.world.entity.Mob mob) {
+        float maxHp = mob.getMaxHealth();
+        if (maxHp <= 20.0F) {
+            // Wither Skeleton (20 HP) = 20% (0.20F). Mobs with lower HP scale down proportionally.
+            return Math.max(0.05F, (maxHp / 20.0F) * 0.20F);
+        } else {
+            // Higher HP mobs scale up logarithmically (Iron Golem 100HP = 51%, Wither 300HP = 73%, Warden 500HP = 83%, max 85%)
+            return 0.20F + (float) Math.min(0.65F, Math.log10(maxHp / 20.0F) * 0.45F);
+        }
+    }
+
     public static final int MAX_STRUGGLE_TICKS = 320;
     public static final double MASH_POINT_PER_CLICK = 1.0;
     public static final double MASH_DECAY_PER_TICK = 0.05;
@@ -124,44 +135,77 @@ public class BeamStruggleManager {
         if (cdA != null && currentTick < cdA) return false;
         if (cdB != null && currentTick < cdB) return false;
 
+        // ── VERIFICACIÓN DE CHOQUE DE RAYOS AUTO-WIN / EXTREME BURST ─────────
+        boolean autoWinA = isAutoWinBeamOwner(ownerA, level);
+        boolean autoWinB = isAutoWinBeamOwner(ownerB, level);
+
+        // Caso 1: AMBOS rayos son Auto-Win (Dogma vs Dogma, Supernova vs Supernova, Supernova vs Dogma)
+        // Desencadena la ONDA DE CHOQUE CATACLÍSMICA con el daño sumado de 2s y deshabilita ambos rayos.
+        if (autoWinA && autoWinB) {
+            triggerCataclysmicAutoWinClash(ownerA, ownerB, collisionPoint, level, currentTick);
+            return true;
+        }
+
         BeamStruggle struggle = findActiveStruggle(ownerA, ownerB);
 
-        if (struggle == null) {
-            UUID id = UUID.randomUUID();
-            double distance = startA.distanceTo(startB);
-            double winDist = distance < POINT_BLANK_DISTANCE ? WIN_DISTANCE_POINT_BLANK : WIN_DISTANCE_NORMAL;
-            double mashMult = 1.0 + (distance / 40.0);
-            if (distance < POINT_BLANK_DISTANCE) mashMult = 0.5;
-
-            StrugglePhase initialPhase = (distance < POINT_BLANK_DISTANCE) ? StrugglePhase.ACTIVE : StrugglePhase.PREP;
-            int initialTicks = (distance < POINT_BLANK_DISTANCE) ? PREP_DURATION_TICKS : 0;
-
-            int idA = getEntityIdFromUUID(level, ownerA);
-            int idB = getEntityIdFromUUID(level, ownerB);
-
-            // Capturar look directions iniciales para detección de concentración
-            Vec3 lookA = getLookDirection(level, ownerA);
-            Vec3 lookB = getLookDirection(level, ownerB);
-
-            struggle = new BeamStruggle(id, ownerA, ownerB, idA, idB, startA, startB, collisionPoint,
-                    currentTick, initialPhase, distance, winDist, mashMult, lookA, lookB);
-            struggle.ticksElapsed = initialTicks;
-            ACTIVE_STRUGGLES.put(id, struggle);
-            OWNER_TO_STRUGGLE.put(ownerA, id);
-            OWNER_TO_STRUGGLE.put(ownerB, id);
-
-            broadcastStruggleStart(struggle, level);
-
-            level.playSound(null, collisionPoint.x, collisionPoint.y, collisionPoint.z,
-                    net.minecraft.sounds.SoundEvents.WITHER_SPAWN,
-                    net.minecraft.sounds.SoundSource.PLAYERS, 1.5F, 1.5F);
+        // Caso 2: UN SOLO rayo es Auto-Win (Supernova o Dogma) contra un rayo NORMAL (Optic Blast, Steven Laser, etc.)
+        // El rayo Auto-Win sobrepasa e incapacita instantáneamente al usuario del rayo normal.
+        if (autoWinA && !autoWinB) {
+            if (struggle == null) {
+                struggle = createStruggleInstance(ownerA, ownerB, startA, startB, collisionPoint, currentTick, level);
+            }
+            resolveByForfeit(struggle, level, ownerA, ownerB, "auto_win_overpower");
+            COOLDOWN_UNTIL.put(ownerB, currentTick + 40);
             return true;
+        } else if (autoWinB && !autoWinA) {
+            if (struggle == null) {
+                struggle = createStruggleInstance(ownerA, ownerB, startA, startB, collisionPoint, currentTick, level);
+            }
+            resolveByForfeit(struggle, level, ownerB, ownerA, "auto_win_overpower");
+            COOLDOWN_UNTIL.put(ownerA, currentTick + 40);
+            return true;
+        }
+
+        if (struggle == null) {
+            struggle = createStruggleInstance(ownerA, ownerB, startA, startB, collisionPoint, currentTick, level);
         }
 
         // Actualizar midpoint a la posición REAL de este tick
         struggle.midpoint = collisionPoint;
 
         return true;
+    }
+
+    private static BeamStruggle createStruggleInstance(UUID ownerA, UUID ownerB, Vec3 startA, Vec3 startB,
+                                                        Vec3 collisionPoint, long currentTick, ServerLevel level) {
+        UUID id = UUID.randomUUID();
+        double distance = startA.distanceTo(startB);
+        double winDist = distance < POINT_BLANK_DISTANCE ? WIN_DISTANCE_POINT_BLANK : WIN_DISTANCE_NORMAL;
+        double mashMult = 1.0 + (distance / 40.0);
+        if (distance < POINT_BLANK_DISTANCE) mashMult = 0.5;
+
+        StrugglePhase initialPhase = (distance < POINT_BLANK_DISTANCE) ? StrugglePhase.ACTIVE : StrugglePhase.PREP;
+        int initialTicks = (distance < POINT_BLANK_DISTANCE) ? PREP_DURATION_TICKS : 0;
+
+        int idA = getEntityIdFromUUID(level, ownerA);
+        int idB = getEntityIdFromUUID(level, ownerB);
+
+        Vec3 lookA = getLookDirection(level, ownerA);
+        Vec3 lookB = getLookDirection(level, ownerB);
+
+        BeamStruggle struggle = new BeamStruggle(id, ownerA, ownerB, idA, idB, startA, startB, collisionPoint,
+                currentTick, initialPhase, distance, winDist, mashMult, lookA, lookB);
+        struggle.ticksElapsed = initialTicks;
+        ACTIVE_STRUGGLES.put(id, struggle);
+        OWNER_TO_STRUGGLE.put(ownerA, id);
+        OWNER_TO_STRUGGLE.put(ownerB, id);
+
+        broadcastStruggleStart(struggle, level);
+
+        level.playSound(null, collisionPoint.x, collisionPoint.y, collisionPoint.z,
+                net.minecraft.sounds.SoundEvents.WITHER_SPAWN,
+                net.minecraft.sounds.SoundSource.PLAYERS, 1.5F, 1.5F);
+        return struggle;
     }
 
     public static void handleFlourishPress(ServerPlayer player) {
@@ -332,12 +376,13 @@ public class BeamStruggleManager {
                 if (s.lastTimingDisplayTicksA > 0) s.lastTimingDisplayTicksA--;
                 if (s.lastTimingDisplayTicksB > 0) s.lastTimingDisplayTicksB--;
 
-                // === STEVEN BEAM STRUGGLE AI ===
+                // === GENERAL MOB BEAM STRUGGLE AI (HEALTH SCALED PERFECT PROBABILITY) ===
                 net.minecraft.world.entity.Entity entA = level.getEntity(s.ownerA);
                 net.minecraft.world.entity.Entity entB = level.getEntity(s.ownerB);
 
-                if (entA instanceof org.xeb.xeb.entity.StevenBossEntity && !s.playerAPressedThisCycle && s.rhythmCycleTick == 1) {
-                    boolean isPerfect = level.random.nextFloat() < 0.70F;
+                if (entA instanceof net.minecraft.world.entity.Mob mobA && !(entA instanceof ServerPlayer) && !s.playerAPressedThisCycle && s.rhythmCycleTick == 1) {
+                    float perfectChance = calculateMobPerfectChance(mobA);
+                    boolean isPerfect = level.random.nextFloat() < perfectChance;
                     int timing = isPerfect ? 0 : 1;
                     double multiplier = isPerfect ? PERFECT_MULTIPLIER * 1.1D : GOOD_MULTIPLIER;
                     s.pointsA += MASH_POINT_PER_CLICK * s.mashMultiplier * multiplier;
@@ -346,8 +391,9 @@ public class BeamStruggleManager {
                     s.lastTimingDisplayTicksA = 15;
                 }
 
-                if (entB instanceof org.xeb.xeb.entity.StevenBossEntity && !s.playerBPressedThisCycle && s.rhythmCycleTick == 1) {
-                    boolean isPerfect = level.random.nextFloat() < 0.70F;
+                if (entB instanceof net.minecraft.world.entity.Mob mobB && !(entB instanceof ServerPlayer) && !s.playerBPressedThisCycle && s.rhythmCycleTick == 1) {
+                    float perfectChance = calculateMobPerfectChance(mobB);
+                    boolean isPerfect = level.random.nextFloat() < perfectChance;
                     int timing = isPerfect ? 0 : 1;
                     double multiplier = isPerfect ? PERFECT_MULTIPLIER * 1.1D : GOOD_MULTIPLIER;
                     s.pointsB += MASH_POINT_PER_CLICK * s.mashMultiplier * multiplier;
@@ -757,5 +803,179 @@ public class BeamStruggleManager {
                 net.minecraftforge.network.PacketDistributor.ALL.noArg(),
                 new BeamStruggleEndPacket(idWinner, idLoser)
         );
+    }
+
+    public static int[] getBeamRGBColor(UUID ownerUUID, ServerLevel level) {
+        BeamData beam = ActiveBeamManager.get().getBeam(ownerUUID);
+        if (beam != null) {
+            int color = beam.getColor();
+            int r = (color >> 16) & 0xFF;
+            int g = (color >> 8) & 0xFF;
+            int b = color & 0xFF;
+            return new int[]{r, g, b};
+        }
+        net.minecraft.world.entity.Entity entity = level.getEntity(ownerUUID);
+        if (entity instanceof LivingEntity living) {
+            net.minecraft.nbt.CompoundTag nbt = living.getPersistentData();
+            if (nbt.getInt("xebDogmaBrimstoneTicks") > 0) {
+                return new int[]{170, 0, 170}; // Dogma estática magenta
+            }
+            if (nbt.getInt("xebOpticBurstState") > 0) {
+                return new int[]{255, 5, 16}; // Supernova rojo carmesí
+            }
+        }
+        return new int[]{255, 5, 16};
+    }
+
+    public static boolean isAutoWinBeamOwner(UUID ownerUUID, ServerLevel level) {
+        net.minecraft.world.entity.Entity entity = level.getEntity(ownerUUID);
+        if (entity instanceof LivingEntity living) {
+            net.minecraft.nbt.CompoundTag nbt = living.getPersistentData();
+            if (nbt.getInt("xebDogmaBrimstoneTicks") > 0) return true;
+            if (nbt.getInt("xebOpticBurstState") > 0) return true;
+        }
+        BeamData beam = ActiveBeamManager.get().getBeam(ownerUUID);
+        if (beam != null) {
+            String src = beam.getBeamSource();
+            if ("dogma_brimstone".equals(src) || "optic_supernova".equals(src)) return true;
+        }
+        return false;
+    }
+
+    public static double get2SecBeamDamage(UUID ownerUUID, ServerLevel level) {
+        net.minecraft.world.entity.Entity entity = level.getEntity(ownerUUID);
+        if (entity instanceof LivingEntity living) {
+            net.minecraft.nbt.CompoundTag nbt = living.getPersistentData();
+            if (nbt.getInt("xebDogmaBrimstoneTicks") > 0) {
+                // Dogma: 9.99 daño/tick * 40 ticks (2 segundos) = 399.6 de daño
+                return org.xeb.xeb.extremeburst.DogmaBurstHandler.DOGMA_DAMAGE_PER_TICK * 40.0D;
+            }
+            if (nbt.getInt("xebOpticBurstState") > 0) {
+                // Supernova: 56.0 DPS (2.8/tick) * 40 ticks (2 segundos) = 112.0 de daño
+                return 112.0D;
+            }
+        }
+        BeamData beam = ActiveBeamManager.get().getBeam(ownerUUID);
+        if (beam != null) {
+            if ("dogma_brimstone".equals(beam.getBeamSource())) {
+                return org.xeb.xeb.extremeburst.DogmaBurstHandler.DOGMA_DAMAGE_PER_TICK * 40.0D;
+            } else if ("optic_supernova".equals(beam.getBeamSource())) {
+                return 112.0D;
+            }
+        }
+        return 100.0D;
+    }
+
+    private static void triggerCataclysmicAutoWinClash(UUID ownerA, UUID ownerB, Vec3 collisionPoint, ServerLevel level, long currentTick) {
+        // 1. Calcular el daño acumulado de 2 segundos de ambos rayos
+        double damageA = get2SecBeamDamage(ownerA, level);
+        double damageB = get2SecBeamDamage(ownerB, level);
+        float totalDamage = (float) (damageA + damageB);
+
+        // 2. Efectos de sonido atronadores de explosión cataclísmica
+        level.playSound(null, collisionPoint.x, collisionPoint.y, collisionPoint.z,
+                net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE,
+                net.minecraft.sounds.SoundSource.PLAYERS, 4.0F, 0.5F);
+        level.playSound(null, collisionPoint.x, collisionPoint.y, collisionPoint.z,
+                net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER,
+                net.minecraft.sounds.SoundSource.PLAYERS, 5.0F, 0.8F);
+        level.playSound(null, collisionPoint.x, collisionPoint.y, collisionPoint.z,
+                net.minecraft.sounds.SoundEvents.WITHER_DEATH,
+                net.minecraft.sounds.SoundSource.PLAYERS, 3.0F, 1.2F);
+
+        // 3. Partículas masivas de explosión y destellos cibernéticos
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION_EMITTER, collisionPoint.x, collisionPoint.y, collisionPoint.z, 5, 1.0, 1.0, 1.0, 0.0);
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLASH, collisionPoint.x, collisionPoint.y, collisionPoint.z, 10, 0.5, 0.5, 0.5, 0.0);
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.SONIC_BOOM, collisionPoint.x, collisionPoint.y, collisionPoint.z, 3, 0.0, 0.0, 0.0, 0.0);
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, collisionPoint.x, collisionPoint.y, collisionPoint.z, 120, 5.0, 5.0, 5.0, 0.8);
+
+        // 3. Anillos expansivos XebWaves traslúcidos basados AUTOMÁTICAMENTE en los colores exactos de los 2 rayos
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
+            int[] rgbA = getBeamRGBColor(ownerA, level);
+            int[] rgbB = getBeamRGBColor(ownerB, level);
+            int blendR = (rgbA[0] + rgbB[0]) / 2;
+            int blendG = (rgbA[1] + rgbB[1]) / 2;
+            int blendB = (rgbA[2] + rgbB[2]) / 2;
+
+            // Onda 1: Color del Rayo A (Traslúcida maxAlpha 0.40f)
+            org.xeb.xeb.render.XebWaves.spawnWave(collisionPoint, 24.0F, 0.40F, 0.6F, 0.40F, rgbA[0], rgbA[1], rgbA[2]);
+            // Onda 2: Color del Rayo B (Traslúcida maxAlpha 0.40f)
+            org.xeb.xeb.render.XebWaves.spawnWave(collisionPoint.add(0, 0.2, 0), 28.0F, 0.45F, 0.7F, 0.40F, rgbB[0], rgbB[1], rgbB[2]);
+            // Onda 3: Mezcla de Colores de ambos Rayos (Traslúcida maxAlpha 0.35f)
+            org.xeb.xeb.render.XebWaves.spawnWave(collisionPoint.add(0, 0.4, 0), 32.0F, 0.50F, 0.8F, 0.35F, blendR, blendG, blendB);
+        }
+
+        // 4. Infligir daño de área masivo y empuje violento a TODAS las entidades en un radio de 24 bloques
+        net.minecraft.world.phys.AABB blastRadius = new net.minecraft.world.phys.AABB(collisionPoint, collisionPoint).inflate(24.0D);
+        List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, blastRadius, LivingEntity::isAlive);
+
+        net.minecraft.world.entity.Entity attackerA = level.getEntity(ownerA);
+        net.minecraft.world.damagesource.DamageSource blastDmgSource = attackerA != null ?
+                level.damageSources().explosion(attackerA, attackerA) :
+                level.damageSources().explosion(null, null);
+
+        for (LivingEntity target : targets) {
+            double dist = target.position().distanceTo(collisionPoint);
+            if (dist <= 24.0D) {
+                double falloff = 1.0D - (dist / 24.0D);
+                float areaDmg = (float) Math.max(25.0D, totalDamage * Math.pow(falloff, 0.7D));
+
+                target.hurt(blastDmgSource, areaDmg);
+
+                // Empuje cinético violento hacia afuera
+                Vec3 knockDir = target.position().subtract(collisionPoint);
+                if (knockDir.lengthSqr() > 0.001) {
+                    knockDir = knockDir.normalize();
+                } else {
+                    knockDir = new Vec3(0, 1, 0);
+                }
+                target.setDeltaMovement(target.getDeltaMovement().add(knockDir.x * 3.2D, 1.3D, knockDir.z * 3.2D));
+                target.hurtMarked = true;
+            }
+        }
+
+        // 5. Cancelar y deshabilitar los rayos por completo en ambos combatientes
+        disableAutoWinBeam(ownerA, level);
+        disableAutoWinBeam(ownerB, level);
+
+        // 6. Registrar cooldown anti-recreación de choques en el tick actual
+        COOLDOWN_UNTIL.put(ownerA, currentTick + 40);
+        COOLDOWN_UNTIL.put(ownerB, currentTick + 40);
+    }
+
+    private static void disableAutoWinBeam(UUID ownerUUID, ServerLevel level) {
+        net.minecraft.world.entity.Entity entity = level.getEntity(ownerUUID);
+        if (entity instanceof ServerPlayer player) {
+            net.minecraft.nbt.CompoundTag nbt = player.getPersistentData();
+
+            // Cancelar Dogma
+            if (nbt.getInt("xebDogmaBrimstoneTicks") > 0) {
+                nbt.remove("xebDogmaBrimstoneTicks");
+                nbt.remove("xebDogmaBrimstoneMaxTicks");
+                nbt.putBoolean("xebExtremeBurstActive", false);
+                nbt.remove("xebExtremeBurstId");
+                XEBNetwork.CHANNEL.send(
+                        net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                        new org.xeb.xeb.network.BrimstoneBeamPacket(player.getId(), false, org.xeb.xeb.entity.TearsProjectileEntity.IMBUE_NONE, java.util.Collections.emptyList())
+                );
+            }
+
+            // Cancelar Supernova
+            if (nbt.getInt("xebOpticBurstState") > 0) {
+                nbt.putInt("xebOpticBurstState", 0);
+                nbt.remove("xebOpticBurstTimer");
+                nbt.remove("xebOpticBurstStartPitch");
+                nbt.remove("xebOpticBurstStartYaw");
+                nbt.putBoolean("xebExtremeBurstActive", false);
+                nbt.remove("xebExtremeBurstId");
+                XEBNetwork.CHANNEL.send(
+                        net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player),
+                        new org.xeb.xeb.network.OpticBlastBurstSyncPacket(player.getId(), 0, 0, 0.0F)
+                );
+            }
+
+            player.stopUsingItem();
+        }
+        ActiveBeamManager.get().removeBeam(ownerUUID);
     }
 }

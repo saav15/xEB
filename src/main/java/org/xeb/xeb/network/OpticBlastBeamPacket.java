@@ -19,6 +19,7 @@ import java.util.function.Supplier;
 public class OpticBlastBeamPacket {
     public static final byte BEAM_PRIMARY = 0;
     public static final byte BEAM_CYCLONE_PUSH = 1;
+    public static final byte BEAM_FULL_APERTURE_SUPERNOVA = 2;
 
     private final int ownerEntityId;
     private final boolean active;

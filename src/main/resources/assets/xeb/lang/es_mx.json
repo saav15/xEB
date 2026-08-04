@@ -1,5 +1,8 @@
 {
   "_comment": "xEB (xd Elite Buffs) Latin American Spanish Language File",
+  "gui.xeb.meteor_strike.mode_wasd": "MODO: NAVEGACIÓN CÉNITAL (WASD)",
+  "gui.xeb.meteor_strike.mode_mouse": "MODO: APUNTADO RATÓN (ORIGEN)",
+  "gui.xeb.meteor_strike.mode_toggle": "[Click Derecho: Cambiar Modo]",
   "effect.xeb.holy_shield": "Escudo sagrado",
   "effect.xeb.petrify": "Petrificación",
   "effect.xeb.tarred": "Alquitranado",
@@ -550,7 +553,23 @@
   "item.xeb.omega_flowery.requires": "Requiere: %s",
   "item.xeb.omega_flowery.enigma_lore": "\"¡Espero estén listos para este brillante y oscuro mundo con un toque de JARONA!\"",
   "item.xeb.omega_flowery.enigma_effect": "Entra en instancia Omega Flowery 20 s: sin gravedad, Final Jarona (×2), enfriamientos 50% más rápidos.",
+  "item.xeb.meteor_strike": "Meteor Strike",
+  "item.xeb.full_aperture_supernova": "Full-Aperture Supernova",
+  "item.xeb.full_aperture_supernova.desc1": "Remueve todos los limitadores del visor de Rubí-Cuarzo para liberar un barrido óptico ascendente desde tu mira hacia el cielo, culminando en un Mega-Láser desintegrador de 12m y una supernova final.",
+  "item.xeb.full_aperture_supernova.desc2": "Con Optic Blast en mano, presiona %s para activar.",
+  "item.xeb.full_aperture_supernova.requires": "Requiere: %s",
+  "item.xeb.full_aperture_supernova.enigma_lore": "\"El poder desmedido de la dimensión de Rubí-Cuarzo liberado al máximo.\"",
+  "item.xeb.full_aperture_supernova.enigma_effect": "Dispara un Láser Óptico 12x12 ascendente (56.0 DPS, 300s cooldown) con explosión Supernova de 10m y Wall Slam.",
+  "item.xeb.judgement_cut": "Judgement Cut End",
+  "item.xeb.judgement_cut.desc1": "Proyecta una zona de advertencia de 0.75s antes de congelar el espacio en una cúpula infranqueable de 24m y desatar 12 cortes dimensionales (2x daño de arma principal cada uno).",
+  "item.xeb.judgement_cut.enigma_lore": "\"El espacio mismo se fragmenta ante una motivación absoluta. Sin el poder supremo, nada se puede proteger... ni a uno mismo.\"",
+  "gui.xeb.tooltip.extreme_burst.effects.judgement_cut": "Cúpula infranqueable de 24m, congelación temporal y 12 cortes dimensionales (2x Daño de Arma cada uno, 300s cooldown).",
+  "gui.xeb.tooltip.extreme_burst.effects.sovereign_arsenal": "Abre 24 portales dorados celestiales que proyectan armas descendentes (2/3 daño trayecto + 1/3 daño explosión dorada).",
+  "item.xeb.meteor_strike.desc1": "La acumulación y liberación extrema de energía cinética que convierte la caída en una onda de choque devastadora.",
+  "item.xeb.meteor_strike.desc2": "Con Doomfist v1 o v2 en mano, presiona %s para catapultarte al cielo y fijar el punto de impacto.",
+  "item.xeb.meteor_strike.enigma_lore": "\"Nunca dejaré de conseguir lo que se me prometió, aun así tenga que irme de esta órbita temporalmente\"",
   "chat.xeb.extreme_burst.requires_weapon": "Debes sostener el arma requerida para activar esta Ráfaga Extrema.",
+
   "chat.xeb.extreme_burst.already_active": "Una Ráfaga Extrema ya está activa.",
   "chat.xeb.extreme_burst.on_cooldown": "La Ráfaga Extrema está en tiempo de reutilización.",
   "gui.xeb.enigma_bios.extreme_burst.none": "Sin Estallido Extremo equipado",
@@ -622,6 +641,9 @@
   "gui.xeb.tooltip.extreme_burst.effects.cat": "  §5• Invoca una grieta de gatos cuánticos que despedazan a todos los enemigos a su alrededor.",
   "gui.xeb.tooltip.extreme_burst.effects.dogma": "  §5• Dispara un haz Dogma colosal durante 10 segundos y garantiza la victoria en los Beam Struggles.",
   "gui.xeb.tooltip.extreme_burst.effects.flowery": "  §5• Transforma al usuario a la forma Omega Flowery durante 20 segundos, desbloqueando vuelo sin gravedad y doble daño floral.",
+  "gui.xeb.tooltip.extreme_burst.effects.meteor_strike": "  §5• Catapulta al usuario hacia el cielo y abre un campo de visión aéreo durante 10 segundos. Al caer, inflige 88 - 100 de daño (116 con Carga Ultra) en el epicentro (4×4) y genera una onda expansiva radial.",
+
+
   "gui.xeb.tooltip.extreme_burst.effects.flowery.act1": "    §b- Vuelo sin gravedad",
   "gui.xeb.tooltip.extreme_burst.effects.flowery.act2": "    §b- Ráfaga Jarona potenciada",
   "gui.xeb.tooltip.extreme_burst.effects.flowery.act3": "    §b- Danza floral curativa",
@@ -954,6 +976,7 @@
   "gui.xeb.tooltip.extreme_burst.burst_ability_title": "Extreme Burst",
   "gui.xeb.tooltip.extreme_burst.effects.cat": "Invoca una brecha dimensional de gatos cuánticos que desgarran a los enemigos cercanos.",
   "gui.xeb.tooltip.extreme_burst.effects.dogma": "Dispara un haz concentrado de brimstone y energía sagrada hacia los objetivos.",
+  "gui.xeb.tooltip.extreme_burst.effects.supernova": "Dispara un Láser Óptico 12x12 ascendente (56.0 DPS) con retroceso de cámara, explosión Supernova de 10m y Wall Slam.",
   "gui.xeb.tooltip.extreme_burst.effects.flowery": "Absorbe los clones de Danza de Flores, eleva al jugador y otorga Resistencia II y Todos los Atributos por 20s.",
   "item.xeb.enigma_bios.enigma_lore": "Una interfaz neuronal táctica cibernética y base de datos de investigación. Escanea entidades, armas, reliquias y registra la progresión élite.",
   "item.xeb.enigma_bios.enigma_effect": "ACTIVA: Permite acceder a las bitácoras de investigación, bestiario, atributos de maestría y control del escáner de daño.",
@@ -991,7 +1014,9 @@
 ,
   "effect.xeb.charmed": "Encantado"
 ,
-  "item.xeb.pheromone_flask.flavor": "§b§o\"Resistir es inútil ante la atracción de la naturaleza.\""
-,
-  "item.xeb.pheromone_flask.desc2": "§eLos mobs y jugadores encantados lucharán por ti durante 15 segundos."
+  "item.xeb.pheromone_flask.flavor": "§b§o\"Resistir es inútil ante la atracción de la naturaleza.\"",
+  "item.xeb.pheromone_flask.desc2": "§eLos mobs y jugadores encantados lucharán por ti durante 15 segundos.",
+  "item.xeb.sovereign_arsenal": "Sovereign Arsenal",
+  "item.xeb.sovereign_arsenal.desc1": "Abre 24 portales dorados espaciales que proyectan copias espectrales de tu arma principal (2/3 de daño cada una) que se clavan en el suelo y explotan.",
+  "item.xeb.sovereign_arsenal.enigma_lore": "Un arsenal inagotable que responde únicamente a la voluntad suprema de su soberano."
 }

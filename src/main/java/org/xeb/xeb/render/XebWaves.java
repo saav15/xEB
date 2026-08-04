@@ -27,16 +27,20 @@ public class XebWaves {
         public float currentRadius;
         public float maxRadius;
         public float expandSpeed;
+        public float thickness;
         public int red;
         public int green;
         public int blue;
+        public float maxAlpha;
         public float alpha;
 
-        public WaveInstance(Vec3 center, float maxRadius, float expandSpeed, int red, int green, int blue) {
+        public WaveInstance(Vec3 center, float maxRadius, float expandSpeed, float thickness, float maxAlpha, int red, int green, int blue) {
             this.center = center;
             this.currentRadius = 0.5F;
             this.maxRadius = maxRadius;
             this.expandSpeed = expandSpeed;
+            this.thickness = thickness;
+            this.maxAlpha = maxAlpha;
             this.red = red;
             this.green = green;
             this.blue = blue;
@@ -54,7 +58,17 @@ public class XebWaves {
 
     /** Invoca una nueva onda concéntrica expansiva en la posición especificada. */
     public static void spawnWave(Vec3 pos, float maxRadius, float expandSpeed, int red, int green, int blue) {
-        ACTIVE_WAVES.add(new WaveInstance(pos, maxRadius, expandSpeed, red, green, blue));
+        spawnWave(pos, maxRadius, expandSpeed, 0.6F, 0.55F, red, green, blue);
+    }
+
+    /** Invoca una nueva onda concéntrica expansiva con grosor personalizado. */
+    public static void spawnWave(Vec3 pos, float maxRadius, float expandSpeed, float thickness, int red, int green, int blue) {
+        spawnWave(pos, maxRadius, expandSpeed, thickness, 0.55F, red, green, blue);
+    }
+
+    /** Invoca una nueva onda concéntrica expansiva con grosor y transparencia inicial personalizada. */
+    public static void spawnWave(Vec3 pos, float maxRadius, float expandSpeed, float thickness, float maxAlpha, int red, int green, int blue) {
+        ACTIVE_WAVES.add(new WaveInstance(pos, maxRadius, expandSpeed, thickness, maxAlpha, red, green, blue));
     }
 
     public static void clearAll() {
@@ -64,7 +78,8 @@ public class XebWaves {
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (ACTIVE_WAVES.isEmpty()) return;
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS
+                && event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -77,6 +92,7 @@ public class XebWaves {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
@@ -93,33 +109,34 @@ public class XebWaves {
                 continue;
             }
 
-            float y = (float) wave.center.y + 0.03F;
+            float y = (float) wave.center.y + 0.15F;
             float r = wave.currentRadius;
-            float thickness = 0.4F;
+            float thickness = wave.thickness;
 
-            int a = (int) (220 * wave.alpha);
+            int a = (int) (240 * wave.maxAlpha * wave.alpha);
             if (a <= 0) continue;
 
-            int segments = 40;
+            int segments = 48;
             buffer.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
             for (int i = 0; i <= segments; i++) {
                 float angle = i * ((float) Math.PI * 2.0F / segments);
                 float cos = (float) Math.cos(angle);
                 float sin = (float) Math.sin(angle);
 
-                float innerX = (float) wave.center.x + cos * (r - thickness);
-                float innerZ = (float) wave.center.z + sin * (r - thickness);
+                float innerX = (float) wave.center.x + cos * Math.max(0.0F, r - thickness);
+                float innerZ = (float) wave.center.z + sin * Math.max(0.0F, r - thickness);
 
                 float outerX = (float) wave.center.x + cos * (r + thickness);
                 float outerZ = (float) wave.center.z + sin * (r + thickness);
 
-                buffer.vertex(matrix, innerX, y, innerZ).color(wave.red, wave.green, wave.blue, 0).endVertex();
+                buffer.vertex(matrix, innerX, y, innerZ).color(wave.red, wave.green, wave.blue, a / 2).endVertex();
                 buffer.vertex(matrix, outerX, y, outerZ).color(wave.red, wave.green, wave.blue, a).endVertex();
             }
             tesselator.end();
         }
 
         RenderSystem.enableCull();
+        RenderSystem.enableDepthTest();
         RenderSystem.depthMask(true);
         RenderSystem.disableBlend();
         poseStack.popPose();

@@ -45,6 +45,11 @@ public class LaserHeavyAimHandler {
             return 0.50F; // Steven Mega Laser: 50% heavier
         }
 
+        // 4. Check Full-Aperture Supernova (Optic Blast Extreme Burst)
+        if (player.getPersistentData().getInt("xebOpticBurstState") > 0) {
+            return 0.15F; // Supernova: 85% heavy camera weight (0.15x turn speed)
+        }
+
         return 1.0F;
     }
 }

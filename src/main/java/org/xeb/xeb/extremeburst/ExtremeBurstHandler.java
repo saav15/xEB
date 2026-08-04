@@ -22,22 +22,31 @@ import java.util.List;
  */
 public class ExtremeBurstHandler {
 
-    public static void handleActivation(ServerPlayer player, ExtremeBurstRegistry.ExtremeBurstEntry entry) {
+    public static void handleActivation(LivingEntity player, ExtremeBurstRegistry.ExtremeBurstEntry entry) {
         if (entry.curioItem == ModItems.QUANTUM_CAT_BARRAGE.get()) {
             handleQuantumCatBarrage(player);
         } else if (entry.curioItem == ModItems.DOGMA.get()) {
             handleDogma(player);
         } else if (entry.curioItem == ModItems.OMEGA_FLOWERY.get()) {
             handleOmegaFlowery(player);
+        } else if (entry.curioItem == ModItems.METEOR_STRIKE.get() && player instanceof ServerPlayer sp) {
+            MeteorStrikeHandler.activate(sp, entry);
+        } else if (entry.curioItem == ModItems.FULL_APERTURE_SUPERNOVA.get() && player instanceof ServerPlayer sp) {
+            OpticBlastBurstHandler.activate(sp, entry);
+        } else if (entry.curioItem == ModItems.JUDGEMENT_CUT.get()) {
+            JudgementCutHandler.activate(player, entry);
+        } else if (entry.curioItem == ModItems.SOVEREIGN_ARSENAL.get()) {
+            SovereignArsenalHandler.activate(player, entry);
         }
     }
+
 
     // ═══════════════════════════════════════════════════════════════════════════
     // QUANTUM CAT BARRAGE — Universal / Instant
     // (logic moved from ActuarKeyPacket so the packet stays lean)
     // ═══════════════════════════════════════════════════════════════════════════
-    static void handleQuantumCatBarrage(ServerPlayer player) {
-        float totalDamage = org.xeb.xeb.item.QuantumCatBarrageItem.getDamageDealtLast60Seconds(player);
+    static void handleQuantumCatBarrage(LivingEntity player) {
+        float totalDamage = player instanceof ServerPlayer sp ? org.xeb.xeb.item.QuantumCatBarrageItem.getDamageDealtLast60Seconds(sp) : 24.0F;
         AABB area = player.getBoundingBox().inflate(10.0D);
         List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class, area,
                 e -> e != player && e.isAlive() && !e.isAlliedTo(player));
@@ -46,7 +55,7 @@ public class ExtremeBurstHandler {
             float damagePerTarget = totalDamage / targets.size();
             for (LivingEntity target : targets) {
                 float finalDmg = Math.max(2.0F, damagePerTarget);
-                target.hurt(player.damageSources().playerAttack(player), finalDmg);
+                target.hurt(player.damageSources().mobAttack(player), finalDmg);
                 target.addEffect(new MobEffectInstance(
                         org.xeb.xeb.effect.ModEffects.NO_HEALTH_REGEN.get(), 200, 0));
 
@@ -64,8 +73,8 @@ public class ExtremeBurstHandler {
                             8, 0.3D, 0.3D, 0.3D, 0.2D);
                 }
             }
-            player.level().playSound(null, player, SoundEvents.CAT_HISS, SoundSource.PLAYERS, 1.2F, 1.2F);
-            player.level().playSound(null, player, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 0.8F);
+            player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CAT_HISS, SoundSource.HOSTILE, 1.2F, 1.2F);
+            player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 0.8F);
         }
 
         // Instant — burst already complete, clear active flag
@@ -76,25 +85,24 @@ public class ExtremeBurstHandler {
     // DOGMA — Limited (The Tears) / Instant
     // Growing brimstone beam; ticking handled by DogmaBurstHandler
     // ═══════════════════════════════════════════════════════════════════════════
-    static void handleDogma(ServerPlayer player) {
-        ServerLevel level = player.serverLevel();
+    static void handleDogma(LivingEntity player) {
+        if (!(player.level() instanceof ServerLevel level)) return;
 
         player.getPersistentData().putInt("xebDogmaBrimstoneTicks", DogmaBurstHandler.DOGMA_DURATION);
         player.getPersistentData().putInt("xebDogmaBrimstoneMaxTicks", DogmaBurstHandler.DOGMA_DURATION);
 
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.WITHER_SPAWN, SoundSource.PLAYERS, 1.5F, 0.8F);
+                SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 1.5F, 0.8F);
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0F, 0.5F);
-        // Ticking handled per-tick by DogmaBurstHandler (registered in BuffTickHandler)
+                SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 1.0F, 0.5F);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OMEGA FLOWERY — Limited (Golden Flower) / Instance
     // Transformed state; ticking handled by OmegaFloweryHandler
     // ═══════════════════════════════════════════════════════════════════════════
-    static void handleOmegaFlowery(ServerPlayer player) {
-        ServerLevel level = player.serverLevel();
+    static void handleOmegaFlowery(LivingEntity player) {
+        if (!(player.level() instanceof ServerLevel level)) return;
 
         // Suspend in air
         player.setDeltaMovement(0, 0, 0);
@@ -115,9 +123,9 @@ public class ExtremeBurstHandler {
 
         // Visual + sound
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.WITHER_SPAWN, SoundSource.PLAYERS, 2.0F, 1.5F);
+                SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 2.0F, 1.5F);
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 1.0F, 1.2F);
+                SoundEvents.END_PORTAL_SPAWN, SoundSource.HOSTILE, 1.0F, 1.2F);
         level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(),
                 30, 1.0, 1.0, 1.0, 0.1);
         level.sendParticles(ParticleTypes.DRAGON_BREATH, player.getX(), player.getY() + 1, player.getZ(),

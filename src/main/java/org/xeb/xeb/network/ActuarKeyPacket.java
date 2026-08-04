@@ -80,12 +80,22 @@ public class ActuarKeyPacket {
                 // Dev mode: bypass all cooldown checks when xebDevCooldownsDisabled == true
                 boolean devBypass = player.getPersistentData().getBoolean("xebDevCooldownsDisabled");
 
-                // ── Extreme Burst (Activa 3 / tecla N) ─────────────────────────────────
-                // burstEntry may be non-null from inventory fallback (for HUD display),
-                // so we verify via isInCurioSlot() before allowing activation.
+                if (msg.button == 5 && msg.press) {
+                    if (player.getPersistentData().getInt("xebMeteorStrikeState") == 2) {
+                        boolean mode = player.getPersistentData().getBoolean("xebMeteorStrikeOverheadMode");
+                        player.getPersistentData().putBoolean("xebMeteorStrikeOverheadMode", !mode);
+                    }
+                    return;
+                }
+
                 if (msg.button == 3 && msg.press) {
+                    if (player.getPersistentData().getInt("xebMeteorStrikeState") == 2) {
+                        org.xeb.xeb.extremeburst.MeteorStrikeHandler.triggerPlunge(player);
+                        return;
+                    }
 
                     if (!hasBurst) {
+
                         // No burst item at all — nothing to do
                         return;
                     }
