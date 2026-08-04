@@ -334,6 +334,13 @@ public class BeamStruggleManager {
 
             s.ticksElapsed++;
 
+            // Apply Stasis & Aim Lock to Mob entities in this struggle so they freeze in place and lock gaze on target
+            net.minecraft.world.entity.Entity entA = level.getEntity(s.ownerA);
+            net.minecraft.world.entity.Entity entB = level.getEntity(s.ownerB);
+            Vec3 targetPoint = s.currentCollision != null ? s.currentCollision : s.midpoint;
+            applyMobStasisAndAimLock(entA, targetPoint);
+            applyMobStasisAndAimLock(entB, targetPoint);
+
             // Check 2: beam death — verificar directamente si el player sigue disparando
             boolean beamAAlive = isBeamStillActive(s.ownerA, s);
             boolean beamBAlive = isBeamStillActive(s.ownerB, s);
@@ -377,9 +384,6 @@ public class BeamStruggleManager {
                 if (s.lastTimingDisplayTicksB > 0) s.lastTimingDisplayTicksB--;
 
                 // === GENERAL MOB BEAM STRUGGLE AI (HEALTH SCALED PERFECT PROBABILITY) ===
-                net.minecraft.world.entity.Entity entA = level.getEntity(s.ownerA);
-                net.minecraft.world.entity.Entity entB = level.getEntity(s.ownerB);
-
                 if (entA instanceof net.minecraft.world.entity.Mob mobA && !(entA instanceof ServerPlayer) && !s.playerAPressedThisCycle && s.rhythmCycleTick == 1) {
                     float perfectChance = calculateMobPerfectChance(mobA);
                     boolean isPerfect = level.random.nextFloat() < perfectChance;
@@ -408,24 +412,38 @@ public class BeamStruggleManager {
                     continue;
                 }
 
-                // Update struggle physics: advantage movement
-                double advantage = s.pointsA - s.pointsB;
-                Vec3 dirAtoB = s.startPosB.subtract(s.startPosA).normalize();
-                Vec3 moveVector = dirAtoB.scale(advantage * COLLISION_MOVE_PER_POINT);
-                s.currentCollision = s.midpoint.add(moveVector);
+                // Update struggle physics: advantage movement using live entity positions
+                if (entA != null && entB != null) {
+                    Vec3 posA = entA.getPosition(1.0F).add(0, entA.getBbHeight() * 0.6D, 0);
+                    Vec3 posB = entB.getPosition(1.0F).add(0, entB.getBbHeight() * 0.6D, 0);
+                    Vec3 beamVec = posB.subtract(posA);
+                    double dist = beamVec.length();
+
+                    if (dist > 0.001D) {
+                        Vec3 dirAtoB = beamVec.normalize();
+                        Vec3 mid = posA.add(posB).scale(0.5D);
+
+                        double advantage = s.pointsA - s.pointsB;
+                        double moveDist = advantage * COLLISION_MOVE_PER_POINT;
+
+                        // Restringir desplazamiento para que la colisión jamás sobrepase el cuerpo del rival
+                        double maxShift = Math.max(0.5D, (dist * 0.5D) - 0.8D);
+                        double clampedShift = net.minecraft.util.Mth.clamp(moveDist, -maxShift, maxShift);
+
+                        s.currentCollision = mid.add(dirAtoB.scale(clampedShift));
+
+                        // Win check si la ventaja empuja el rayo hasta el cuerpo del enemigo
+                        if (moveDist >= maxShift || moveDist <= -maxShift) {
+                            toResolve.add(s.struggleId);
+                            continue;
+                        }
+                    }
+                }
 
                 // Mash decay
                 double decay = MASH_DECAY_PER_TICK * s.mashMultiplier;
                 s.pointsA = Math.max(0, s.pointsA - decay);
                 s.pointsB = Math.max(0, s.pointsB - decay);
-
-                // Win check
-                double distFromMid = s.currentCollision.distanceTo(s.midpoint);
-                double effectiveWinDistance = s.winDistance * (1.0 + (double) s.ticksElapsed / 120.0);
-                if (distFromMid >= effectiveWinDistance) {
-                    toResolve.add(s.struggleId);
-                    continue;
-                }
 
                 if (s.ticksElapsed % 20 == 0) {
                     level.playSound(null, s.currentCollision.x, s.currentCollision.y, s.currentCollision.z,
@@ -540,6 +558,11 @@ public class BeamStruggleManager {
         net.minecraft.world.entity.Entity entity = level.getEntity(ownerUUID);
         if (!(entity instanceof LivingEntity living)) {
             return new ConcentrationResult(true, "disconnected");
+        }
+
+        // Mobs locked in struggle never forfeit due to turn/hurt deviation
+        if (entity instanceof net.minecraft.world.entity.Mob && !(entity instanceof ServerPlayer)) {
+            return new ConcentrationResult(false, "");
         }
 
         // FIX 1: Grace period — no checkear concentración en los primeros 20 ticks de ACTIVE
@@ -974,8 +997,42 @@ public class BeamStruggleManager {
                 );
             }
 
-            player.stopUsingItem();
+        player.stopUsingItem();
         }
         ActiveBeamManager.get().removeBeam(ownerUUID);
+    }
+
+    private static void applyMobStasisAndAimLock(net.minecraft.world.entity.Entity entity, Vec3 targetPoint) {
+        if (entity instanceof net.minecraft.world.entity.Mob mob && !(entity instanceof ServerPlayer)) {
+            // Freeze movement velocity
+            mob.setDeltaMovement(Vec3.ZERO);
+            mob.hurtMarked = true;
+            if (mob.getNavigation() != null) {
+                mob.getNavigation().stop();
+            }
+
+            // Lock rotation towards the collision point / target point
+            if (targetPoint != null) {
+                mob.getLookControl().setLookAt(targetPoint.x, targetPoint.y, targetPoint.z, 360.0F, 360.0F);
+
+                Vec3 eye = mob.getEyePosition(1.0F);
+                Vec3 dir = targetPoint.subtract(eye).normalize();
+                double dX = dir.x;
+                double dY = dir.y;
+                double dZ = dir.z;
+                double horizontalDist = Math.sqrt(dX * dX + dZ * dZ);
+                if (horizontalDist > 0.0001D) {
+                    float yaw = (float) (Math.atan2(dZ, dX) * (180.0D / Math.PI)) - 90.0F;
+                    float pitch = (float) (-(Math.atan2(dY, horizontalDist) * (180.0D / Math.PI)));
+
+                    mob.setYRot(yaw);
+                    mob.setXRot(pitch);
+                    mob.yRotO = yaw;
+                    mob.xRotO = pitch;
+                    mob.yHeadRot = yaw;
+                    mob.yBodyRot = yaw;
+                }
+            }
+        }
     }
 }

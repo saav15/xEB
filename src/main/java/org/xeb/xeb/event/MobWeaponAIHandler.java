@@ -13,9 +13,13 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -30,6 +34,7 @@ import org.xeb.xeb.entity.SpikeProjectileEntity;
 import org.xeb.xeb.item.*;
 import org.xeb.xeb.network.*;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -231,50 +236,163 @@ public class MobWeaponAIHandler {
             }
         }
 
-        // ── 3. OPTIC BLAST WEAPON MOB AI (EXACT WEAPON, NOT EXTREME BURST) ────
-        // ── 3. OPTIC BLAST WEAPON MOB AI (BEAM STRUGGLE COMPATIBLE) ────
+        // ── 3. OPTIC BLAST WEAPON MOB AI (ENERGY RESOURCE & MULTI-ATTACK AI) ──
         else if (item instanceof OpticBlastItem) {
-            long cdOpticShot = mob.getPersistentData().getLong("xebMobCD_OpticShot");
-            long cdOpticBeam = mob.getPersistentData().getLong("xebMobCD_OpticBeam");
+            long cdOpticShot  = mob.getPersistentData().getLong("xebMobCD_OpticShot");
+            long cdOpticBeam  = mob.getPersistentData().getLong("xebMobCD_OpticBeam");
+            long cdCyclone    = mob.getPersistentData().getLong("xebMobCD_Cyclone");
 
-            // Tick active beam channeling
+            // Energy resource management
+            float energy = mob.getPersistentData().contains("xebOpticEnergy")
+                    ? mob.getPersistentData().getFloat("xebOpticEnergy") : OpticBlastItem.MAX_ENERGY;
+            int overheatCD = mob.getPersistentData().getInt("xebOpticOverheatTicks");
+
+            if (overheatCD > 0) {
+                mob.getPersistentData().putInt("xebOpticOverheatTicks", overheatCD - 1);
+            }
+
+            // Passive energy regen when not active channeling
             int beamTicks = mob.getPersistentData().getInt("xebMobBeamTicks");
+            int cycloneTicks = mob.getPersistentData().getInt("xebMobCycloneTicks");
+
+            if (beamTicks <= 0 && cycloneTicks <= 0 && overheatCD <= 0) {
+                if (energy < OpticBlastItem.MAX_ENERGY) {
+                    energy = Math.min(OpticBlastItem.MAX_ENERGY, energy + OpticBlastItem.ENERGY_REGEN_PER_TICK);
+                    mob.getPersistentData().putFloat("xebOpticEnergy", energy);
+                }
+            }
+
+            // ── A. Tick active Primary Beam channeling ───────────────────────
             if (beamTicks > 0) {
-                mob.getPersistentData().putInt("xebMobBeamTicks", beamTicks - 1);
-                Vec3 eyePos = mob.getEyePosition();
-                Vec3 targetPos = target.getEyePosition();
+                if (org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(mob.getUUID())) {
+                    beamTicks = Math.max(beamTicks, 20);
+                    energy = Math.max(10.0F, energy);
+                } else {
+                    beamTicks--;
+                    energy -= OpticBlastItem.ENERGY_DRAIN_PER_TICK;
+                }
+                mob.getPersistentData().putInt("xebMobBeamTicks", beamTicks);
+                mob.getPersistentData().putFloat("xebOpticEnergy", Math.max(0.0F, energy));
 
-                // Register in ActiveBeamManager for Beam Struggle collision detection
+                if (energy <= 0.0F) {
+                    // Overheat! Forced 6s cooldown
+                    mob.getPersistentData().putInt("xebOpticOverheatTicks", OpticBlastItem.OVERHEAT_COOLDOWN);
+                    mob.getPersistentData().putInt("xebMobBeamTicks", 0);
+                    org.xeb.xeb.opticblast.ActiveBeamManager.get().removeBeam(mob.getUUID());
+                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
+                            new OpticBlastBeamPacket(mob.getId(), false, 0, 0, 0, 0, 0, 0, OpticBlastBeamPacket.BEAM_PRIMARY));
+                    level.playSound(null, mob.getX(), mob.getY(), mob.getZ(),
+                            SoundEvents.BEACON_DEACTIVATE, SoundSource.HOSTILE, 0.8F, 1.5F);
+                    return;
+                }
+
+                Vec3 eyePos  = mob.getEyePosition(1.0F);
+                Vec3 lookDir = mob.getLookAngle();
+                Vec3 beamEnd = eyePos.add(lookDir.scale(40.0D));
+
+                Vec3 struggleCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(mob.getUUID());
+                Vec3 effectiveEnd;
+                if (struggleCol != null) {
+                    effectiveEnd = struggleCol;
+                } else {
+                    BlockHitResult blockHit = level.clip(new ClipContext(eyePos, beamEnd, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mob));
+                    effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
+                }
+
+                AABB sweepBox = new AABB(eyePos, effectiveEnd).inflate(0.5D);
+                EntityHitResult entityHit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(
+                        mob, eyePos, effectiveEnd, sweepBox,
+                        e -> e instanceof LivingEntity && e.isAlive() && e != mob && !e.isSpectator() && e.isPickable(),
+                        1600.0D
+                );
+
+                LivingEntity hitEntity = null;
+                if (entityHit != null) {
+                    double entityDist = eyePos.distanceToSqr(entityHit.getLocation());
+                    double blockDist  = eyePos.distanceToSqr(effectiveEnd);
+                    if (entityDist < blockDist) {
+                        effectiveEnd = entityHit.getLocation();
+                        if (entityHit.getEntity() instanceof LivingEntity living) hitEntity = living;
+                    }
+                }
+
+                // Register for Beam Struggle collisions
                 org.xeb.xeb.opticblast.ActiveBeamManager.get().putBeam(mob.getUUID(),
-                        new org.xeb.xeb.opticblast.BeamData(mob.getUUID(), mob.getId(), eyePos, targetPos, 0xFFFF0033, gameTime, gameTime + 2L, "optic_blast"));
+                        new org.xeb.xeb.opticblast.BeamData(mob.getUUID(), mob.getId(), eyePos, effectiveEnd, 0xFF0000, gameTime, gameTime + 2L, "optic_blast"));
 
-                XebPillars.spawnPillar(targetPos, 0.5F, 1.2F, 255, 0, 50, 5);
-                if (beamTicks % 5 == 0) {
-                    target.hurt(level.damageSources().mobAttack(mob), 4.0F);
-                    target.setSecondsOnFire(2);
+                // Broadcast clean beam packet to clients
+                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
+                        new OpticBlastBeamPacket(mob.getId(), true, eyePos.x, eyePos.y, eyePos.z, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z, OpticBlastBeamPacket.BEAM_PRIMARY));
+
+                if (hitEntity != null && beamTicks % 2 == 0) {
+                    hitEntity.hurt(level.damageSources().mobAttack(mob), OpticBlastItem.BEAM_DAMAGE_PER_TICK);
+                    hitEntity.setSecondsOnFire(2);
+                }
+
+                if (beamTicks - 1 <= 0) {
+                    org.xeb.xeb.opticblast.ActiveBeamManager.get().removeBeam(mob.getUUID());
+                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
+                            new OpticBlastBeamPacket(mob.getId(), false, 0, 0, 0, 0, 0, 0, OpticBlastBeamPacket.BEAM_PRIMARY));
                 }
                 return;
             }
 
-            // Click Derecho: Continuous Red Optic Plasma Beam (6s cd)
-            if (distSq <= 400.0D && gameTime - cdOpticBeam >= 120) {
+            // ── B. Tick active Cyclone Push channeling ────────────────────────
+            if (cycloneTicks > 0) {
+                mob.getPersistentData().putInt("xebMobCycloneTicks", cycloneTicks - 1);
+                Vec3 eyePos  = mob.getEyePosition(1.0F);
+                Vec3 lookDir = mob.getLookAngle();
+                Vec3 beamEnd = eyePos.add(lookDir.scale(40.0D));
+
+                BlockHitResult blockHit = level.clip(new ClipContext(eyePos, beamEnd, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mob));
+                Vec3 effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
+
+                // Push mob backwards (reverse thrust)
+                Vec3 pushForce = lookDir.scale(-0.12D);
+                mob.setDeltaMovement(mob.getDeltaMovement().add(pushForce.x, pushForce.y, pushForce.z));
+                mob.hurtMarked = true;
+
+                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
+                        new OpticBlastBeamPacket(mob.getId(), true, eyePos.x, eyePos.y, eyePos.z, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z, OpticBlastBeamPacket.BEAM_CYCLONE_PUSH));
+
+                if (cycloneTicks % 2 == 0 && target != null) {
+                    target.hurt(level.damageSources().mobAttack(mob), OpticBlastItem.BEAM_DAMAGE_PER_TICK * 0.5F);
+                }
+
+                if (cycloneTicks - 1 <= 0) {
+                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
+                            new OpticBlastBeamPacket(mob.getId(), false, 0, 0, 0, 0, 0, 0, OpticBlastBeamPacket.BEAM_CYCLONE_PUSH));
+                }
+                return;
+            }
+
+            // ── C. AI Action Decision (When not active channeling) ───────────
+            // 1. Activa 1: Cyclone Push if target is too close (< 5 blocks)
+            if (distSq <= 25.0D && gameTime - cdCyclone >= 200 && overheatCD <= 0) {
+                mob.getPersistentData().putLong("xebMobCD_Cyclone", gameTime);
+                mob.getPersistentData().putInt("xebMobCycloneTicks", 40); // 2.0s
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 1.0F, 1.8F);
+                return;
+            }
+
+            // 2. Right-Click: Continuous Plasma Beam if target at medium range (6-25 blocks) & energy > 25.0F
+            if (distSq >= 36.0D && distSq <= 625.0D && gameTime - cdOpticBeam >= 120 && energy >= 25.0F && overheatCD <= 0) {
                 mob.getPersistentData().putLong("xebMobCD_OpticBeam", gameTime);
-                mob.getPersistentData().putInt("xebMobBeamTicks", 40); // 2s channel
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(),
-                        SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE, 1.2F, 1.8F);
+                mob.getPersistentData().putInt("xebMobBeamTicks", 50); // 2.5s channel
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE, 1.2F, 1.8F);
                 return;
             }
 
-            // Click Izquierdo: Optic Plasma Pulse Shot (1.5s cd)
-            if (distSq <= 256.0D && gameTime - cdOpticShot >= 30) {
+            // 3. Left-Click: Mini-Laser Pulse Shot (0.75s cd)
+            if (distSq <= 400.0D && gameTime - cdOpticShot >= 15) {
                 mob.getPersistentData().putLong("xebMobCD_OpticShot", gameTime);
-                target.hurt(level.damageSources().mobAttack(mob), 10.0F);
-                target.setSecondsOnFire(2);
-                if (level instanceof ServerLevel serverLevel) {
-                    serverLevel.sendParticles(ParticleTypes.FLAME, target.getX(), target.getY(0.5), target.getZ(), 8, 0.2, 0.2, 0.2, 0.05);
-                }
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(),
-                        SoundEvents.BLAZE_SHOOT, SoundSource.HOSTILE, 1.0F, 1.5F);
+                org.xeb.xeb.entity.MiniLaserProjectileEntity miniLaser = new org.xeb.xeb.entity.MiniLaserProjectileEntity(level, mob);
+                Vec3 eyePos = mob.getEyePosition(1.0F);
+                Vec3 look = target.getEyePosition().subtract(eyePos).normalize();
+                miniLaser.moveTo(eyePos.x, eyePos.y - 0.1D, eyePos.z, 0.0F, 0.0F);
+                miniLaser.setDeltaMovement(look.scale(2.5D));
+                level.addFreshEntity(miniLaser);
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.AMETHYST_BLOCK_STEP, SoundSource.HOSTILE, 0.8F, 1.8F);
             }
         }
 
@@ -353,34 +471,103 @@ public class MobWeaponAIHandler {
             }
         }
 
-        // ── 8. THE TEARS MOB AI (BRIMSTONE BEAM STRUGGLE COMPATIBLE) ───────
+        // ── 8. THE TEARS MOB AI (CHARGE PHASE, BRIMSTONE & EXPLOSIVE TEARS) ──
         else if (item instanceof TheTearsItem) {
             long cdBrimstone = mob.getPersistentData().getLong("xebMobCD_Brimstone");
+            long cdTears     = mob.getPersistentData().getLong("xebMobCD_Tears");
+            long cdShadow    = mob.getPersistentData().getLong("xebMobCD_Shadow");
 
-            // Tick active Brimstone beam
-            int brimstoneTicks = mob.getPersistentData().getInt("xebMobBrimstoneTicks");
-            if (brimstoneTicks > 0) {
-                mob.getPersistentData().putInt("xebMobBrimstoneTicks", brimstoneTicks - 1);
-                Vec3 eyePos = mob.getEyePosition();
-                Vec3 targetPos = target.getEyePosition();
-
-                // Register in ActiveBeamManager for Beam Struggle collision detection
-                org.xeb.xeb.opticblast.ActiveBeamManager.get().putBeam(mob.getUUID(),
-                        new org.xeb.xeb.opticblast.BeamData(mob.getUUID(), mob.getId(), eyePos, targetPos, 0xFFCC0000, gameTime, gameTime + 2L, "brimstone"));
-
-                XebPillars.spawnPillar(targetPos, 0.5F, 1.8F, 200, 0, 0, 5);
-                if (brimstoneTicks % 5 == 0) {
-                    target.hurt(level.damageSources().mobAttack(mob), 5.0F);
+            // Tick active Brimstone charge-up phase (1.0s / 20 ticks)
+            int chargeTicks = mob.getPersistentData().getInt("xebMobBrimstoneCharge");
+            if (chargeTicks > 0) {
+                mob.getPersistentData().putInt("xebMobBrimstoneCharge", chargeTicks - 1);
+                if (level instanceof ServerLevel serverLevel) {
+                    Vec3 eye = mob.getEyePosition();
+                    serverLevel.sendParticles(ParticleTypes.CRIT, eye.x, eye.y, eye.z, 5, 0.2D, 0.2D, 0.2D, 0.1D);
+                }
+                if (chargeTicks - 1 <= 0) {
+                    // Charge complete! Unleash Brimstone beam for 40 ticks (2.0s)
+                    mob.getPersistentData().putInt("xebMobBrimstoneTicks", 40);
+                    level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.WITHER_SHOOT, SoundSource.HOSTILE, 1.2F, 0.5F);
                 }
                 return;
             }
 
-            // Secondary: 40-Block Brimstone Laser Beam (7s cd)
-            if (distSq <= 400.0D && gameTime - cdBrimstone >= 140) {
+            // Tick active Brimstone beam (40 ticks / 2.0s)
+            int brimstoneTicks = mob.getPersistentData().getInt("xebMobBrimstoneTicks");
+            if (brimstoneTicks > 0) {
+                if (org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(mob.getUUID())) {
+                    brimstoneTicks = Math.max(brimstoneTicks, 20);
+                } else {
+                    brimstoneTicks--;
+                }
+                mob.getPersistentData().putInt("xebMobBrimstoneTicks", brimstoneTicks);
+                Vec3 eyePos  = mob.getEyePosition(1.0F);
+                Vec3 lookDir = mob.getLookAngle();
+                Vec3 beamEnd = eyePos.add(lookDir.scale(40.0D));
+
+                Vec3 struggleCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(mob.getUUID());
+                Vec3 effectiveEnd;
+                if (struggleCol != null) {
+                    effectiveEnd = struggleCol;
+                } else {
+                    BlockHitResult blockHit = level.clip(new ClipContext(eyePos, beamEnd, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mob));
+                    effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
+                }
+
+                List<Vec3> points = List.of(eyePos, effectiveEnd);
+
+                // Register in ActiveBeamManager for Beam Struggle collision
+                org.xeb.xeb.opticblast.ActiveBeamManager.get().putBeam(mob.getUUID(),
+                        new org.xeb.xeb.opticblast.BeamData(mob.getUUID(), mob.getId(), eyePos, effectiveEnd, 0xFFCC0000, gameTime, gameTime + 2L, "brimstone"));
+
+                // Send Brimstone beam packet to clients
+                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
+                        new BrimstoneBeamPacket(mob.getId(), true, org.xeb.xeb.entity.TearsProjectileEntity.IMBUE_NONE, points, 1.2F));
+
+                if (brimstoneTicks % 4 == 0) {
+                    AABB box = new AABB(eyePos, effectiveEnd).inflate(0.6D);
+                    List<LivingEntity> hitEntities = level.getEntitiesOfClass(LivingEntity.class, box, e -> e != mob && e.isAlive() && !e.isSpectator());
+                    for (LivingEntity e : hitEntities) {
+                        e.hurt(level.damageSources().mobAttack(mob), 5.0F);
+                    }
+                }
+
+                if (brimstoneTicks - 1 <= 0) {
+                    org.xeb.xeb.opticblast.ActiveBeamManager.get().removeBeam(mob.getUUID());
+                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
+                            new BrimstoneBeamPacket(mob.getId(), false, org.xeb.xeb.entity.TearsProjectileEntity.IMBUE_NONE, Collections.emptyList()));
+                }
+                return;
+            }
+
+            // ── AI Action Decision for The Tears ─────────────────────────────
+            // 1. Activa 2: Shadow Invisibility if HP < 50%
+            if (mob.getHealth() < mob.getMaxHealth() * 0.5F && gameTime - cdShadow >= 240) {
+                mob.getPersistentData().putLong("xebMobCD_Shadow", gameTime);
+                mob.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 80, 0, false, false));
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.WITCH_DRINK, SoundSource.HOSTILE, 1.0F, 1.2F);
+                return;
+            }
+
+            // 2. Secondary: 40-Block Brimstone Laser Beam (1.0s charge phase)
+            if (distSq <= 625.0D && gameTime - cdBrimstone >= 200) {
                 mob.getPersistentData().putLong("xebMobCD_Brimstone", gameTime);
-                mob.getPersistentData().putInt("xebMobBrimstoneTicks", 40); // 2s channel
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(),
-                        SoundEvents.WITHER_SHOOT, SoundSource.HOSTILE, 1.2F, 0.5F);
+                mob.getPersistentData().putInt("xebMobBrimstoneCharge", 20); // 1.0s charge
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 1.0F, 1.8F);
+                return;
+            }
+
+            // 3. Primary: Explosive Tear Projectiles (1.5s cd)
+            if (distSq <= 400.0D && gameTime - cdTears >= 30) {
+                mob.getPersistentData().putLong("xebMobCD_Tears", gameTime);
+                Vec3 eyePos = mob.getEyePosition(1.0F);
+                Vec3 look = target.getEyePosition().subtract(eyePos).normalize();
+                org.xeb.xeb.entity.TearsProjectileEntity tear = new org.xeb.xeb.entity.TearsProjectileEntity(level, mob, org.xeb.xeb.entity.TearsProjectileEntity.IMBUE_NONE, false);
+                tear.setPos(eyePos.x, eyePos.y - 0.1D, eyePos.z);
+                tear.shoot(look.x, look.y, look.z, 1.8F, 1.0F);
+                level.addFreshEntity(tear);
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.GENERIC_SPLASH, SoundSource.HOSTILE, 1.2F, 1.5F);
             }
         }
     }

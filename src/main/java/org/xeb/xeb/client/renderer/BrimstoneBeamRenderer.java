@@ -63,6 +63,10 @@ public class BrimstoneBeamRenderer {
             }
 
             int wielderId = entry.getKey();
+            if (org.xeb.xeb.client.renderer.BeamStruggleRenderer.isOwnerInStruggle(wielderId)) {
+                continue;
+            }
+
             LocalPlayer localPlayer = mc.player;
             boolean isLocalPlayer = (localPlayer != null && wielderId == localPlayer.getId());
             boolean isLocalPlayerFirstPerson = (isLocalPlayer && mc.options.getCameraType().isFirstPerson());

@@ -62,9 +62,13 @@ public class BeamStruggleCameraHandler {
 
         Vec3 posA = entityA.getPosition(partialTicks).add(0, entityA.getBbHeight() * 0.5D, 0);
         Vec3 posB = entityB.getPosition(partialTicks).add(0, entityB.getBbHeight() * 0.5D, 0);
-        Vec3 midPoint = struggle.collisionPoint;
+        Vec3 stableCenter = posA.add(posB).scale(0.5D);
+        Vec3 collisionPoint = struggle.collisionPoint;
 
         boolean isPlayerA = localId == struggle.ownerAEntityId;
+        Vec3 myPos = isPlayerA ? posA : posB;
+        Vec3 enemyPos = isPlayerA ? posB : posA;
+
         float myPoints = isPlayerA ? struggle.pointsA : struggle.pointsB;
         float enemyPoints = isPlayerA ? struggle.pointsB : struggle.pointsA;
         float advantage = myPoints - enemyPoints;
@@ -81,64 +85,66 @@ public class BeamStruggleCameraHandler {
 
         Vec3 beamDir = posB.subtract(posA).normalize();
         double beamDistance = posA.distanceTo(posB);
+        double clampedBeamDist = net.minecraft.util.Mth.clamp((float) beamDistance, 4.0F, 16.0F);
+
+        // Proyectar y sujetar el punto de mira para que JAMÁS sobrepase el cuerpo del oponente ni del jugador
+        Vec3 desiredLookAt = collisionPoint;
+        if (beamDistance > 0.001D) {
+            Vec3 toCol = collisionPoint.subtract(posA);
+            double proj = toCol.dot(beamDir);
+            proj = net.minecraft.util.Mth.clamp(proj, 0.8D, Math.max(0.8D, beamDistance - 0.8D));
+            desiredLookAt = posA.add(beamDir.scale(proj));
+        }
+
         Vec3 perp = beamDir.cross(new Vec3(0, 1, 0)).normalize();
         if (perp.lengthSqr() < 0.01) perp = beamDir.cross(new Vec3(1, 0, 0)).normalize();
 
-        // Selección de modos: a larga distancia (> 14 bloques) se activan 2 modos épicos adicionales
+        // Selección de modos cinemáticos compactos
         boolean isLongDistance = beamDistance > 14.0D;
         int totalModes = isLongDistance ? 6 : 4;
         int mode = (struggle.ticksElapsed / 80) % totalModes;
 
         Vec3 desiredCamPos;
-        Vec3 desiredLookAt = midPoint;
+
+        Vec3 viewDirToEnemy = enemyPos.subtract(myPos).normalize();
+        Vec3 rightDir = viewDirToEnemy.cross(new Vec3(0, 1, 0)).normalize();
+        if (rightDir.lengthSqr() < 0.01) rightDir = viewDirToEnemy.cross(new Vec3(1, 0, 0)).normalize();
 
         switch (mode) {
-            case 1: { // Modo 1: Cenital Aéreo (Giro Lento)
+            case 1: { // Modo 1: Cenital Aéreo Suave sobre el centro del combate
                 double timeAngle = (struggle.ticksElapsed + partialTicks) * 0.015D;
                 Vec3 spinDir = new Vec3(Math.cos(timeAngle), 0, Math.sin(timeAngle));
-                double height = 7.5D + (isLongDistance ? beamDistance * 0.25D : 0.0D);
-                desiredCamPos = midPoint.add(0, height, 0).add(spinDir.scale(3.5D + (isLongDistance ? 2.5D : 0.0D)));
+                double height = 4.5D + clampedBeamDist * 0.12D;
+                desiredCamPos = stableCenter.add(0, height, 0).add(spinDir.scale(3.0D));
                 break;
             }
-            case 2: { // Modo 2: Sobre el Hombro
-                boolean behindA = (struggle.ticksElapsed / 40) % 2 == 0;
-                Vec3 sourcePos = behindA ? posA : posB;
-                Vec3 destPos = behindA ? posB : posA;
-                Vec3 viewDir = destPos.subtract(sourcePos).normalize();
-                Vec3 rightDir = viewDir.cross(new Vec3(0, 1, 0)).normalize();
-                if (rightDir.lengthSqr() < 0.01) rightDir = viewDir.cross(new Vec3(1, 0, 0)).normalize();
-                desiredCamPos = sourcePos.add(viewDir.scale(-1.8D)).add(rightDir.scale(0.9D)).add(0, 1.8D, 0);
+            case 2: { // Modo 2: Sobre el Hombro del Jugador Local (Estable)
+                desiredCamPos = myPos.add(viewDirToEnemy.scale(-1.8D)).add(rightDir.scale(0.8D)).add(0, 1.6D, 0);
                 break;
             }
-            case 3: { // Modo 3: Contrapicado Bajo
-                double sideDist = 3.2D + (isLongDistance ? 2.0D : 0.0D);
-                desiredCamPos = midPoint.subtract(perp.scale(sideDist)).add(0, -0.6D, 0);
-                desiredLookAt = midPoint.add(0, 0.4D, 0);
+            case 3: { // Modo 3: Contrapicado Bajo Enfocado desde el centro
+                double sideDist = 3.2D + (clampedBeamDist * 0.08D);
+                desiredCamPos = stableCenter.subtract(perp.scale(sideDist)).add(0, -0.4D, 0);
+                desiredLookAt = collisionPoint.add(0, 0.3D, 0);
                 break;
             }
-            case 4: { // Modo 4 (Larga Distancia): Gran Panorama del Campo de Batalla Épico
-                double arenaSide = beamDistance * 0.55D + 4.0D;
-                double arenaHeight = beamDistance * 0.25D + 3.5D;
-                desiredCamPos = midPoint.add(perp.scale(arenaSide)).add(0, arenaHeight, 0);
-                desiredLookAt = midPoint;
+            case 4: { // Modo 4 (Larga Distancia): Panorama Controlado
+                double arenaSide = 5.0D + clampedBeamDist * 0.15D;
+                double arenaHeight = 2.5D + clampedBeamDist * 0.10D;
+                desiredCamPos = stableCenter.add(perp.scale(arenaSide)).add(0, arenaHeight, 0);
                 break;
             }
-            case 5: { // Modo 5 (Larga Distancia): Corredor Longitudinal a lo largo del Haz
-                boolean behindA = (struggle.ticksElapsed / 50) % 2 == 0;
-                Vec3 sourcePos = behindA ? posA : posB;
-                Vec3 destPos = behindA ? posB : posA;
-                Vec3 viewDir = destPos.subtract(sourcePos).normalize();
-                desiredCamPos = sourcePos.add(viewDir.scale(-3.5D)).add(0, 2.2D, 0);
-                desiredLookAt = midPoint;
+            case 5: { // Modo 5 (Larga Distancia): Corredor Longitudinal
+                desiredCamPos = myPos.add(viewDirToEnemy.scale(-2.5D)).add(0, 1.8D, 0);
                 break;
             }
             case 0:
-            default: { // Modo 0: Órbita Lateral 3/4
-                double distMult = isLongDistance ? (beamDistance / 10.0D) : 1.0D;
-                double sideOffset = 6.0D * distMult * Math.cos(currentOrbitAngle) / currentZoom;
-                double upOffset = 3.0D * distMult / currentZoom;
-                double forwardOffset = 4.0D * distMult * Math.sin(currentOrbitAngle) / currentZoom;
-                desiredCamPos = midPoint
+            default: { // Modo 0: Órbita Lateral 3/4 Centrada
+                double distMult = 1.0D + (clampedBeamDist - 4.0D) * 0.03D;
+                double sideOffset = 5.0D * distMult * Math.cos(currentOrbitAngle) / currentZoom;
+                double upOffset = 2.4D * distMult / currentZoom;
+                double forwardOffset = 3.0D * distMult * Math.sin(currentOrbitAngle) / currentZoom;
+                desiredCamPos = stableCenter
                         .add(perp.scale(sideOffset))
                         .add(0, upOffset, 0)
                         .add(beamDir.scale(forwardOffset));

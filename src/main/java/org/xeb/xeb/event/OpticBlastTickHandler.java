@@ -368,7 +368,7 @@ public class OpticBlastTickHandler {
 
         // --- 8. Particles at beam endpoint ---
         int tickCount = (int) (currentTick % 100);
-        if (tickCount % 2 == 0) {
+        if (struggleCollision == null && tickCount % 2 == 0) {
             level.sendParticles(ParticleTypes.SMOKE, effectiveEnd.x, effectiveEnd.y, effectiveEnd.z,
                     2, 0.1D, 0.1D, 0.1D, 0.02D);
         }

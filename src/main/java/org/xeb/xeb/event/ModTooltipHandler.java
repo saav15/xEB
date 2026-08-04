@@ -202,6 +202,7 @@ public class ModTooltipHandler {
             case "the_tears"     -> Component.translatable("item.xeb.the_tears").getString();
             case "golden_flower" -> Component.translatable("item.xeb.golden_flower").getString();
             case "doomfist"      -> Component.translatable("item.xeb.doomfist").getString() + " / " + Component.translatable("item.xeb.doomfist_v2").getString();
+            case "optic_blast"   -> Component.translatable("item.xeb.optic_blast").getString();
             default              -> id;
         };
     }

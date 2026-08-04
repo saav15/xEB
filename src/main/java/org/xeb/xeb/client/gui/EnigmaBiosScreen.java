@@ -132,6 +132,10 @@ public class EnigmaBiosScreen extends Screen {
                 case "item.xeb.omega_flowery.enigma_lore" -> "Reliquia Definitiva de Curios: Otorga la capacidad de activar el Extreme Burst de Omega Flowey al estar equipada junto a The Golden Flower.";
                 case "item.xeb.dogma.enigma_lore" -> "Reliquia Definitiva de Curios: Otorga la capacidad de activar el Extreme Burst de Dogma al estar equipada junto a The Tears.";
                 case "item.xeb.quantum_cat_barrage.enigma_lore" -> "Reliquia Definitiva Universal de Curios: Otorga la capacidad de desatar un Bombardeo Felino Cuántico devastador.";
+                case "item.xeb.meteor_strike.enigma_lore" -> "Reliquia Definitiva de Curios: Otorga la capacidad de activar el Extreme Burst de Meteor Strike al estar equipada junto a Doomfist v1 o Doomfist v2.";
+                case "item.xeb.full_aperture_supernova.enigma_lore" -> "Reliquia Definitiva de Curios: Otorga la capacidad de activar el Extreme Burst de Full-Aperture Supernova al estar equipada junto a Optic Blast.";
+                case "item.xeb.judgement_cut.enigma_lore" -> "Reliquia Definitiva Universal de Curios: Otorga la capacidad de desatar Judgement Cut End, ralentizando el espacio-tiempo y cortando dimensionalmente el área.";
+                case "item.xeb.sovereign_arsenal.enigma_lore" -> "Reliquia Definitiva Universal de Curios: Otorga la capacidad de abrir los portales del Arsenal Soberano e invocar espadas espaciales empaladoras.";
                 default -> key;
             };
         }
@@ -554,6 +558,10 @@ public class EnigmaBiosScreen extends Screen {
                                 burst = ExtremeBurstRegistry.getEntry(ModItems.OMEGA_FLOWERY.get());
                             } else if (item == ModItems.THE_TEARS.get()) {
                                 burst = ExtremeBurstRegistry.getEntry(ModItems.DOGMA.get());
+                            } else if (item == ModItems.DOOMFIST.get() || item == ModItems.DOOMFIST_V2.get()) {
+                                burst = ExtremeBurstRegistry.getEntry(ModItems.METEOR_STRIKE.get());
+                            } else if (item == ModItems.OPTIC_BLAST.get()) {
+                                burst = ExtremeBurstRegistry.getEntry(ModItems.FULL_APERTURE_SUPERNOVA.get());
                             }
                         }
 
@@ -1956,26 +1964,27 @@ public class EnigmaBiosScreen extends Screen {
 
         if (item == ModItems.GOLDEN_FLOWER.get()) {
             return new AnalyzedInfo(name, "item.xeb.golden_flower", true, true,
-                    new String[]{"2", "8 c/u", "4", "3 / tick", ""},
-                    new String[]{"0.4s", "Charge", "8s", "12s", ""});
+                    new String[]{"2", "8 c/u", "4", "3 / tick", "15-40"},
+                    new String[]{"0.4s", "Charge", "8s", "12s", "300s"},
+                    new boolean[]{false, false, false, false, false});
         }
         if (item == ModItems.DOOMFIST_V2.get()) {
             return new AnalyzedInfo(name, "item.xeb.doomfist_v2", true, true,
-                    new String[]{"8", "8-15", "6", "0", ""},
-                    new String[]{"0.5s", "3s", "6s", "8s", ""},
+                    new String[]{"8", "8-15", "6", "0", "88.0"},
+                    new String[]{"0.5s", "3s", "6s", "8s", "400s"},
                     new boolean[]{false, false, false, false, false});
         }
         if (item == ModItems.DOOMFIST.get()) {
             return new AnalyzedInfo(name, "item.xeb.doomfist", true, true,
-                    new String[]{"10", "6-12", "5", "6", ""},
-                    new String[]{"0.5s", "3s", "5s", "6s", ""},
-                    new boolean[]{false, false, false, false, true});
+                    new String[]{"10", "6-12", "5", "6", "88.0"},
+                    new String[]{"0.5s", "3s", "5s", "6s", "400s"},
+                    new boolean[]{false, false, false, false, false});
         }
         if (item == ModItems.OPTIC_BLAST.get()) {
             return new AnalyzedInfo(name, "item.xeb.optic_blast", true, true,
-                    new String[]{"3", "5 / tick", "4", "6", ""},
-                    new String[]{"0.5s", "Energy", "10s", "8s", ""},
-                    new boolean[]{false, false, false, false, true});
+                    new String[]{"3", "5 / tick", "4", "6", "56.0"},
+                    new String[]{"0.5s", "Energy", "10s", "8s", "300s"},
+                    new boolean[]{false, false, false, false, false});
         }
         if (item == ModItems.HOLY_DUALITY_BLADE.get()) {
             return new AnalyzedInfo(name, "item.xeb.holy_duality_blade", true, true,
@@ -2022,6 +2031,30 @@ public class EnigmaBiosScreen extends Screen {
             return new AnalyzedInfo(name, "item.xeb.quantum_cat_barrage", true, false,
                     new String[]{"", "", "", "", "50.0"},
                     new String[]{"", "", "", "", "180s"},
+                    new boolean[]{true, true, true, true, false});
+        }
+        if (item == ModItems.METEOR_STRIKE.get()) {
+            return new AnalyzedInfo(name, "item.xeb.meteor_strike", true, false,
+                    new String[]{"", "", "", "", "88.0"},
+                    new String[]{"", "", "", "", "400s"},
+                    new boolean[]{true, true, true, true, false});
+        }
+        if (item == ModItems.FULL_APERTURE_SUPERNOVA.get()) {
+            return new AnalyzedInfo(name, "item.xeb.full_aperture_supernova", true, false,
+                    new String[]{"", "", "", "", "56.0"},
+                    new String[]{"", "", "", "", "300s"},
+                    new boolean[]{true, true, true, true, false});
+        }
+        if (item == ModItems.JUDGEMENT_CUT.get()) {
+            return new AnalyzedInfo(name, "item.xeb.judgement_cut", true, false,
+                    new String[]{"", "", "", "", "80.0"},
+                    new String[]{"", "", "", "", "300s"},
+                    new boolean[]{true, true, true, true, false});
+        }
+        if (item == ModItems.SOVEREIGN_ARSENAL.get()) {
+            return new AnalyzedInfo(name, "item.xeb.sovereign_arsenal", true, false,
+                    new String[]{"", "", "", "", "35.0"},
+                    new String[]{"", "", "", "", "300s"},
                     new boolean[]{true, true, true, true, false});
         }
 

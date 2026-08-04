@@ -218,14 +218,14 @@ public class ExtremeBurstRegistry {
                 60    // 3.0 s sequence duration
         ));
 
-        // ── Sovereign Arsenal — Universal, Instant (3.0s sequence) ───────────
+        // ── Sovereign Arsenal — Universal, Instant (4.5s sequence) ───────────
         register(new ExtremeBurstEntry(
                 ModItems.SOVEREIGN_ARSENAL.get(),
                 BurstType.UNIVERSAL,
                 BurstVersion.INSTANT,
                 null,
                 6000, // 300 s cooldown (5 min)
-                60    // 3.0 s sequence duration
+                90    // 4.5 s sequence duration (extended for 1.5s ground stick)
         ));
     }
 }

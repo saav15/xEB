@@ -11,6 +11,7 @@ import org.xeb.xeb.buff.EliteBuffRegistry;
 import org.xeb.xeb.medallion.MedallionData;
 import org.xeb.xeb.medallion.MedallionManager;
 import org.xeb.xeb.medallion.MedallionType;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -353,7 +354,7 @@ public class ClientPacketHandler {
         org.xeb.xeb.client.renderer.JudgementDomeRenderer.handleJudgementSync(playerId, active, anchor, totalTicks);
     }
 
-    public static void handleSovereignSync(int playerId, boolean active, Vec3 anchor, int totalTicks) {
-        org.xeb.xeb.client.renderer.SovereignArsenalRenderer.handleSovereignSync(playerId, active, anchor, totalTicks);
+    public static void handleSovereignSync(int playerId, boolean active, Vec3 anchor, int totalTicks, ItemStack castItem) {
+        org.xeb.xeb.client.renderer.SovereignArsenalRenderer.handleSovereignSync(playerId, active, anchor, totalTicks, castItem);
     }
 }
