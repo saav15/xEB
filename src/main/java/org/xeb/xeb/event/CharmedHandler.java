@@ -94,25 +94,48 @@ public class CharmedHandler {
                 if (ownerEntity instanceof LivingEntity owner && owner.isAlive()) {
                     // Find target enemy attacking owner
                     LivingEntity enemy = owner.getLastHurtByMob();
-                    if (enemy == null || !enemy.isAlive() || enemy == charmedPlayer) {
+                    if (enemy == null || !enemy.isAlive() || enemy == charmedPlayer || enemy == owner) {
                         enemy = owner.getLastHurtMob();
                     }
 
+                    if (enemy == null || !enemy.isAlive() || enemy == charmedPlayer || enemy == owner) {
+                        List<Mob> nearbyMobs = level.getEntitiesOfClass(Mob.class, owner.getBoundingBox().inflate(24.0D));
+                        for (Mob m : nearbyMobs) {
+                            if (m.isAlive() && (m.getTarget() == owner || m.getTarget() == charmedPlayer)) {
+                                enemy = m;
+                                break;
+                            }
+                        }
+                    }
+
                     if (enemy != null && enemy.isAlive() && enemy != charmedPlayer && enemy != owner) {
-                        // Auto-move player towards enemy
+                        charmedPlayer.getPersistentData().putInt("xebCharmedTargetId", enemy.getId());
+
                         Vec3 pPos = charmedPlayer.position();
                         Vec3 ePos = enemy.position();
                         Vec3 dir = ePos.subtract(pPos).normalize();
 
-                        if (pPos.distanceToSqr(ePos) > 2.5) {
-                            charmedPlayer.setDeltaMovement(dir.x * 0.28, charmedPlayer.getDeltaMovement().y, dir.z * 0.28);
+                        charmedPlayer.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, enemy.getEyePosition());
+
+                        if (pPos.distanceToSqr(ePos) > 3.0D) {
+                            charmedPlayer.setDeltaMovement(dir.x * 0.32D, charmedPlayer.getDeltaMovement().y, dir.z * 0.32D);
                             charmedPlayer.hasImpulse = true;
                         }
 
-                        // Auto-attack enemy when close (< 3.5 blocks)
-                        if (pPos.distanceToSqr(ePos) <= 12.25) {
+                        // Auto-attack enemy when close (< 4.0 blocks)
+                        if (pPos.distanceToSqr(ePos) <= 16.0D) {
                             charmedPlayer.attack(enemy);
                             charmedPlayer.swing(InteractionHand.MAIN_HAND, true);
+                        }
+                    } else {
+                        charmedPlayer.getPersistentData().remove("xebCharmedTargetId");
+                        // Bodyguard mode: follow owner when > 3.5 blocks away
+                        if (charmedPlayer.distanceToSqr(owner) > 12.25D) {
+                            Vec3 pPos = charmedPlayer.position();
+                            Vec3 oPos = owner.position();
+                            Vec3 dir = oPos.subtract(pPos).normalize();
+                            charmedPlayer.setDeltaMovement(dir.x * 0.28D, charmedPlayer.getDeltaMovement().y, dir.z * 0.28D);
+                            charmedPlayer.hasImpulse = true;
                         }
                     }
                 }
@@ -138,12 +161,23 @@ public class CharmedHandler {
 
                         // Target owner's enemies
                         LivingEntity enemy = owner.getLastHurtByMob();
-                        if (enemy == null || !enemy.isAlive() || enemy == mob) {
+                        if (enemy == null || !enemy.isAlive() || enemy == mob || enemy == owner) {
                             enemy = owner.getLastHurtMob();
+                        }
+
+                        if (enemy == null || !enemy.isAlive() || enemy == mob || enemy == owner) {
+                            List<Mob> nearbyMobs = level.getEntitiesOfClass(Mob.class, owner.getBoundingBox().inflate(24.0D));
+                            for (Mob m : nearbyMobs) {
+                                if (m.isAlive() && m != mob && (m.getTarget() == owner || m.getTarget() == mob)) {
+                                    enemy = m;
+                                    break;
+                                }
+                            }
                         }
 
                         if (enemy != null && enemy.isAlive() && enemy != mob && enemy != owner) {
                             mob.setTarget(enemy);
+                            mob.getNavigation().moveTo(enemy, 1.35D);
                         } else if (mob.getTarget() == null && mob.distanceToSqr(owner) > 25.0) {
                             mob.getNavigation().moveTo(owner, 1.25D);
                         }

@@ -104,7 +104,7 @@ public class PhantomAttackManager {
                 // Send strike packet to server at exactly tick 6 (visual impact point)
                 if (clone.attackTimer == 6) {
                     clone.hasStruck = true;
-                    XEBNetwork.CHANNEL.sendToServer(new GoldenFlowerDanceStrikePacket(clone.targetEntityId, 10.0F));
+                    XEBNetwork.CHANNEL.sendToServer(new GoldenFlowerDanceStrikePacket(clone.casterId, clone.targetEntityId, 10.0F));
                 }
             } else if (clone.state == PhantomClone.CloneState.RETURNING) {
                 clone.returnTimer++;

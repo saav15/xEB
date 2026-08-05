@@ -113,6 +113,14 @@ public class MobWeaponAIHandler {
             }
         }
 
+        // ── 0.5. DECLARATIVE MOB WEAPON CAPABILITY DISPATCH ───────────────
+        if (item instanceof org.xeb.xeb.item.capability.IMobWeaponCapability capability) {
+            if (capability.canMobUseWeapon(mob)) {
+                capability.tickMobAI(mob, target, level, gameTime, distSq);
+                return;
+            }
+        }
+
         // ── 1. GOLDEN FLOWER MOB AI ──────────────────────────────────────────
         if (item instanceof GoldenFlowerItem) {
             long cdPellets = mob.getPersistentData().getLong("xebMobCD_Pellets");
@@ -187,54 +195,7 @@ public class MobWeaponAIHandler {
             }
         }
 
-        // ── 2. DOOMFIST V1 & V2 MOB AI ───────────────────────────────────────
-        else if (item instanceof DoomfistItem || item instanceof DoomfistV2Item) {
-            long cdRocket = mob.getPersistentData().getLong("xebMobCD_RocketPunch");
-            long cdSlam = mob.getPersistentData().getLong("xebMobCD_Slam");
-            long cdHandCannon = mob.getPersistentData().getLong("xebMobCD_HandCannon");
 
-            // Activa 1: Seismic Slam (10s cd)
-            if (distSq >= 9.0D && distSq <= 225.0D && gameTime - cdSlam >= 200) {
-                mob.getPersistentData().putLong("xebMobCD_Slam", gameTime);
-                mob.getPersistentData().putInt("xebSlamState", 1);
-                mob.setDeltaMovement(0, 0.85D, 0);
-                mob.hurtMarked = true;
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(),
-                        SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 1.5F, 0.5F);
-                return;
-            }
-
-            // Click Derecho: Rocket Punch (5s cd)
-            if (distSq >= 4.0D && distSq <= 196.0D && gameTime - cdRocket >= 100) {
-                mob.getPersistentData().putLong("xebMobCD_RocketPunch", gameTime);
-                mob.getPersistentData().putBoolean("xebDoomfistDashing", true);
-                mob.getPersistentData().putBoolean("xebDoomfistFallProtect", true);
-                mob.getPersistentData().putInt("xebDoomfistDashTimer", 15);
-                mob.getPersistentData().putFloat("xebDoomfistChargeRatio", 1.0F);
-
-                Vec3 dir = target.position().subtract(mob.position()).normalize();
-                mob.setDeltaMovement(dir.x * 2.4D, 0.2D, dir.z * 2.4D);
-                mob.hurtMarked = true;
-
-                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
-                        new DoomfistDashPacket(mob.getId(), true, 1.0F));
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(),
-                        SoundEvents.FIRECHARGE_USE, SoundSource.HOSTILE, 1.2F, 0.6F);
-                return;
-            }
-
-            // Primary: Kinetic Hand Cannon Ranged Shot (2s cd)
-            if (distSq > 9.0D && distSq <= 144.0D && gameTime - cdHandCannon >= 40) {
-                mob.getPersistentData().putLong("xebMobCD_HandCannon", gameTime);
-                Vec3 dir = target.getEyePosition().subtract(mob.getEyePosition()).normalize();
-                target.hurt(level.damageSources().mobAttack(mob), 8.0F);
-                if (level instanceof ServerLevel serverLevel) {
-                    serverLevel.sendParticles(ParticleTypes.EXPLOSION, target.getX(), target.getY(0.5), target.getZ(), 2, 0.2, 0.2, 0.2, 0.0);
-                }
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(),
-                        SoundEvents.GENERIC_EXPLODE, SoundSource.HOSTILE, 0.8F, 1.4F);
-            }
-        }
 
         // ── 3. OPTIC BLAST WEAPON MOB AI (ENERGY RESOURCE & MULTI-ATTACK AI) ──
         else if (item instanceof OpticBlastItem) {
@@ -433,143 +394,8 @@ public class MobWeaponAIHandler {
             }
         }
 
-        // ── 6. MECHA OVERDRIVE MOB AI ───────────────────────────────────────
-        else if (item instanceof MechaOverdriveItem) {
-            long cdMechaSlam = mob.getPersistentData().getLong("xebMobCD_MechaSlam");
 
-            // Secondary: Overdrive Kinetic Impact (5s cd)
-            if (distSq <= 36.0D && gameTime - cdMechaSlam >= 100) {
-                mob.getPersistentData().putLong("xebMobCD_MechaSlam", gameTime);
-                XebExplosions.spawnExplosion(target.position(), 3.0F, 5.0F, 0, 229, 255, 20);
-                target.hurt(level.damageSources().mobAttack(mob), 16.0F);
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(),
-                        SoundEvents.GENERIC_EXPLODE, SoundSource.HOSTILE, 1.2F, 1.2F);
-            }
-        }
 
-        // ── 7. BROKEN DIAMOND MOB AI ────────────────────────────────────────
-        else if (item instanceof BrokenDiamondItem) {
-            long cdDora = mob.getPersistentData().getLong("xebMobCD_Dora");
-            long cdTrap = mob.getPersistentData().getLong("xebMobCD_RockTrap");
-
-            // Activa 1: Rock Burial Trap (8s cd)
-            if (distSq <= 144.0D && gameTime - cdTrap >= 160) {
-                mob.getPersistentData().putLong("xebMobCD_RockTrap", gameTime);
-                level.setBlockAndUpdate(target.blockPosition(), Blocks.STONE.defaultBlockState());
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 5));
-                level.playSound(null, target.getX(), target.getY(), target.getZ(),
-                        SoundEvents.STONE_BREAK, SoundSource.HOSTILE, 1.2F, 0.8F);
-                return;
-            }
-
-            // Primary: Rapid DORA Barrage (3s cd)
-            if (distSq <= 16.0D && gameTime - cdDora >= 60) {
-                mob.getPersistentData().putLong("xebMobCD_Dora", gameTime);
-                target.hurt(level.damageSources().mobAttack(mob), 15.0F);
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(),
-                        SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.HOSTILE, 1.5F, 1.8F);
-            }
-        }
-
-        // ── 8. THE TEARS MOB AI (CHARGE PHASE, BRIMSTONE & EXPLOSIVE TEARS) ──
-        else if (item instanceof TheTearsItem) {
-            long cdBrimstone = mob.getPersistentData().getLong("xebMobCD_Brimstone");
-            long cdTears     = mob.getPersistentData().getLong("xebMobCD_Tears");
-            long cdShadow    = mob.getPersistentData().getLong("xebMobCD_Shadow");
-
-            // Tick active Brimstone charge-up phase (1.0s / 20 ticks)
-            int chargeTicks = mob.getPersistentData().getInt("xebMobBrimstoneCharge");
-            if (chargeTicks > 0) {
-                mob.getPersistentData().putInt("xebMobBrimstoneCharge", chargeTicks - 1);
-                if (level instanceof ServerLevel serverLevel) {
-                    Vec3 eye = mob.getEyePosition();
-                    serverLevel.sendParticles(ParticleTypes.CRIT, eye.x, eye.y, eye.z, 5, 0.2D, 0.2D, 0.2D, 0.1D);
-                }
-                if (chargeTicks - 1 <= 0) {
-                    // Charge complete! Unleash Brimstone beam for 40 ticks (2.0s)
-                    mob.getPersistentData().putInt("xebMobBrimstoneTicks", 40);
-                    level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.WITHER_SHOOT, SoundSource.HOSTILE, 1.2F, 0.5F);
-                }
-                return;
-            }
-
-            // Tick active Brimstone beam (40 ticks / 2.0s)
-            int brimstoneTicks = mob.getPersistentData().getInt("xebMobBrimstoneTicks");
-            if (brimstoneTicks > 0) {
-                if (org.xeb.xeb.beamstruggle.BeamStruggleManager.isInActiveStruggle(mob.getUUID())) {
-                    brimstoneTicks = Math.max(brimstoneTicks, 20);
-                } else {
-                    brimstoneTicks--;
-                }
-                mob.getPersistentData().putInt("xebMobBrimstoneTicks", brimstoneTicks);
-                Vec3 eyePos  = mob.getEyePosition(1.0F);
-                Vec3 lookDir = mob.getLookAngle();
-                Vec3 beamEnd = eyePos.add(lookDir.scale(40.0D));
-
-                Vec3 struggleCol = org.xeb.xeb.beamstruggle.BeamStruggleManager.getCollisionPointFor(mob.getUUID());
-                Vec3 effectiveEnd;
-                if (struggleCol != null) {
-                    effectiveEnd = struggleCol;
-                } else {
-                    BlockHitResult blockHit = level.clip(new ClipContext(eyePos, beamEnd, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mob));
-                    effectiveEnd = blockHit.getType() != HitResult.Type.MISS ? blockHit.getLocation() : beamEnd;
-                }
-
-                List<Vec3> points = List.of(eyePos, effectiveEnd);
-
-                // Register in ActiveBeamManager for Beam Struggle collision
-                org.xeb.xeb.opticblast.ActiveBeamManager.get().putBeam(mob.getUUID(),
-                        new org.xeb.xeb.opticblast.BeamData(mob.getUUID(), mob.getId(), eyePos, effectiveEnd, 0xFFCC0000, gameTime, gameTime + 2L, "brimstone"));
-
-                // Send Brimstone beam packet to clients
-                XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
-                        new BrimstoneBeamPacket(mob.getId(), true, org.xeb.xeb.entity.TearsProjectileEntity.IMBUE_NONE, points, 1.2F));
-
-                if (brimstoneTicks % 4 == 0) {
-                    AABB box = new AABB(eyePos, effectiveEnd).inflate(0.6D);
-                    List<LivingEntity> hitEntities = level.getEntitiesOfClass(LivingEntity.class, box, e -> e != mob && e.isAlive() && !e.isSpectator());
-                    for (LivingEntity e : hitEntities) {
-                        e.hurt(level.damageSources().mobAttack(mob), 5.0F);
-                    }
-                }
-
-                if (brimstoneTicks - 1 <= 0) {
-                    org.xeb.xeb.opticblast.ActiveBeamManager.get().removeBeam(mob.getUUID());
-                    XEBNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> mob),
-                            new BrimstoneBeamPacket(mob.getId(), false, org.xeb.xeb.entity.TearsProjectileEntity.IMBUE_NONE, Collections.emptyList()));
-                }
-                return;
-            }
-
-            // ── AI Action Decision for The Tears ─────────────────────────────
-            // 1. Activa 2: Shadow Invisibility if HP < 50%
-            if (mob.getHealth() < mob.getMaxHealth() * 0.5F && gameTime - cdShadow >= 240) {
-                mob.getPersistentData().putLong("xebMobCD_Shadow", gameTime);
-                mob.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 80, 0, false, false));
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.WITCH_DRINK, SoundSource.HOSTILE, 1.0F, 1.2F);
-                return;
-            }
-
-            // 2. Secondary: 40-Block Brimstone Laser Beam (1.0s charge phase)
-            if (distSq <= 625.0D && gameTime - cdBrimstone >= 200) {
-                mob.getPersistentData().putLong("xebMobCD_Brimstone", gameTime);
-                mob.getPersistentData().putInt("xebMobBrimstoneCharge", 20); // 1.0s charge
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 1.0F, 1.8F);
-                return;
-            }
-
-            // 3. Primary: Explosive Tear Projectiles (1.5s cd)
-            if (distSq <= 400.0D && gameTime - cdTears >= 30) {
-                mob.getPersistentData().putLong("xebMobCD_Tears", gameTime);
-                Vec3 eyePos = mob.getEyePosition(1.0F);
-                Vec3 look = target.getEyePosition().subtract(eyePos).normalize();
-                org.xeb.xeb.entity.TearsProjectileEntity tear = new org.xeb.xeb.entity.TearsProjectileEntity(level, mob, org.xeb.xeb.entity.TearsProjectileEntity.IMBUE_NONE, false);
-                tear.setPos(eyePos.x, eyePos.y - 0.1D, eyePos.z);
-                tear.shoot(look.x, look.y, look.z, 1.8F, 1.0F);
-                level.addFreshEntity(tear);
-                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.GENERIC_SPLASH, SoundSource.HOSTILE, 1.2F, 1.5F);
-            }
-        }
     }
 
     private static boolean isXebWeapon(Item item) {

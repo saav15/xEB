@@ -37,6 +37,9 @@ public class BuffTickHandler {
         LivingEntity entity = event.getEntity();
         if (entity.level().isClientSide()) return;
 
+        // Tick active Ability State Machines
+        org.xeb.xeb.ability.AbilityManager.tickAll(entity);
+
         // Decrement Decoherence ticks
         net.minecraft.nbt.CompoundTag entityData = entity.getPersistentData();
 

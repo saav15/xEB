@@ -84,8 +84,8 @@ public class ActuarKeyPacket {
                     if (player.getPersistentData().getInt("xebMeteorStrikeState") == 2) {
                         boolean mode = player.getPersistentData().getBoolean("xebMeteorStrikeOverheadMode");
                         player.getPersistentData().putBoolean("xebMeteorStrikeOverheadMode", !mode);
+                        return;
                     }
-                    return;
                 }
 
                 if (msg.button == 3 && msg.press) {

@@ -24,6 +24,11 @@ public class MedallionEssenceItem extends Item {
         return buffId;
     }
 
+    private static final java.util.Set<String> GROUP_A = java.util.Set.of(
+            "absorbent", "damaging", "flaming", "sandy", "infested", "shielded",
+            "tough", "speedy", "spiky", "reactive", "plow", "hardy"
+    );
+
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         EliteBuff buff = EliteBuffRegistry.getById(buffId);
@@ -32,22 +37,28 @@ public class MedallionEssenceItem extends Item {
                     .withStyle(net.minecraft.ChatFormatting.GRAY));
         }
 
-        String tierName = stack.hasTag() ? stack.getTag().getString("MedallionTier") : "COMMON";
-        MedallionType tier;
-        try {
-            tier = MedallionType.valueOf(tierName);
-        } catch (IllegalArgumentException e) {
-            tier = MedallionType.COMMON;
+        if (GROUP_A.contains(buffId)) {
+            String tierName = stack.hasTag() ? stack.getTag().getString("MedallionTier") : "COMMON";
+            MedallionType tier;
+            try {
+                tier = MedallionType.valueOf(tierName);
+            } catch (IllegalArgumentException e) {
+                tier = MedallionType.COMMON;
+            }
+
+            int levelNum = switch (tier) {
+                case COMMON -> 1;
+                case RARE -> 2;
+                case LEGENDARY -> 3;
+            };
+
+            tooltip.add(Component.translatable("item.xeb.essence.tier", levelNum)
+                    .withStyle(net.minecraft.ChatFormatting.GOLD));
+        } else {
+            tooltip.add(Component.translatable("item.xeb.essence.unique_tier")
+                    .withStyle(net.minecraft.ChatFormatting.GOLD));
         }
 
-        int levelNum = switch (tier) {
-            case COMMON -> 1;
-            case RARE -> 2;
-            case LEGENDARY -> 3;
-        };
-
-        tooltip.add(Component.translatable("item.xeb.essence.tier", levelNum)
-                .withStyle(net.minecraft.ChatFormatting.GOLD));
         tooltip.add(Component.translatable("item.xeb.essence." + buffId + ".desc")
                 .withStyle(net.minecraft.ChatFormatting.AQUA));
 

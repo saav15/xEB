@@ -35,6 +35,8 @@ import org.xeb.xeb.network.TearsSyncPacket;
 import org.xeb.xeb.network.XEBNetwork;
 import org.xeb.xeb.opticblast.ActiveBeamManager;
 import org.xeb.xeb.opticblast.BeamData;
+import net.minecraft.world.entity.Mob;
+import org.xeb.xeb.item.capability.IMobWeaponCapability;
 import software.bernie.geckolib.animatable.GeoItem;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
@@ -45,7 +47,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import java.util.*;
 import java.util.function.Consumer;
 
-public class TheTearsItem extends Item implements GeoItem {
+public class TheTearsItem extends Item implements GeoItem, IMobWeaponCapability {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
     @Override
@@ -133,11 +135,11 @@ public class TheTearsItem extends Item implements GeoItem {
         });
     }
 
-    public static void triggerAbilityAnim(Player player) {
+    public static void triggerAbilityAnim(LivingEntity entity) {
         String[] anims = {"rolly", "rollx", "rollz"};
-        String selected = anims[player.getRandom().nextInt(anims.length)];
-        player.getPersistentData().putInt("xebTearsAbilityAnimTicks", 25);
-        player.getPersistentData().putString("xebTearsAbilityAnimName", selected);
+        String selected = anims[entity.getRandom().nextInt(anims.length)];
+        entity.getPersistentData().putInt("xebTearsAbilityAnimTicks", 25);
+        entity.getPersistentData().putString("xebTearsAbilityAnimName", selected);
     }
 
     @Override
@@ -377,7 +379,7 @@ public class TheTearsItem extends Item implements GeoItem {
         level.playSound(null, player, SoundEvents.BUBBLE_COLUMN_BUBBLE_POP, SoundSource.PLAYERS, 0.8F, 1.2F);
     }
 
-    private void tickBrimstoneLaser(Player player, Level level, long currentTick) {
+    private void tickBrimstoneLaser(LivingEntity player, Level level, long currentTick) {
         UUID playerUUID = player.getUUID();
         ItemStack stack = player.getMainHandItem().is(this) ? player.getMainHandItem() : player.getOffhandItem();
         int imbue = stack.getOrCreateTag().getInt("xebTearsImbueType");
@@ -489,7 +491,7 @@ public class TheTearsItem extends Item implements GeoItem {
                 boolean isBack = isBackstab(player, target);
                 if (isBack) {
                     baseDmg *= 1.05F;
-                    playBackstabSound(player, target, currentTick);
+                    if (player instanceof Player p) playBackstabSound(p, target, currentTick);
                 }
 
                 boolean isBlocked = target.isBlocking();
@@ -535,7 +537,11 @@ public class TheTearsItem extends Item implements GeoItem {
                 target.getPersistentData().putString("xebLastAttackWeapon", "the_tears");
                 target.getPersistentData().putString("xebLastAttackType", "right_click");
                 target.getPersistentData().putLong("xebLastAttackTime", player.level().getGameTime());
-                target.hurt(player.damageSources().playerAttack(player), baseDmg);
+                if (player instanceof Player p) {
+                    target.hurt(p.damageSources().playerAttack(p), baseDmg);
+                } else {
+                    target.hurt(level.damageSources().mobAttack(player), baseDmg);
+                }
 
                 if (imbue == TearsProjectileEntity.IMBUE_WHITE) {
                     if (player.getRandom().nextFloat() <= 0.08F) {
@@ -680,5 +686,85 @@ public class TheTearsItem extends Item implements GeoItem {
         tooltip.add(Component.translatable("item.xeb.the_tears.activa2", Component.keybind("key.xeb.activa_2")));
         tooltip.add(Component.translatable("item.xeb.the_tears.lore"));
         super.appendHoverText(stack, level, tooltip, flag);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IMobWeaponCapability IMPLEMENTATION (MOB AI LOGIC FOR THE TEARS)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    @Override
+    public double getPreferredAttackDistance(Mob mob) {
+        return 24.0D;
+    }
+
+    @Override
+    public void tickMobAI(Mob mob, LivingEntity target, Level level, long gameTime, double distSq) {
+        if (level.isClientSide()) return;
+
+        CompoundTag tag = mob.getPersistentData();
+
+        // 1. Pasiva: Heal 2.0 health every 60 seconds (1200 ticks)
+        long lastHeal = tag.getLong("xebMobTearsLastHeal");
+        if (gameTime - lastHeal >= 1200L) {
+            mob.heal(2.0F);
+            tag.putLong("xebMobTearsLastHeal", gameTime);
+            if (level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(ParticleTypes.HEART, mob.getX(), mob.getY() + 1.2D, mob.getZ(), 2, 0.2D, 0.2D, 0.2D, 0.0D);
+            }
+        }
+
+        // 2. Tick active Brimstone Mega-Beam channeling for mob
+        int brimstoneTicks = tag.getInt("xebMobBrimstoneTicks");
+        if (brimstoneTicks > 0) {
+            tag.putInt("xebMobBrimstoneTicks", brimstoneTicks - 1);
+            tickBrimstoneLaser(mob, level, gameTime);
+            return;
+        }
+
+        long cdTear      = tag.getLong("xebMobCD_TearsShot");
+        long cdBrimstone = tag.getLong("xebMobCD_Brimstone");
+        long cdInvis     = tag.getLong("xebMobCD_TearsInvis");
+
+        // ── A. Activa 2: Invisibilidad & Ráfaga de Cobertura en Abanico (18s CD) ──
+        if (gameTime - cdInvis >= 360) {
+            tag.putLong("xebMobCD_TearsInvis", gameTime);
+            mob.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 200, 0)); // 10s invis
+            tag.putInt("xebTearsBurstCount", 6);
+            tag.putInt("xebTearsBurstTimer", 0);
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.BAT_TAKEOFF, SoundSource.HOSTILE, 1.0F, 1.5F);
+            triggerAbilityAnim(mob);
+            return;
+        }
+
+        // ── B. Long Range (12 - 32 blocks): Brimstone Mega-Beam Channeling (10s CD) ──
+        if (distSq >= 144.0D && distSq <= 1024.0D && gameTime - cdBrimstone >= 200) {
+            tag.putLong("xebMobCD_Brimstone", gameTime);
+            tag.putInt("xebMobBrimstoneTicks", 40); // 2 seconds channel
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 1.2F, 1.8F);
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.WITHER_SHOOT, SoundSource.HOSTILE, 1.0F, 0.6F);
+            triggerAbilityAnim(mob);
+            return;
+        }
+
+        // ── C. Ranged (4 - 24 blocks): Alternating Elemental Tear Shots (0.75s CD) ──
+        if (distSq <= 576.0D && gameTime - cdTear >= 15) {
+            tag.putLong("xebMobCD_TearsShot", gameTime);
+
+            boolean leftEye = tag.getBoolean("xebTearsLeftEye");
+            tag.putBoolean("xebTearsLeftEye", !leftEye);
+
+            Vec3 eyePos = mob.getEyePosition(1.0F);
+            Vec3 lookVec = target.getEyePosition().subtract(eyePos).normalize();
+            Vec3 rightVec = lookVec.cross(new Vec3(0, 1, 0)).normalize();
+            Vec3 spawnPos = eyePos.add(rightVec.scale(leftEye ? -0.3D : 0.3D));
+
+            int imbue = 1 + level.random.nextInt(4); // 1=Purple 2=White 3=Dark 4=Cold
+            TearsProjectileEntity tear = new TearsProjectileEntity(level, mob, imbue, false);
+            tear.moveTo(spawnPos.x, spawnPos.y, spawnPos.z, mob.getYRot(), mob.getXRot());
+            tear.setDeltaMovement(lookVec.scale(1.5D));
+            level.addFreshEntity(tear);
+
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.BUBBLE_COLUMN_BUBBLE_POP, SoundSource.HOSTILE, 0.8F, 1.2F);
+        }
     }
 }

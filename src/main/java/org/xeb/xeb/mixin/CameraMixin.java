@@ -27,7 +27,14 @@ public class CameraMixin {
             this.position = newPos;
             this.xRot = newPitch;
             this.yRot = newYaw;
-            this.detached = true; // Forzar cámara desatada (tercera persona) para que Minecraft renderice el modelo del jugador local en 3D
+            this.detached = true; // Forzar cámara desatada para renderizar jugador local
+        });
+
+        org.xeb.xeb.client.MeteorStrikeClientHandler.overrideCamera((Camera) (Object) this, position, xRot, yRot, partialTicks, (newPos, newPitch, newYaw) -> {
+            this.position = newPos;
+            this.xRot = newPitch;
+            this.yRot = newYaw;
+            this.detached = true;
         });
     }
 }

@@ -297,6 +297,16 @@ public class PlayerBotStateMachine {
             java.util.UUID ownerUUID = player.getPersistentData().contains("xebCharmedOwner") ? 
                     player.getPersistentData().getUUID("xebCharmedOwner") : null;
             if (ownerUUID != null) {
+                // Check if server synced target ID
+                if (player.getPersistentData().contains("xebCharmedTargetId")) {
+                    int tid = player.getPersistentData().getInt("xebCharmedTargetId");
+                    net.minecraft.world.entity.Entity te = player.level().getEntity(tid);
+                    if (te instanceof LivingEntity le && le.isAlive() && le != player && !le.getUUID().equals(ownerUUID)) {
+                        currentTarget = le;
+                        return;
+                    }
+                }
+
                 java.util.List<LivingEntity> nearby = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(32.0));
                 LivingEntity owner = null;
                 for (LivingEntity e : nearby) {
@@ -310,8 +320,29 @@ public class PlayerBotStateMachine {
                     if (enemy == null || !enemy.isAlive() || enemy == player || enemy == owner) {
                         enemy = owner.getLastHurtMob();
                     }
+                    if (enemy == null || !enemy.isAlive() || enemy == player || enemy == owner) {
+                        for (LivingEntity e : nearby) {
+                            if (e != player && e != owner && e.isAlive()) {
+                                if (e instanceof net.minecraft.world.entity.Mob mob) {
+                                    if (mob.getTarget() == owner || mob.getTarget() == player) {
+                                        enemy = mob;
+                                        break;
+                                    }
+                                }
+                                if (e instanceof net.minecraft.world.entity.monster.Monster && e.distanceToSqr(owner) <= 256.0D) {
+                                    enemy = e;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     if (enemy != null && enemy.isAlive() && enemy != player && enemy != owner) {
                         currentTarget = enemy;
+                        return;
+                    }
+                    // Bodyguard mode: follow owner when no active enemy is nearby
+                    if (player.distanceToSqr(owner) > 9.0D) {
+                        currentTarget = owner;
                         return;
                     }
                 }

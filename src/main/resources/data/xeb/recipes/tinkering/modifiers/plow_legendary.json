@@ -1,0 +1,23 @@
+{
+  "type": "tconstruct:modifier",
+  "inputs": [
+    {
+      "type": "forge:nbt",
+      "item": "xeb:plow_essence",
+      "nbt": {
+        "MedallionTier": "LEGENDARY"
+      }
+    }
+  ],
+  "tools": {
+    "tag": "tconstruct:modifiable"
+  },
+  "result": {
+    "name": "xeb:plow",
+    "level": 3
+  },
+  "max_level": 3,
+  "slots": {
+    "upgrades": 1
+  }
+}

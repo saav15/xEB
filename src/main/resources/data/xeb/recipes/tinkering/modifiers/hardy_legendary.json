@@ -1,0 +1,23 @@
+{
+  "type": "tconstruct:modifier",
+  "inputs": [
+    {
+      "type": "forge:nbt",
+      "item": "xeb:hardy_essence",
+      "nbt": {
+        "MedallionTier": "LEGENDARY"
+      }
+    }
+  ],
+  "tools": {
+    "tag": "tconstruct:modifiable"
+  },
+  "result": {
+    "name": "xeb:hardy",
+    "level": 3
+  },
+  "max_level": 3,
+  "slots": {
+    "upgrades": 1
+  }
+}

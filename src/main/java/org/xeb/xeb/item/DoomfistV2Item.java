@@ -12,9 +12,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.phys.AABB;
 import org.xeb.xeb.effect.ModEffects;
+import net.minecraft.world.entity.Mob;
+import org.xeb.xeb.item.capability.IMobWeaponCapability;
 
-public class DoomfistV2Item extends Item implements software.bernie.geckolib.animatable.GeoItem {
+public class DoomfistV2Item extends Item implements software.bernie.geckolib.animatable.GeoItem, IMobWeaponCapability {
     private final software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache cache = software.bernie.geckolib.util.GeckoLibUtil.createInstanceCache(this);
 
     public DoomfistV2Item(Properties properties) {
@@ -195,6 +202,154 @@ public class DoomfistV2Item extends Item implements software.bernie.geckolib.ani
             Vec3 motion = new Vec3(look.x * speed + bonusX, look.y * speed * 0.5D + 0.2D, look.z * speed + bonusZ);
             player.setDeltaMovement(motion);
             player.hurtMarked = true;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IMobWeaponCapability IMPLEMENTATION (MOB AI LOGIC FOR DOOMFIST V2)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    @Override
+    public double getPreferredAttackDistance(Mob mob) {
+        return 16.0D;
+    }
+
+    @Override
+    public void tickMobAI(Mob mob, LivingEntity target, Level level, long gameTime, double distSq) {
+        if (level.isClientSide()) return;
+
+        CompoundTag tag = mob.getPersistentData();
+
+        // 1. Tick active Power Block for mob
+        int blockTimer = tag.getInt("xebBlockTimer");
+        if (tag.getBoolean("xebPowerBlocking")) {
+            blockTimer++;
+            tag.putInt("xebBlockTimer", blockTimer);
+            if (blockTimer >= 50) { // 2.5 seconds max duration
+                tag.remove("xebPowerBlocking");
+                tag.remove("xebBlockTimer");
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.PISTON_CONTRACT, SoundSource.HOSTILE, 1.0F, 1.2F);
+            } else {
+                // Defensive resistance & particles
+                mob.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 5, 3, false, false));
+                if (gameTime % 3 == 0 && level instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, mob.getX(), mob.getY() + 1.0D, mob.getZ(), 4, 0.4D, 0.4D, 0.4D, 0.05D);
+                }
+            }
+        }
+
+        // 2. Tick active Earthquake Slam v2 shockwave propagation for mob
+        if (tag.contains("xebSlam2ShockwaveStep")) {
+            int step = tag.getInt("xebSlam2ShockwaveStep");
+            double lx = tag.getDouble("xebSlam2ShockwaveLookX");
+            double lz = tag.getDouble("xebSlam2ShockwaveLookZ");
+
+            Vec3 horizLook = new Vec3(lx, 0.0D, lz).normalize();
+            Vec3 pos = mob.position();
+
+            double dist = step * 1.0D;
+            Vec3 center = pos.add(horizLook.scale(dist));
+            Vec3 perp = new Vec3(-horizLook.z, 0.0D, horizLook.x).normalize();
+
+            double width = step * 0.6D;
+            for (double offset = -width; offset <= width; offset += 0.4D) {
+                Vec3 point = center.add(perp.scale(offset));
+                DustParticleOptions redDust = new DustParticleOptions(new org.joml.Vector3f(1.0F, 0.1F, 0.1F), 1.2F);
+                if (level instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(redDust, point.x, point.y + 0.1D, point.z, 1, 0.05D, 0.05D, 0.05D, 0.0D);
+                    if (mob.getRandom().nextFloat() < 0.3F) {
+                        serverLevel.sendParticles(ParticleTypes.FLAME, point.x, point.y + 0.1D, point.z, 1, 0.05D, 0.05D, 0.05D, 0.0D);
+                    }
+                }
+            }
+
+            if (step < 7) {
+                tag.putInt("xebSlam2ShockwaveStep", step + 1);
+            } else {
+                tag.remove("xebSlam2ShockwaveStep");
+                tag.remove("xebSlam2ShockwaveLookX");
+                tag.remove("xebSlam2ShockwaveLookZ");
+            }
+        }
+
+        long cdRocket     = tag.getLong("xebMobCD_RocketPunch");
+        long cdSlam2      = tag.getLong("xebMobCD_Slam2");
+        long cdPowerBlock = tag.getLong("xebMobCD_PowerBlock");
+        long cdHandCannon = tag.getLong("xebMobCD_HandCannon");
+
+        // ── A. Activa 2: Power Block (Adopta postura defensiva si su vida baja de 70% o si recibe daño a distancia) (7s CD) ──
+        if (mob.getHealth() / mob.getMaxHealth() < 0.70F && gameTime - cdPowerBlock >= 140 && !tag.getBoolean("xebPowerBlocking")) {
+            tag.putLong("xebMobCD_PowerBlock", gameTime);
+            tag.putBoolean("xebPowerBlocking", true);
+            tag.putInt("xebBlockTimer", 0);
+            tag.putBoolean("xebUltraCharged", true); // Grants Ultra Charge!
+
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 1.0F, 1.5F);
+            return;
+        }
+
+        // ── B. Activa 1: Earthquake Slam v2 con Onda Expansiva de 7 Bloques & Bunny Hop (8s CD) ──
+        if (distSq >= 16.0D && distSq <= 256.0D && gameTime - cdSlam2 >= 160) {
+            tag.putLong("xebMobCD_Slam2", gameTime);
+
+            Vec3 dir = target.position().subtract(mob.position()).normalize();
+            mob.setDeltaMovement(dir.x * 1.6D, 0.8D, dir.z * 1.6D);
+            mob.hurtMarked = true;
+
+            // Start propagating shockwave
+            tag.putInt("xebSlam2ShockwaveStep", 1);
+            tag.putDouble("xebSlam2ShockwaveLookX", dir.x);
+            tag.putDouble("xebSlam2ShockwaveLookZ", dir.z);
+
+            // Deal Earthquake impact damage in 3.5 blocks radius
+            AABB area = target.getBoundingBox().inflate(3.5D);
+            for (LivingEntity nearby : level.getEntitiesOfClass(LivingEntity.class, area, e -> e != mob && e.isAlive() && !e.isAlliedTo(mob))) {
+                nearby.hurt(level.damageSources().mobAttack(mob), 14.0F);
+                nearby.setDeltaMovement(nearby.getDeltaMovement().x, 0.6D, nearby.getDeltaMovement().z);
+                nearby.hurtMarked = true;
+            }
+
+            // Bunny Hop boost immediately after landing
+            Vec3 hop = new Vec3(dir.x * 1.2D, 0.45D, dir.z * 1.2D);
+            mob.setDeltaMovement(hop);
+
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.HOSTILE, 1.2F, 1.2F);
+            return;
+        }
+
+        // ── C. Click Derecho: Empowered Rocket Punch (si tiene Ultra Charge) o Rocket Punch Normal (5s CD) ──
+        if (distSq >= 4.0D && distSq <= 196.0D && gameTime - cdRocket >= 100) {
+            tag.putLong("xebMobCD_RocketPunch", gameTime);
+
+            boolean isUltra = tag.getBoolean("xebUltraCharged");
+            if (isUltra) tag.remove("xebUltraCharged");
+
+            double speed = isUltra ? 3.0D : 2.4D;
+            Vec3 dir = target.position().subtract(mob.position()).normalize();
+            mob.setDeltaMovement(dir.x * speed, 0.2D, dir.z * speed);
+            mob.hurtMarked = true;
+
+            float damage = isUltra ? 24.0F : 12.0F; // +100% damage if Ultra Charged!
+            target.hurt(level.damageSources().mobAttack(mob), damage);
+            target.setDeltaMovement(dir.x * 2.2D, 0.4D, dir.z * 2.2D);
+            target.hurtMarked = true;
+
+            if (isUltra && level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(ParticleTypes.EXPLOSION_EMITTER, target.getX(), target.getY() + 0.5D, target.getZ(), 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            }
+
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.FIRECHARGE_USE, SoundSource.HOSTILE, 1.2F, 0.6F);
+            return;
+        }
+
+        // ── D. Ranged (3 - 12 blocks): Kinetic Hand Cannon Shot (2s CD) ──
+        if (distSq > 9.0D && distSq <= 144.0D && gameTime - cdHandCannon >= 40) {
+            tag.putLong("xebMobCD_HandCannon", gameTime);
+            target.hurt(level.damageSources().mobAttack(mob), 8.0F);
+            if (level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(ParticleTypes.EXPLOSION, target.getX(), target.getY(0.5D), target.getZ(), 2, 0.2D, 0.2D, 0.2D, 0.0D);
+            }
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.HOSTILE, 0.8F, 1.4F);
         }
     }
 }

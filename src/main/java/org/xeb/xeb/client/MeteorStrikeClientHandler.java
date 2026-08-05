@@ -175,12 +175,6 @@ public class MeteorStrikeClientHandler {
                 double safeCamY = Math.min(clientTargetY + 14.0D, ceilY - 0.6D);
                 safeCamY = Math.max(clientTargetY + 2.5D, safeCamY);
 
-                if (state == 2) {
-                    mc.player.setPos(clientTargetX, safeCamY, clientTargetZ);
-                    mc.player.setDeltaMovement(0, 0, 0);
-                    mc.player.fallDistance = 0.0F;
-                }
-
                 if (data != null) {
                     data.tx = clientTargetX;
                     data.ty = clientTargetY;
@@ -193,7 +187,7 @@ public class MeteorStrikeClientHandler {
 
                 org.xeb.xeb.network.XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.MeteorStrikeMovePacket(clientTargetX, clientTargetY, clientTargetZ));
             } else {
-                // ── MODO 1: CONTROL POR RATÓN (POSICIONAR AL JUGADOR EN ORIGEN TERRESTRE A 12M) ──
+                // ── MODO 1: CONTROL POR RATÓN ──
                 int launchCeilY = (int) Math.floor(startY + 1.0D);
                 while (launchCeilY < mc.level.getMaxBuildHeight() - 1 && launchCeilY < (int) Math.floor(startY + 14.0D)) {
                     net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos((int) Math.floor(startX), launchCeilY, (int) Math.floor(startZ));
@@ -205,11 +199,6 @@ public class MeteorStrikeClientHandler {
 
                 double safeOriginCamY = Math.min(startY + 14.0D, launchCeilY - 0.6D);
                 safeOriginCamY = Math.max(startY + 2.5D, safeOriginCamY);
-
-                if (state == 2) {
-                    mc.player.setPos(startX, safeOriginCamY, startZ);
-                    mc.player.setDeltaMovement(0, 0, 0);
-                }
 
                 Vec3 launchEye = new Vec3(startX, safeOriginCamY, startZ);
                 Vec3 lookVec = mc.player.getLookAngle();
@@ -361,20 +350,57 @@ public class MeteorStrikeClientHandler {
     }
 
 
-    // ── 1. CÁMARAS DUALES DE METEOR STRIKE (ACTIVA DESDE EL DESPEGUE EN ESTADO 1) ─────────
-    @SubscribeEvent
-    public static void onComputeCameraAngles(ViewportEvent.ComputeCameraAngles event) {
+    // ── 1. CÁMARAS DUALES DE METEOR STRIKE (INJECTADAS VÍA MIXIN CAMERA) ─────────
+    public static void overrideCamera(net.minecraft.client.Camera camera, Vec3 currentPos, float currentPitch, float currentYaw, float partialTicks, BeamStruggleCameraHandler.CameraSetter setter) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) return;
 
         int state = mc.player.getPersistentData().getInt("xebMeteorStrikeState");
-        if (state == 1 || state == 2) { // Active camera during flight launch and targeting phase
+        if (state == 1 || state == 2) {
+            double startX = mc.player.getPersistentData().getDouble("xebMeteorStrikeStartX");
+            double startY = mc.player.getPersistentData().getDouble("xebMeteorStrikeStartY");
+            double startZ = mc.player.getPersistentData().getDouble("xebMeteorStrikeStartZ");
+
+            if (startX == 0.0 && startZ == 0.0) {
+                startX = mc.player.getX();
+                startY = mc.player.getY();
+                startZ = mc.player.getZ();
+            }
+
             if (zoomWide) {
-                // MODO 2 WASD: Vista cenital aérea inclinada (85° pitch) anclada al telegraph
-                event.setPitch(85.0F);
-                event.setYaw(mc.player.getYRot());
+                // MODO 2 WASD: Posición de cámara flotante libremente sobre el retículo de objetivo
+                int bx = (int) Math.floor(clientTargetX);
+                int bz = (int) Math.floor(clientTargetZ);
+                int ceilY = (int) Math.floor(clientTargetY + 1.0D);
+                while (ceilY < mc.level.getMaxBuildHeight() - 1 && ceilY < (int) Math.floor(clientTargetY + 14.0D)) {
+                    net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(bx, ceilY, bz);
+                    if (!mc.level.getBlockState(pos).getCollisionShape(mc.level, pos).isEmpty()) {
+                        break;
+                    }
+                    ceilY++;
+                }
+
+                double safeCamY = Math.min(clientTargetY + 14.0D, ceilY - 0.6D);
+                safeCamY = Math.max(clientTargetY + 2.5D, safeCamY);
+
+                Vec3 targetCamPos = new Vec3(clientTargetX, safeCamY, clientTargetZ);
+                setter.set(targetCamPos, 85.0F, mc.player.getYRot());
             } else {
-                // MODO 1 RATÓN: Vista aérea desde el origen
+                // MODO 1 RATÓN: Vista desde el origen de despegue elevado
+                int launchCeilY = (int) Math.floor(startY + 1.0D);
+                while (launchCeilY < mc.level.getMaxBuildHeight() - 1 && launchCeilY < (int) Math.floor(startY + 14.0D)) {
+                    net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos((int) Math.floor(startX), launchCeilY, (int) Math.floor(startZ));
+                    if (!mc.level.getBlockState(pos).getCollisionShape(mc.level, pos).isEmpty()) {
+                        break;
+                    }
+                    launchCeilY++;
+                }
+
+                double safeOriginCamY = Math.min(startY + 14.0D, launchCeilY - 0.6D);
+                safeOriginCamY = Math.max(startY + 2.5D, safeOriginCamY);
+
+                Vec3 targetCamPos = new Vec3(startX, safeOriginCamY, startZ);
+                setter.set(targetCamPos, mc.player.getXRot(), mc.player.getYRot());
             }
         }
     }

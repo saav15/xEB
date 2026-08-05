@@ -21,8 +21,9 @@ public class TearsLeftClickPacket {
         NetworkEvent.Context ctx = ctxSupplier.get();
         ctx.enqueueWork(() -> {
             ServerPlayer player = ctx.getSender();
-            if (player != null && player.isAlive() && player.getMainHandItem().is(ModItems.THE_TEARS.get())) {
-                if (player.getMainHandItem().getItem() instanceof TheTearsItem tearsItem) {
+            if (player != null && player.isAlive()) {
+                net.minecraft.world.item.ItemStack stack = player.getMainHandItem().is(ModItems.THE_TEARS.get()) ? player.getMainHandItem() : player.getOffhandItem();
+                if (stack.getItem() instanceof TheTearsItem tearsItem) {
                     tearsItem.triggerLeftClick(player, player.serverLevel());
                 }
             }

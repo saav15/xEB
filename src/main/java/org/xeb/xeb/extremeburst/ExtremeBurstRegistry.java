@@ -41,15 +41,24 @@ public class ExtremeBurstRegistry {
         public final int cooldownTicks;
         /** 0 for {@link BurstVersion#INSTANT}. */
         public final int durationTicks;
+        /** Plantilla opcional de handler para futuros Extreme Bursts declarativos. */
+        public final AbstractExtremeBurstHandler customHandler;
 
         public ExtremeBurstEntry(Item curioItem, BurstType type, BurstVersion version,
-                                 String requiredWeaponName, int cooldownTicks, int durationTicks) {
+                                  String requiredWeaponName, int cooldownTicks, int durationTicks) {
+            this(curioItem, type, version, requiredWeaponName, cooldownTicks, durationTicks, null);
+        }
+
+        public ExtremeBurstEntry(Item curioItem, BurstType type, BurstVersion version,
+                                  String requiredWeaponName, int cooldownTicks, int durationTicks,
+                                  AbstractExtremeBurstHandler customHandler) {
             this.curioItem         = curioItem;
             this.type              = type;
             this.version           = version;
             this.requiredWeaponName = requiredWeaponName;
             this.cooldownTicks     = cooldownTicks;
             this.durationTicks     = durationTicks;
+            this.customHandler     = customHandler;
         }
     }
 

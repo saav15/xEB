@@ -1,0 +1,9 @@
+{
+  "type": "tconstruct:material_fluid",
+  "fluid": {
+    "name": "xeb:molten_silver_elite",
+    "amount": 144
+  },
+  "temperature": 800,
+  "output": "xeb:silver_elite"
+}

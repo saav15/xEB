@@ -23,6 +23,11 @@ import java.util.List;
 public class ExtremeBurstHandler {
 
     public static void handleActivation(LivingEntity player, ExtremeBurstRegistry.ExtremeBurstEntry entry) {
+        if (entry.customHandler != null) {
+            entry.customHandler.onActivate(player, entry);
+            return;
+        }
+
         if (entry.curioItem == ModItems.QUANTUM_CAT_BARRAGE.get()) {
             handleQuantumCatBarrage(player);
         } else if (entry.curioItem == ModItems.DOGMA.get()) {

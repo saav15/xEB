@@ -35,7 +35,12 @@ public class KeyInputHandler {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null && mc.level != null && mc.screen == null) {
                 Player player = mc.player;
-                if (player.getMainHandItem().is(ModItems.BROKEN_DIAMOND.get())) {
+                boolean holdsCD = player.getMainHandItem().is(ModItems.BROKEN_DIAMOND.get()) || player.getOffhandItem().is(ModItems.BROKEN_DIAMOND.get());
+                boolean holdsTears = player.getMainHandItem().is(ModItems.THE_TEARS.get()) || player.getOffhandItem().is(ModItems.THE_TEARS.get());
+                boolean holdsMecha = player.getMainHandItem().is(ModItems.MECHA_OVERDRIVE.get()) || player.getOffhandItem().is(ModItems.MECHA_OVERDRIVE.get());
+                boolean holdsHoly = player.getMainHandItem().is(ModItems.HOLY_DUALITY_BLADE.get()) || player.getOffhandItem().is(ModItems.HOLY_DUALITY_BLADE.get());
+
+                if (holdsCD) {
                     if (player.getAttackStrengthScale(0.5F) < 0.80F) return;
                     event.setCanceled(true);
                     event.setSwingHand(true);
@@ -61,25 +66,26 @@ public class KeyInputHandler {
                                 new org.xeb.xeb.network.CrazyDiamondAttackPacket(-1));
                     }
                     player.resetAttackStrengthTicker();
-                } else if (player.getMainHandItem().is(ModItems.THE_TEARS.get())) {
+                } else if (holdsTears) {
                     if (player.getAttackStrengthScale(0.5F) < 0.80F) return;
                     event.setCanceled(true);
                     event.setSwingHand(false);
                     XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.TearsLeftClickPacket());
                     player.resetAttackStrengthTicker();
-                } else if (player.getMainHandItem().is(ModItems.MECHA_OVERDRIVE.get())) {
+                } else if (holdsMecha) {
                     if (player.getAttackStrengthScale(0.5F) < 0.80F) return;
                     event.setCanceled(true);
                     event.setSwingHand(true);
                     XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(5, true));
                     player.resetAttackStrengthTicker();
-                } else if (player.getMainHandItem().is(ModItems.HOLY_DUALITY_BLADE.get())) {
+                } else if (holdsHoly) {
                     if (player.getAttackStrengthScale(0.5F) < 0.80F) return;
                     event.setCanceled(true);
                     event.setSwingHand(true);
                     XEBNetwork.CHANNEL.sendToServer(new org.xeb.xeb.network.ActuarKeyPacket(5, true));
                     
-                    int combo = player.getMainHandItem().getOrCreateTag().getInt("xebHolyComboStage");
+                    net.minecraft.world.item.ItemStack holyStack = player.getMainHandItem().is(ModItems.HOLY_DUALITY_BLADE.get()) ? player.getMainHandItem() : player.getOffhandItem();
+                    int combo = holyStack.getOrCreateTag().getInt("xebHolyComboStage");
                     org.xeb.xeb.client.HolyDualityClientHandler.addSlash(
                             player.position().add(0, player.getBbHeight() * 0.6D, 0),
                             player.getYRot(),

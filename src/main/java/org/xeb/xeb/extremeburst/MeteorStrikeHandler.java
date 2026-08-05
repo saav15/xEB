@@ -120,13 +120,16 @@ public class MeteorStrikeHandler {
 
             player.setInvisible(true);
             player.setInvulnerable(true);
-            player.setDeltaMovement(0, 0, 0);
-            player.fallDistance = 0.0F;
-            player.hurtMarked = true;
 
             double startX = nbt.getDouble("xebMeteorStrikeStartX");
             double startY = nbt.getDouble("xebMeteorStrikeStartY");
             double startZ = nbt.getDouble("xebMeteorStrikeStartZ");
+            double safeAtmosphereY = Math.min((double) level.getMaxBuildHeight() - 2.0D, startY + 35.0D);
+
+            player.teleportTo(startX, safeAtmosphereY, startZ);
+            player.setDeltaMovement(0, 0, 0);
+            player.fallDistance = 0.0F;
+            player.hurtMarked = true;
 
             // Leer posición del suelo objetivo (X, Y, Z) enviada por el cliente
             double targetX = nbt.contains("xebMeteorStrikeTargetX") ? nbt.getDouble("xebMeteorStrikeTargetX") : startX;

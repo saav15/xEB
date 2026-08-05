@@ -1,0 +1,23 @@
+{
+  "type": "tconstruct:modifier",
+  "inputs": [
+    {
+      "type": "forge:nbt",
+      "item": "xeb:absorbent_essence",
+      "nbt": {
+        "MedallionTier": "RARE"
+      }
+    }
+  ],
+  "tools": {
+    "tag": "tconstruct:modifiable"
+  },
+  "result": {
+    "name": "xeb:absorbent",
+    "level": 2
+  },
+  "max_level": 3,
+  "slots": {
+    "upgrades": 1
+  }
+}

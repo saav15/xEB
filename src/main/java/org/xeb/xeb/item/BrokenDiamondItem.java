@@ -18,14 +18,24 @@ import org.xeb.xeb.network.XEBNetwork;
 import org.xeb.xeb.network.CrazyDiamondSyncPacket;
 import net.minecraftforge.network.PacketDistributor;
 import java.util.List;
+import java.util.function.Consumer;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec3;
+import org.xeb.xeb.entity.RestoreProjectileEntity;
+import org.xeb.xeb.item.capability.IMobWeaponCapability;
 import software.bernie.geckolib.animatable.GeoItem;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
 import software.bernie.geckolib.core.animation.AnimationController;
 import software.bernie.geckolib.util.GeckoLibUtil;
-import java.util.function.Consumer;
 
-public class BrokenDiamondItem extends Item implements GeoItem {
+public class BrokenDiamondItem extends Item implements GeoItem, IMobWeaponCapability {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
     public BrokenDiamondItem(Properties properties) {
@@ -254,10 +264,10 @@ public class BrokenDiamondItem extends Item implements GeoItem {
         }
     }
     
-    private CrazyDiamondEntity findStand(Player player, Level level) {
+    public static CrazyDiamondEntity findStand(LivingEntity entity, Level level) {
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             for (Entity e : serverLevel.getAllEntities()) {
-                if (e instanceof CrazyDiamondEntity stand && player.getUUID().equals(stand.getOwnerUUID())) {
+                if (e instanceof CrazyDiamondEntity stand && entity.getUUID().equals(stand.getOwnerUUID())) {
                     return stand;
                 }
             }
@@ -307,5 +317,88 @@ public class BrokenDiamondItem extends Item implements GeoItem {
                 return this.renderer;
             }
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IMobWeaponCapability IMPLEMENTATION (MOB AI LOGIC FOR BROKEN DIAMOND)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    @Override
+    public double getPreferredAttackDistance(Mob mob) {
+        return 16.0D;
+    }
+
+    @Override
+    public void tickMobAI(Mob mob, LivingEntity target, Level level, long gameTime, double distSq) {
+        if (level.isClientSide()) return;
+
+        CompoundTag tag = mob.getPersistentData();
+
+        // 1. Ensure Stand (CrazyDiamondEntity) is spawned next to the mob!
+        CrazyDiamondEntity stand = findStand(mob, level);
+        if (stand == null) {
+            stand = new CrazyDiamondEntity(ModEntities.CRAZY_DIAMOND.get(), level);
+            stand.setOwnerUUID(mob.getUUID());
+            stand.moveTo(mob.getX(), mob.getY(), mob.getZ(), mob.getYRot(), mob.getXRot());
+            level.addFreshEntity(stand);
+            tag.putInt("xebCrazyDiamondEntityId", stand.getId());
+        }
+
+        long cdBarrage = tag.getLong("xebMobCD_CDBarrage");
+        long cdTrap    = tag.getLong("xebMobCD_CDRockTrap");
+        long cdRestore = tag.getLong("xebMobCD_CDRestore");
+
+        // ── A. Dorarara Barrage (4 - 12 blocks, 5s CD): Stand chases target and delivers rapid punch flurry ──
+        if (distSq <= 144.0D && gameTime - cdBarrage >= 100) {
+            tag.putLong("xebMobCD_CDBarrage", gameTime);
+            tag.putInt("xebCDActiveBarrages", 3);
+            tag.putInt("xebCDBarrageTimer", 60); // 3 seconds barrage
+
+            if (stand != null) {
+                stand.setAnimState(CrazyDiamondEntity.STATE_BARRAGE, 60);
+                stand.moveTo(target.getX(), target.getY(), target.getZ(), mob.getYRot(), mob.getXRot());
+            }
+
+            // Deal barrage damage to target + heal mob allies nearby
+            target.hurt(level.damageSources().mobAttack(mob), 15.0F);
+            mob.heal(4.0F);
+
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.IRON_GOLEM_ATTACK, SoundSource.HOSTILE, 1.2F, 1.2F);
+            return;
+        }
+
+        // ── B. Activa 1: Rock Burial Trap & Kick Combo (4 - 16 blocks, 8s CD) ──
+        if (distSq <= 256.0D && gameTime - cdTrap >= 160) {
+            tag.putLong("xebMobCD_CDRockTrap", gameTime);
+
+            target.addEffect(new MobEffectInstance(org.xeb.xeb.effect.ModEffects.PETRIFY.get(), 60, 0));
+
+            if (stand != null) {
+                stand.moveTo(target.getX(), target.getY(), target.getZ(), mob.getYRot(), mob.getXRot());
+                stand.setAnimState(CrazyDiamondEntity.STATE_KICKING, 20);
+            }
+
+            target.hurt(level.damageSources().mobAttack(mob), 12.0F);
+            level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.STONE_BREAK, SoundSource.HOSTILE, 1.2F, 0.8F);
+            return;
+        }
+
+        // ── C. Activa 2: Digging & Restore Homing Projectile (8 - 24 blocks, 10s CD) ──
+        if (distSq >= 64.0D && distSq <= 576.0D && gameTime - cdRestore >= 200) {
+            tag.putLong("xebMobCD_CDRestore", gameTime);
+
+            if (stand != null) {
+                stand.setAnimState(CrazyDiamondEntity.STATE_DIGGING, 12);
+            }
+
+            RestoreProjectileEntity restoreProj = new RestoreProjectileEntity(level, mob, Blocks.STONE.defaultBlockState());
+            Vec3 eyePos = mob.getEyePosition(1.0F);
+            Vec3 look = target.getEyePosition().subtract(eyePos).normalize();
+            restoreProj.moveTo(eyePos.x, eyePos.y - 0.2D, eyePos.z, mob.getYRot(), mob.getXRot());
+            restoreProj.setDeltaMovement(look.scale(1.6D));
+            level.addFreshEntity(restoreProj);
+
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.IRON_GOLEM_HURT, SoundSource.HOSTILE, 1.0F, 1.4F);
+        }
     }
 }

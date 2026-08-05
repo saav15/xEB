@@ -14,6 +14,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -273,22 +274,22 @@ public class GoldenFlowerClientHandler {
             }
         }
 
-        // 2. RENDER FLOWER DANCE PHANTOM CLONES (Right-side up & correct player skin texture)
+        // 2. RENDER FLOWER DANCE PHANTOM CLONES (Right-side up & correct skin/mob model)
         if (!PhantomAttackManager.activeClones.isEmpty()) {
             EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
-            
-            // Retrieve caster player (N20)
+
             PhantomClone firstClone = PhantomAttackManager.activeClones.get(0);
-            Player caster = player; // default fallback
+            LivingEntity casterEnt = player; // default fallback
             if (mc.level != null) {
-                net.minecraft.world.entity.Entity casterEnt = mc.level.getEntity(firstClone.casterId);
-                if (casterEnt instanceof Player p) {
-                    caster = p;
+                net.minecraft.world.entity.Entity e = mc.level.getEntity(firstClone.casterId);
+                if (e instanceof LivingEntity living) {
+                    casterEnt = living;
                 }
             }
 
-            net.minecraft.client.renderer.entity.EntityRenderer<?> untypedRenderer = dispatcher.getRenderer(caster);
-            if (untypedRenderer instanceof PlayerRenderer renderer) {
+            if (casterEnt instanceof Player caster) {
+                net.minecraft.client.renderer.entity.EntityRenderer<?> untypedRenderer = dispatcher.getRenderer(caster);
+                if (untypedRenderer instanceof PlayerRenderer renderer) {
                 PlayerModel<?> model = renderer.getModel();
 
                 // Store angles
@@ -452,6 +453,51 @@ public class GoldenFlowerClientHandler {
                 model.leftArm.xRot = prevLeftArmX;
                 model.rightArm.zRot = prevRightArmZ;
                 model.body.xRot = prevBodyX;
+            }
+            } else {
+                // Caster is a Mob/Boss! Render 5 copies of the mob's actual 3D model
+                for (PhantomClone clone : PhantomAttackManager.activeClones) {
+                    if (clone.state == PhantomClone.CloneState.RETURNED) continue;
+
+                    Vec3 renderPos = clone.getOrbitPosition(PhantomAttackManager.ticksLived);
+                    if (clone.state == PhantomClone.CloneState.STRIKING) {
+                        float progress = Math.min(1.0F, clone.attackTimer / 6.0F);
+                        renderPos = new Vec3(
+                                Mth.lerp(progress, renderPos.x, clone.targetPos.x),
+                                Mth.lerp(progress, renderPos.y, clone.targetPos.y),
+                                Mth.lerp(progress, renderPos.z, clone.targetPos.z)
+                        );
+                    } else if (clone.state == PhantomClone.CloneState.RETURNING) {
+                        float progress = Math.min(1.0F, (float) clone.returnTimer / 12.0F);
+                        Vec3 lerpedPos = new Vec3(
+                                Mth.lerp(progress, clone.targetPos.x, casterEnt.getX()),
+                                Mth.lerp(progress, clone.targetPos.y, casterEnt.getY()),
+                                Mth.lerp(progress, clone.targetPos.z, casterEnt.getZ())
+                        );
+                        Vec3 dirToMob = casterEnt.position().subtract(clone.targetPos);
+                        Vec3 rightVec = new Vec3(-dirToMob.z, 0.0D, dirToMob.x);
+                        if (rightVec.lengthSqr() > 0.001D) rightVec = rightVec.normalize();
+                        double curveOffset = 0.0D;
+                        if (clone.hasStruck) {
+                            double curveDirection = (clone.index % 2 == 0) ? 1.0D : -1.0D;
+                            double curveSpread = 1.0D + (clone.index * 0.5D);
+                            curveOffset = Math.sin(progress * Math.PI) * curveDirection * curveSpread;
+                        }
+                        renderPos = lerpedPos.add(rightVec.scale(curveOffset));
+                    }
+
+                    float yawToTarget;
+                    if (clone.state == PhantomClone.CloneState.RETURNING) {
+                        yawToTarget = (float) Math.toDegrees(Math.atan2(casterEnt.getX() - renderPos.x, casterEnt.getZ() - renderPos.z));
+                    } else {
+                        yawToTarget = (float) Math.toDegrees(Math.atan2(clone.targetPos.x - renderPos.x, clone.targetPos.z - renderPos.z));
+                    }
+
+                    poseStack.pushPose();
+                    poseStack.translate(renderPos.x - camPos.x, renderPos.y - camPos.y, renderPos.z - camPos.z);
+                    dispatcher.render(casterEnt, 0.0D, 0.0D, 0.0D, yawToTarget, partialTicks, poseStack, bufferSource, dispatcher.getPackedLightCoords(casterEnt, partialTicks));
+                    poseStack.popPose();
+                }
             }
         }
 

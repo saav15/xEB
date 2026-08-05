@@ -21,8 +21,10 @@ import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.entity.Mob;
 import org.xeb.xeb.entity.MechaEggmanMissileEntity;
 import org.xeb.xeb.entity.MechaLaserPelletEntity;
+import org.xeb.xeb.item.capability.IMobWeaponCapability;
 import org.xeb.xeb.network.MechaSyncPacket;
 import org.xeb.xeb.network.XEBNetwork;
 import net.minecraftforge.network.PacketDistributor;
@@ -37,7 +39,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MechaOverdriveItem extends Item implements GeoItem {
+public class MechaOverdriveItem extends Item implements GeoItem, IMobWeaponCapability {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
     public static final double BASE_DAMAGE = 6.0D;
@@ -574,5 +576,226 @@ public class MechaOverdriveItem extends Item implements GeoItem {
                         pData.getInt("xebMechaOverheatedTicks")
                 )
         );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IMobWeaponCapability IMPLEMENTATION (MOB AI LOGIC FOR MECHA OVERDRIVE CORE)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    @Override
+    public double getPreferredAttackDistance(Mob mob) {
+        return 28.0D;
+    }
+
+    @Override
+    public void tickMobAI(Mob mob, LivingEntity target, Level level, long gameTime, double distSq) {
+        if (level.isClientSide()) return;
+
+        CompoundTag tag = mob.getPersistentData();
+
+        // 1. Overheat Lockout Check (4 seconds = 80 ticks cooldown)
+        int overheated = tag.getInt("xebMechaOverheatedTicks");
+        if (overheated > 0) {
+            tag.putInt("xebMechaOverheatedTicks", overheated - 1);
+            if (level.random.nextFloat() < 0.6F && level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, mob.getX(), mob.getY() + 1.2D, mob.getZ(), 2, 0.2D, 0.2D, 0.2D, 0.02D);
+                if (level.random.nextFloat() < 0.3F) {
+                    serverLevel.sendParticles(ParticleTypes.FLAME, mob.getX(), mob.getY() + 1.2D, mob.getZ(), 1, 0.1D, 0.1D, 0.1D, 0.02D);
+                }
+            }
+            // Cannot use abilities or weapons while overheated
+            return;
+        }
+
+        // 2. Momentum / O.Clock System for Mobs (0 to 300 points, 5 bars of 60)
+        int momentumNum = tag.getInt("xebMechaMomentumNum");
+        if (momentumNum < 300) {
+            momentumNum = Math.min(300, momentumNum + 1);
+            tag.putInt("xebMechaMomentumNum", momentumNum);
+            tag.putInt("xebMechaOClockBars", momentumNum / 60);
+        }
+
+        // Max Momentum Passives for Mob
+        if (momentumNum >= 300) {
+            // Speed boost
+            Vec3 vel = mob.getDeltaMovement();
+            if (mob.onGround() && vel.horizontalDistanceSqr() > 0.001D) {
+                mob.setDeltaMovement(vel.x * 1.15D, vel.y, vel.z * 1.15D);
+            }
+            // Soul flame particles
+            if (gameTime % 4 == 0 && level instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, mob.getX(), mob.getY() + 0.5D, mob.getZ(), 2, 0.2D, 0.2D, 0.2D, 0.02D);
+            }
+            // Burn Aura in 1.5 blocks radius
+            AABB burnArea = mob.getBoundingBox().inflate(1.5D);
+            for (LivingEntity nearby : level.getEntitiesOfClass(LivingEntity.class, burnArea, e -> e != mob && e.isAlive() && !e.isAlliedTo(mob))) {
+                nearby.setSecondsOnFire(3);
+            }
+        }
+
+        // 3. Activa 1 (Mecha Drill Punch) Aura ticking for mob
+        int drillTicks = tag.getInt("xebMechaDrillAuraTicks");
+        if (drillTicks > 0) {
+            tag.putInt("xebMechaDrillAuraTicks", drillTicks - 1);
+            if (drillTicks % 30 == 0) {
+                AABB auraBox = mob.getBoundingBox().inflate(1.5D);
+                for (LivingEntity nearby : level.getEntitiesOfClass(LivingEntity.class, auraBox, e -> e != mob && e.isAlive() && !e.isAlliedTo(mob))) {
+                    nearby.hurt(level.damageSources().mobAttack(mob), 13.0F);
+                }
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 0.8F, 1.5F);
+            }
+        }
+
+        // Cooldown timers
+        long cdSlam     = tag.getLong("xebMobCD_MechaSlam");
+        long cdDrill    = tag.getLong("xebMobCD_MechaDrill");
+        long cdMissile  = tag.getLong("xebMobCD_EggmanMissiles");
+        long cdSpindash = tag.getLong("xebMobCD_Spindash");
+
+        // ── A. Close Range (<= 4 blocks): Kinetic Impact Explosion (5s CD) ──
+        if (distSq <= 16.0D && gameTime - cdSlam >= 100) {
+            tag.putLong("xebMobCD_MechaSlam", gameTime);
+            org.xeb.xeb.client.vfx.XebExplosions.spawnExplosion(target.position(), 3.0F, 5.0F, 0, 229, 255, 20);
+            target.hurt(level.damageSources().mobAttack(mob), 16.0F);
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.HOSTILE, 1.2F, 1.2F);
+            return;
+        }
+
+        // ── B. Activa 1: Mecha Drill Punch (Impulse Charge) (4 - 16 blocks, 10s CD) ──
+        if (distSq >= 16.0D && distSq <= 256.0D && gameTime - cdDrill >= 200) {
+            tag.putLong("xebMobCD_MechaDrill", gameTime);
+
+            // Grant +60 momentum (+1 bar)
+            momentumNum = Math.min(300, momentumNum + 60);
+            tag.putInt("xebMechaMomentumNum", momentumNum);
+            tag.putInt("xebMechaOClockBars", momentumNum / 60);
+            tag.putInt("xebMechaDrillAuraTicks", 120); // 6 seconds aura
+
+            Vec3 dir = target.position().subtract(mob.position()).normalize();
+            mob.setDeltaMovement(dir.x * 1.6D, 0.3D, dir.z * 1.6D);
+            mob.hurtMarked = true;
+
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.TRIDENT_RIPTIDE_3, SoundSource.HOSTILE, 1.2F, 1.0F);
+            return;
+        }
+
+        // ── C. Activa 2 (Spindash Teledirigido & Combo Aéreo) (4 - 16 blocks, 6s CD) ──
+        if (distSq >= 16.0D && distSq <= 256.0D && gameTime - cdSpindash >= 120 && momentumNum >= 60) {
+            tag.putLong("xebMobCD_Spindash", gameTime);
+
+            // Spend 60 momentum
+            momentumNum = Math.max(0, momentumNum - 60);
+            tag.putInt("xebMechaMomentumNum", momentumNum);
+            tag.putInt("xebMechaOClockBars", momentumNum / 60);
+
+            Vec3 dir = target.getEyePosition().subtract(mob.getEyePosition()).normalize();
+            mob.setDeltaMovement(dir.x * 1.8D, 0.35D, dir.z * 1.8D);
+            mob.hurtMarked = true;
+
+            // 50% chance to launch Eggman Missile during launch
+            if (level.random.nextFloat() < 0.5F) {
+                MechaEggmanMissileEntity missile = new MechaEggmanMissileEntity(level, mob, false);
+                missile.moveTo(mob.getX(), mob.getEyeY(), mob.getZ());
+                missile.setDeltaMovement(dir.scale(1.5D));
+                level.addFreshEntity(missile);
+            }
+
+            // Deal Spindash impact damage
+            float finalDmg = 12.0F + (momentumNum / 300.0F) * 10.0F;
+            target.hurt(level.damageSources().mobAttack(mob), finalDmg);
+
+            // Air combo & Charred Burn check
+            int airCombo = tag.getInt("xebMobAirCombo") + 1;
+            if (airCombo >= 3) {
+                tag.putInt("xebMobAirCombo", 0);
+                momentumNum = Math.min(300, momentumNum + 120); // restore 2 bars
+                tag.putInt("xebMechaMomentumNum", momentumNum);
+                tag.putInt("xebMechaOClockBars", momentumNum / 60);
+
+                target.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                        org.xeb.xeb.effect.ModEffects.CHARRED_BURN.get(), 300, 0));
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.DRAGON_FIREBALL_EXPLODE, SoundSource.HOSTILE, 1.0F, 1.2F);
+            } else {
+                tag.putInt("xebMobAirCombo", airCombo);
+            }
+
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 1.0F, 1.8F);
+            return;
+        }
+
+        // ── D. Activa 2 (Larga Distancia: Misiles Teledirigidos Eggman) (12 - 35 blocks, 8s CD) ──
+        if (distSq >= 144.0D && distSq <= 1225.0D && gameTime - cdMissile >= 160) {
+            tag.putLong("xebMobCD_EggmanMissiles", gameTime);
+
+            Vec3 look = target.position().subtract(mob.position()).normalize();
+            Vec3 rightOffset = new Vec3(-look.z, 0, look.x).normalize().scale(0.8D);
+
+            MechaEggmanMissileEntity leftMissile = new MechaEggmanMissileEntity(level, mob, true);
+            leftMissile.moveTo(mob.getX() - rightOffset.x, mob.getEyeY(), mob.getZ() - rightOffset.z);
+            leftMissile.setDeltaMovement(look.scale(1.5D));
+            level.addFreshEntity(leftMissile);
+
+            MechaEggmanMissileEntity rightMissile = new MechaEggmanMissileEntity(level, mob, false);
+            rightMissile.moveTo(mob.getX() + rightOffset.x, mob.getEyeY(), mob.getZ() + rightOffset.z);
+            rightMissile.setDeltaMovement(look.scale(1.5D));
+            level.addFreshEntity(rightMissile);
+
+            momentumNum = Math.min(300, momentumNum + 60);
+            tag.putInt("xebMechaMomentumNum", momentumNum);
+            tag.putInt("xebMechaOClockBars", momentumNum / 60);
+
+            level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.FIREWORK_ROCKET_SHOOT, SoundSource.HOSTILE, 1.2F, 1.0F);
+            return;
+        }
+
+        // ── E. Ranged Minigun / Laser Shotgun Burst (6 - 25 blocks) ──
+        if (distSq >= 36.0D && distSq <= 625.0D) {
+            int shotgunHoldTicks = tag.getInt("xebMobMechaShotgunHoldTicks") + 1;
+            tag.putInt("xebMobMechaShotgunHoldTicks", shotgunHoldTicks);
+
+            // OVERHEAT CHECK FOR MOBS AT EXACTLY 5 SECONDS (100 TICKS)!
+            if (shotgunHoldTicks >= 100) {
+                tag.putInt("xebMechaOverheatedTicks", 80); // 4 seconds cooling lockout
+                tag.putInt("xebMobMechaShotgunHoldTicks", 0);
+
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 1.2F, 0.8F);
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.LAVA_EXTINGUISH, SoundSource.HOSTILE, 1.0F, 0.5F);
+
+                if (level instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, mob.getX(), mob.getY() + 1.2D, mob.getZ(), 20, 0.4D, 0.4D, 0.4D, 0.05D);
+                    serverLevel.sendParticles(ParticleTypes.FLAME, mob.getX(), mob.getY() + 1.2D, mob.getZ(), 10, 0.3D, 0.3D, 0.3D, 0.05D);
+                }
+                return;
+            }
+
+            // Cadence ramp-up: fires every 4 to 8 ticks
+            int cadence = Math.max(4, 8 - (shotgunHoldTicks / 20));
+            if (gameTime % cadence == 0) {
+                Vec3 eyePos = mob.getEyePosition(1.0F);
+                Vec3 look = target.getEyePosition().subtract(eyePos).normalize();
+
+                for (int i = 0; i < 4; i++) {
+                    double spread = 0.12D;
+                    Vec3 velocity = look.add(
+                            (level.random.nextDouble() - 0.5D) * spread,
+                            (level.random.nextDouble() - 0.5D) * spread,
+                            (level.random.nextDouble() - 0.5D) * spread
+                    ).normalize().scale(2.2D);
+
+                    MechaLaserPelletEntity pellet = new MechaLaserPelletEntity(level, mob);
+                    pellet.moveTo(eyePos.x, eyePos.y - 0.1D, eyePos.z);
+                    pellet.setDeltaMovement(velocity);
+                    level.addFreshEntity(pellet);
+                }
+
+                level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.CROSSBOW_SHOOT, SoundSource.HOSTILE, 0.8F, 1.8F);
+            }
+        } else {
+            // Decay hold ticks when target not in ranged minigun zone
+            int shotgunHoldTicks = tag.getInt("xebMobMechaShotgunHoldTicks");
+            if (shotgunHoldTicks > 0) {
+                tag.putInt("xebMobMechaShotgunHoldTicks", Math.max(0, shotgunHoldTicks - 2));
+            }
+        }
     }
 }

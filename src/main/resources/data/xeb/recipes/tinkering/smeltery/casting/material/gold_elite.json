@@ -1,0 +1,9 @@
+{
+  "type": "tconstruct:material_fluid",
+  "fluid": {
+    "name": "xeb:molten_gold_elite",
+    "amount": 144
+  },
+  "temperature": 900,
+  "output": "xeb:gold_elite"
+}

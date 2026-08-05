@@ -35,7 +35,7 @@ public class CrazyDiamondAttackPacket {
         NetworkEvent.Context ctx = ctxSupplier.get();
         ctx.enqueueWork(() -> {
             ServerPlayer player = ctx.getSender();
-            if (player != null && player.getMainHandItem().is(ModItems.BROKEN_DIAMOND.get())) {
+            if (player != null && (player.getMainHandItem().is(ModItems.BROKEN_DIAMOND.get()) || player.getOffhandItem().is(ModItems.BROKEN_DIAMOND.get()))) {
                 ServerLevel level = player.serverLevel();
                 
                 // State machine override check: only trigger patada kick when in Phase 4 (unlocked by second press of DORA!)

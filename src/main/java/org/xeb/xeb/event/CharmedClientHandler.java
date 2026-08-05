@@ -45,25 +45,7 @@ public class CharmedClientHandler {
 
         wasActive = true;
 
-        // 1. Camera Deflection: Force camera away if looking at Owner
-        UUID ownerUUID = player.getPersistentData().contains("xebCharmedOwner") ? 
-                player.getPersistentData().getUUID("xebCharmedOwner") : null;
-        if (ownerUUID != null) {
-            Entity owner = findEntityByUUID(player.level(), player, ownerUUID);
-            if (owner != null && owner.isAlive()) {
-                double dx = owner.getX() - player.getX();
-                double dz = owner.getZ() - player.getZ();
-                float targetYaw = (float)(Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F;
-                float yawDiff = Mth.wrapDegrees(player.getYRot() - targetYaw);
-
-                if (Math.abs(yawDiff) < 40.0F) {
-                    float pushDirection = yawDiff >= 0 ? 30.0F : -30.0F;
-                    player.setYRot(player.getYRot() + pushDirection);
-                }
-            }
-        }
-
-        // 2. Drive player AI using PlayerBotStateMachine (Madness AI)
+        // Drive player AI using PlayerBotStateMachine (Charmed/Madness Bodyguard AI)
         PlayerBotStateMachine.tick(mc, player);
     }
 

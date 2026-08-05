@@ -1,12 +1,12 @@
 {
   "type": "tconstruct:melting",
   "ingredient": {
-    "item": "xeb:silver_elite_ingot"
+    "item": "xeb:silver_elite_bit"
   },
   "result": {
     "fluid": "xeb:molten_silver_elite",
-    "amount": 144
+    "amount": 16
   },
-  "temperature": 950,
-  "time": 60
+  "temperature": 800,
+  "time": 20
 }
